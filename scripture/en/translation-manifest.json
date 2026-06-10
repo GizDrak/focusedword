@@ -1,0 +1,23 @@
+[
+  {
+    "id": "BSB",
+    "name": "Berean Standard Bible",
+    "shortname": "BSB",
+    "lang": "en",
+    "copyright": "Creative Commons CC0"
+  },
+  {
+    "id": "kjv",
+    "name": "Authorized King James Version",
+    "shortname": "KJV",
+    "lang": "en",
+    "copyright": "This Bible is in the Public Domain in most parts of the world.  However, in the United Kingdom, it is under perpetual Crown copyright."
+  },
+  {
+    "id": "web",
+    "name": "World English Bible",
+    "shortname": "WEB",
+    "lang": "en",
+    "copyright": "This Bible is in the Public Domain."
+  }
+]

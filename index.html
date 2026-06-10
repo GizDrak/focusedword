@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0A0A0A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Focused Word">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" sizes="192x192" href="/assets/icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/assets/icons/icon-512.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <title>Focused Word</title>
+</head>
+<body>
+
+  <!-- ========== Main Content ========== -->
+  <main>
+    <div id="splash-screen" class="splash-screen">
+      <div class="splash-content">
+        <div class="splash-icon">
+          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="80" height="80">
+            <g stroke="currentColor" stroke-width="0.7" opacity="0.25">
+              <line x1="40" y1="15" x2="40" y2="5"/>
+              <line x1="40" y1="75" x2="40" y2="65"/>
+              <line x1="15" y1="40" x2="5" y2="40"/>
+              <line x1="65" y1="40" x2="75" y2="40"/>
+              <line x1="23" y1="23" x2="16" y2="16"/>
+              <line x1="57" y1="23" x2="64" y2="16"/>
+              <line x1="23" y1="57" x2="16" y2="64"/>
+              <line x1="57" y1="57" x2="64" y2="64"/>
+              <line x1="30" y1="18" x2="27" y2="9"/>
+              <line x1="50" y1="18" x2="53" y2="9"/>
+              <line x1="18" y1="30" x2="9" y2="27"/>
+              <line x1="62" y1="30" x2="71" y2="27"/>
+              <line x1="30" y1="62" x2="27" y2="71"/>
+              <line x1="50" y1="62" x2="53" y2="71"/>
+            </g>
+            <path d="M20 35 L40 30 L60 35 L60 60 L40 55 L20 60 Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M40 30 L40 55" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+            <line x1="36" y1="42" x2="44" y2="42" stroke="currentColor" stroke-width="1.2" opacity="0.5" stroke-linecap="round"/>
+            <circle cx="40" cy="28" r="2.5" fill="currentColor" opacity="0.5"/>
+          </svg>
+        </div>
+        <h1 class="splash-title">Focused Word</h1>
+        <div class="splash-loader">
+          <div class="splash-spinner"></div>
+          <span class="splash-subtitle">Loading Scripture...</span>
+        </div>
+      </div>
+    </div>
+    <div id="error-message" class="error-message hidden"></div>
+    <div id="content" style="display:none">
+      <div id="chapter-header" class="chapter-header">
+        <div class="chapter-emblem" id="chapter-emblem">
+          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="currentColor" stroke-width="0.7" opacity="0.25">
+              <line x1="40" y1="15" x2="40" y2="5"/>
+              <line x1="40" y1="75" x2="40" y2="65"/>
+              <line x1="15" y1="40" x2="5" y2="40"/>
+              <line x1="65" y1="40" x2="75" y2="40"/>
+              <line x1="23" y1="23" x2="16" y2="16"/>
+              <line x1="57" y1="23" x2="64" y2="16"/>
+              <line x1="23" y1="57" x2="16" y2="64"/>
+              <line x1="57" y1="57" x2="64" y2="64"/>
+              <line x1="30" y1="18" x2="27" y2="9"/>
+              <line x1="50" y1="18" x2="53" y2="9"/>
+              <line x1="18" y1="30" x2="9" y2="27"/>
+              <line x1="62" y1="30" x2="71" y2="27"/>
+              <line x1="30" y1="62" x2="27" y2="71"/>
+              <line x1="50" y1="62" x2="53" y2="71"/>
+            </g>
+            <path d="M20 35 L40 30 L60 35 L60 60 L40 55 L20 60 Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M40 30 L40 55" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+            <line x1="36" y1="42" x2="44" y2="42" stroke="currentColor" stroke-width="1.2" opacity="0.5" stroke-linecap="round"/>
+            <circle cx="40" cy="28" r="2.5" fill="currentColor" opacity="0.5"/>
+          </svg>
+        </div>
+        <h2 class="chapter-title" id="chapter-title">In the Beginning</h2>
+        <p class="chapter-subtitle" id="chapter-subtitle">Genesis 1 &middot; 31 verses</p>
+      </div>
+    </div>
+    <div id="speed-controls" class="speed-controls hidden">
+      <div class="speed-control-row speed-wpm-row">
+        <span id="speed-wpm-display">250 WPM</span>
+        <input type="range" id="speed-wpm" min="100" max="800" step="25" value="250" aria-label="Speed">
+      </div>
+      <div class="speed-control-row speed-presets-row">
+        <button class="speed-preset" data-wpm="100">100</button>
+        <button class="speed-preset" data-wpm="200">200</button>
+        <button class="speed-preset" data-wpm="300">300</button>
+        <button class="speed-preset" data-wpm="400">400</button>
+        <button class="speed-preset" data-wpm="500">500</button>
+        <button class="speed-preset" data-wpm="600">600</button>
+      </div>
+      <div class="speed-control-row">
+        <label class="toggle-label-wrapper" for="speed-auto-advance">
+          <span class="toggle-text">Auto-Advanced Chapters</span>
+          <input type="checkbox" id="speed-auto-advance" class="toggle-checkbox">
+          <span class="toggle-pill"></span>
+        </label>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========== Verse Progress Bar ========== -->
+  <div id="verse-progress" class="verse-progress">
+    <span class="verse-progress-label" id="verse-progress-label"></span>
+  </div>
+
+  <!-- ========== Mode Popup (above Tab 2) ========== -->
+    <div id="mode-popup" class="mode-popup hidden">
+      <div class="mode-grid">
+        <button class="mode-item" data-action="scroll">
+          <span class="mode-icon">⬍</span>
+          <span class="mode-label">Scroll</span>
+          <span class="mode-badge"></span>
+        </button>
+        <button class="mode-item" data-action="spotlight">
+          <span class="mode-icon">⊙</span>
+          <span class="mode-label">Spotlight</span>
+          <span class="mode-badge"></span>
+        </button>
+        <button class="mode-item" data-action="swipe">
+          <span class="mode-icon">⊳</span>
+          <span class="mode-label">Swipe</span>
+          <span class="mode-badge"></span>
+        </button>
+        <button class="mode-item" data-action="speed">
+          <span class="mode-icon">⚡</span>
+          <span class="mode-label">Speed</span>
+          <span class="mode-badge"></span>
+        </button>
+      </div>
+    </div>
+
+  <!-- ========== More Popup (above Tab 5) ========== -->
+  <div id="more-popup" class="more-popup hidden">
+    <button class="more-item" data-action="settings">
+      <span class="more-item-icon">⚙</span>
+      <span class="more-item-label">Settings</span>
+    </button>
+  </div>
+
+  <!-- ========== Discover Search Overlay ========== -->
+  <div id="discover-backdrop" class="discover-backdrop hidden"></div>
+  <div id="discover-panel" class="discover-panel hidden">
+    <div class="discover-header">
+      <input type="search" id="discover-input" placeholder="Search verses..." autocomplete="off" aria-label="Search verses">
+    </div>
+    <div id="discover-results" class="discover-results"></div>
+  </div>
+
+  <!-- ========== Bottom Navigation ========== -->
+  <nav id="bottom-nav" class="bottom-nav">
+    <button class="tab-item" data-tab="discover">
+      <svg class="tab-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <span class="tab-label">Search</span>
+    </button>
+    <button class="tab-item" data-tab="mode">
+      <svg class="tab-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l2.5 5.5L20 9.5l-4.5 4 1 6L12 16.5l-4.5 2.5 1-6L4 9.5l5.5-1z"/>
+      </svg>
+      <span class="tab-label">Mode</span>
+    </button>
+    <button class="tab-item tab-bible active" data-tab="bible">
+      <div class="tab-icon-wrapper">
+        <svg class="tab-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+          <path d="M12 6v6m-3-3h6"/>
+        </svg>
+      </div>
+      <span class="tab-label">Bible</span>
+    </button>
+    <button class="tab-item" data-tab="library">
+      <svg class="tab-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2v16z"/>
+      </svg>
+      <span class="tab-label">Library</span>
+    </button>
+    <button class="tab-item" data-tab="more">
+      <svg class="tab-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+        <circle cx="12" cy="5" r="1.5"/>
+        <circle cx="12" cy="12" r="1.5"/>
+        <circle cx="12" cy="19" r="1.5"/>
+      </svg>
+      <span class="tab-label">More</span>
+    </button>
+  </nav>
+
+  <!-- ========== Highlight Toolbar (right-side panel) ========== -->
+  <div id="highlight-toolbar" class="highlight-toolbar hidden">
+    <button class="hl-swatch" data-color="#FFD700" style="background:#FFD700" title="Yellow" aria-label="Yellow highlight"></button>
+    <button class="hl-swatch" data-color="#48BB78" style="background:#48BB78" title="Green" aria-label="Green highlight"></button>
+    <button class="hl-swatch" data-color="#63B3ED" style="background:#63B3ED" title="Blue" aria-label="Blue highlight"></button>
+    <button class="hl-swatch" data-color="#ED8936" style="background:#ED8936" title="Orange" aria-label="Orange highlight"></button>
+    <button class="hl-swatch" data-color="#9F7AEA" style="background:#9F7AEA" title="Purple" aria-label="Purple highlight"></button>
+    <button class="hl-swatch" data-color="#F56565" style="background:#F56565" title="Red" aria-label="Red highlight"></button>
+    <button class="hl-action hl-action-danger" id="btn-remove-hl" title="Remove">✕</button>
+    <div class="ht-sep"></div>
+    <button class="hl-action" id="btn-bookmark" title="Bookmark">🔖</button>
+    <button class="hl-action" id="btn-copy" title="Copy">📋</button>
+  </div>
+
+  <div id="bookmark-set-picker" class="bookmark-set-picker hidden">
+    <div class="bsp-header">Save to set</div>
+    <div class="bsp-options" id="bsp-options"></div>
+  </div>
+
+  <!-- ========== Focus Mode Elements ========== -->
+  <button id="focus-exit-btn" class="focus-exit-btn" aria-label="Exit Focus Mode">Exit Focus</button>
+
+  <!-- ========== Settings Panel ========== -->
+  <div id="settings-overlay" class="settings-overlay" role="presentation"></div>
+  <div id="settings-panel" class="settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <button id="settings-close" class="icon-btn" aria-label="Close settings">✕</button>
+    </div>
+    <div class="settings-body">
+      <!-- Display -->
+      <div class="settings-section">
+        <button class="section-header" aria-expanded="false" data-section="display">
+          <span>Display</span>
+          <svg class="section-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 6l4 4 4-4"/>
+          </svg>
+        </button>
+        <div class="section-body">
+          <div class="setting-row">
+            <span>Theme</span>
+            <select id="settings-theme">
+              <option value="dark">Dark</option>
+              <option value="sepia">Sepia</option>
+              <option value="light">Light</option>
+              <option value="midnight">Midnight</option>
+              <option value="linen">Linen</option>
+              <option value="forest">Forest</option>
+              <option value="nord">Nord</option>
+              <option value="royal">Royal</option>
+            </select>
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+            <span>Accent</span>
+            <div class="accent-swatches" id="settings-accents"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text -->
+      <div class="settings-section">
+        <button class="section-header" aria-expanded="false" data-section="text">
+          <span>Text</span>
+          <svg class="section-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 6l4 4 4-4"/>
+          </svg>
+        </button>
+        <div class="section-body">
+          <div class="setting-row">
+            <span>Font</span>
+            <select id="settings-font">
+              <optgroup label="Sans-serif">
+                <option value="inter">Inter</option>
+                <option value="roboto">Roboto</option>
+                <option value="atkinson">Atkinson Hyperlegible</option>
+              </optgroup>
+              <optgroup label="Serif">
+                <option value="merriweather">Merriweather</option>
+                <option value="lora">Lora</option>
+                <option value="crimson-pro">Crimson Pro</option>
+              </optgroup>
+              <optgroup label="Monospace">
+                <option value="ibm-plex-mono">IBM Plex Mono</option>
+              </optgroup>
+              <optgroup label="Handwriting">
+                <option value="caveat">Caveat</option>
+              </optgroup>
+              <optgroup label="Display">
+                <option value="lexend">Lexend</option>
+                <option value="comic-neue">Comic Neue</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;">
+              <span>Font Size</span>
+              <span id="settings-font-size-label" class="strength-label">14pt</span>
+            </div>
+            <input type="range" id="settings-font-size" min="10" max="24" step="1" value="14">
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;">
+              <span>Line Spacing</span>
+              <span id="settings-line-spacing-label" class="strength-label">1.8</span>
+            </div>
+            <input type="range" id="settings-line-spacing" min="1.0" max="3.0" step="0.1" value="1.8">
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;">
+              <span>Letter Spacing</span>
+              <span id="settings-letter-spacing-label" class="strength-label">0.005</span>
+            </div>
+            <input type="range" id="settings-letter-spacing" min="-0.02" max="0.1" step="0.005" value="0.005">
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;">
+              <span>Margins</span>
+              <span id="settings-margins-label" class="strength-label">1.0</span>
+            </div>
+            <input type="range" id="settings-margins" min="0" max="2.0" step="0.25" value="1.0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Reading -->
+      <div class="settings-section">
+        <button class="section-header" aria-expanded="false" data-section="reading">
+          <span>Reading</span>
+          <svg class="section-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 6l4 4 4-4"/>
+          </svg>
+        </button>
+        <div class="section-body">
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-bionic">
+              <span class="toggle-text">Bionic Reading</span>
+              <input type="checkbox" id="settings-bionic" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row settings-strength-row">
+            <span>Bionic Strength</span>
+            <input type="range" id="settings-strength" min="0.10" max="0.90" step="0.05" value="0.45">
+            <span id="settings-strength-label" class="strength-label">45%</span>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-red-letter">
+              <span class="toggle-text">Red Letter</span>
+              <input type="checkbox" id="settings-red-letter" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data -->
+      <div class="settings-section">
+        <button class="section-header" aria-expanded="false" data-section="data">
+          <span>Data</span>
+          <svg class="section-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 6l4 4 4-4"/>
+          </svg>
+        </button>
+        <div class="section-body">
+          <div class="data-section-row">
+            <button id="reset-settings" class="btn-secondary">Reset to Default Settings</button>
+          </div>
+          <div class="data-section-row">
+            <button id="reset-app" class="btn-danger">Reset App</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Bookmarks Panel ========== -->
+  <div id="bookmarks-backdrop" class="bookmarks-backdrop"></div>
+  <div id="bookmarks-modal" class="bookmarks-modal" role="dialog" aria-modal="true" aria-label="Bookmarks and Highlights">
+    <div class="bookmarks-header">
+      <h2>Bookmarks &amp; Highlights</h2>
+      <button id="bookmarks-close" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div class="bookmarks-tabs">
+      <button id="bookmarks-tab-bm" class="bookmarks-tab active">Bookmarks</button>
+      <button id="bookmarks-tab-hl" class="bookmarks-tab">Highlights</button>
+    </div>
+    <div class="bookmarks-body" id="bookmarks-body">
+      <div class="bookmarks-empty">No bookmarks yet. Select text to create one.</div>
+    </div>
+  </div>
+
+  <!-- ========== Navigation Bottom Sheet ========== -->
+  <div id="nav-backdrop" class="nav-backdrop" role="presentation"></div>
+  <div id="nav-sheet" class="nav-sheet" role="dialog" aria-modal="true" aria-label="Navigate Bible">
+    <div class="nav-sheet-header">
+      <span id="nav-sheet-title">Books</span>
+      <button id="nav-close" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div id="nav-view-books" class="nav-view">
+      <div class="nav-translation-row">
+        <label for="nav-translation">Translation</label>
+        <select id="nav-translation"></select>
+      </div>
+      <div id="nav-book-list" class="nav-book-list"></div>
+    </div>
+    <div id="nav-view-chapters" class="nav-view hidden">
+      <div id="nav-chapter-grid" class="nav-grid"></div>
+    </div>
+    <div id="nav-view-verses" class="nav-view hidden">
+      <div id="nav-verse-grid" class="nav-grid"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.js"></script>
+  <script src="js/utils/bionic.js"></script>
+  <script src="js/data/db.js"></script>
+  <script src="js/core/debug.js"></script>
+  <script src="js/core/state-store.js"></script>
+  <script src="js/core/bridge.js"></script>
+  <script src="js/data/selection.js"></script>
+  <script src="js/modules/chapter-summary.js"></script>
+  <script src="js/modules/renderers/base.js"></script>
+  <script src="js/modules/renderers/all.js"></script>
+  <script src="js/modules/renderers/swipe.js"></script>
+  <script src="js/modules/renderers/spotlight.js"></script>
+  <script src="js/modules/renderers/speed.js"></script>
+  <script src="js/modules/renderers/scroll.js"></script>
+  <script src="js/modules/navigation.js"></script>
+  <script src="js/modules/color-theme.js"></script>
+  <script src="js/modules/settings.js"></script>
+  <script src="js/modules/bookmarks-ui.js"></script>
+  <script src="js/modules/interaction-manager.js"></script>
+  <script src="js/data/highlight-store.js"></script>
+  <script src="js/modules/highlight-manager.js"></script>
+  <div id="rotate-warning">
+    <div class="rotate-warning-content">
+      <div class="rotate-warning-icon">📱</div>
+      <p class="rotate-warning-text">Please rotate your device to portrait mode for the best experience.</p>
+    </div>
+  </div>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>
