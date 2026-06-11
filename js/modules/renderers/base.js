@@ -123,7 +123,7 @@ window.BaseRenderer = class BaseRenderer {
     }
   }
 
-  createVerseElement(verse, bionic, strength) {
+  createVerseElement(verse, bionic, strength, crossRefs) {
     const container = document.createElement('div');
     container.className = 'verse-container';
     container.dataset.verse = verse.verse;
@@ -149,6 +149,21 @@ window.BaseRenderer = class BaseRenderer {
     }
 
     verseText.prepend(verseNum);
+
+    if (crossRefs && crossRefs.length > 0 && this.bridge.state.get('crossRefs')) {
+      const indicator = document.createElement('sup');
+      indicator.className = 'crossref-indicator';
+      indicator.textContent = '\u2020';
+      indicator.title = 'Cross references';
+      indicator.addEventListener('pointerdown', (e) => e.stopPropagation());
+      indicator.addEventListener('pointerup', (e) => e.stopPropagation());
+      indicator.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await this._showCrossRefBar(this._currentBookId, this._currentChapter, verse.verse);
+      });
+      verseText.appendChild(indicator);
+    }
+
     container.appendChild(verseText);
     return container;
   }
@@ -165,8 +180,8 @@ window.BaseRenderer = class BaseRenderer {
     const target = document.querySelector('.verse-container[data-verse="' + verseNum + '"]');
     if (target) {
       target.classList.add('focused');
-      this._updateProgressBar(verseNum);
     }
+    this._updateProgressBar(verseNum);
   }
 
   _updateProgressBar(verseNum) {
@@ -190,6 +205,119 @@ window.BaseRenderer = class BaseRenderer {
 
     label.textContent = `${bookName} ${chapter} \u00B7 ${verse} / ${total}`;
     bar.classList.add('visible');
+  }
+
+  async _showCrossRefBar(bookId, chapter, verse) {
+    const key = `${bookId}_${chapter}_${verse}`;
+    if (this._crossRefShowingKey === key) {
+      const bar = document.getElementById('verse-progress');
+      const refsContainer = document.getElementById('crossref-bar');
+      if (bar && refsContainer) {
+        const dismissBtn = refsContainer.querySelector('.crossref-bar-dismiss');
+        if (dismissBtn) dismissBtn.click();
+      }
+      return;
+    }
+
+    const bar = document.getElementById('verse-progress');
+    const refsContainer = document.getElementById('crossref-bar');
+    if (!bar || !refsContainer) return;
+
+    const refs = this.bridge.get('cross-references').getRefs(bookId, chapter, verse);
+    const topRefs = refs.slice(0, 3);
+    const books = window.BibleDB._BOOKS;
+
+    refsContainer.innerHTML = '';
+
+    if (topRefs.length === 0) return;
+
+    const doDismiss = () => {
+      this._crossRefShowingKey = null;
+      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+      if (this._crossRefCleanup) { this._crossRefCleanup(); this._crossRefCleanup = null; }
+      if (this._crossRefCloseDoc) {
+        document.removeEventListener('click', this._crossRefCloseDoc);
+        document.removeEventListener('wheel', this._crossRefCloseDoc);
+        this._crossRefCloseDoc = null;
+      }
+      refsContainer.innerHTML = '';
+    };
+
+    for (const ref of topRefs) {
+      const toBook = books.find(b => b.id === ref.to_book_id);
+      if (!toBook) continue;
+
+      let text = '';
+      try {
+        const verses = await this.bridge.db.getVerses(ref.to_book_id, ref.to_chapter);
+        const v = verses.find(v => v.verse === ref.to_verse_start);
+        if (v) text = v.text.trim();
+      } catch {}
+
+      const label = `${toBook.name} ${ref.to_chapter}:${ref.to_verse_start}` +
+        (ref.to_verse_end > ref.to_verse_start ? `-${ref.to_verse_end}` : '');
+
+      const entry = document.createElement('div');
+      entry.className = 'crossref-bar-entry';
+      entry.addEventListener('click', () => {
+        doDismiss();
+        this.bridge.get('navigation').navigateTo(ref.to_book_id, ref.to_chapter, ref.to_verse_start);
+      });
+
+      const textSpan = document.createElement('span');
+      textSpan.className = 'crossref-bar-text';
+      textSpan.textContent = text || '(text not available)';
+
+      const refSpan = document.createElement('span');
+      refSpan.className = 'crossref-bar-ref';
+      refSpan.textContent = '\u2014 ' + label;
+
+      entry.appendChild(textSpan);
+      entry.appendChild(refSpan);
+      refsContainer.appendChild(entry);
+    }
+
+    if (this._crossRefCleanup) this._crossRefCleanup();
+    this._crossRefCleanup = () => {
+      bar.classList.remove('show-references');
+      this._updateProgressBar();
+    };
+
+    bar.classList.add('visible', 'show-references');
+    this._crossRefShowingKey = key;
+
+    const dismiss = document.createElement('button');
+    dismiss.className = 'crossref-bar-dismiss';
+    dismiss.textContent = '\u2715';
+    dismiss.addEventListener('click', doDismiss);
+    refsContainer.appendChild(dismiss);
+
+    if (this._crossRefCloseDoc) {
+      document.removeEventListener('click', this._crossRefCloseDoc);
+      document.removeEventListener('wheel', this._crossRefCloseDoc);
+    }
+
+    this._crossRefCloseDoc = (e) => {
+      if (e.target && e.target.closest && e.target.closest('#verse-progress')) return;
+      const vc = e.target && typeof e.target.closest === 'function' && e.target.closest('.verse-container');
+      if (vc) {
+        const ind = vc.querySelector('.crossref-indicator');
+        if (ind) {
+          const r = ind.getBoundingClientRect();
+          const pad = 24;
+          if (e.clientX >= r.left - pad && e.clientX <= r.right + pad &&
+              e.clientY >= r.top - pad && e.clientY <= r.bottom + pad) return;
+        }
+      }
+      doDismiss();
+    };
+
+    setTimeout(() => {
+      document.addEventListener('click', this._crossRefCloseDoc);
+      document.addEventListener('wheel', this._crossRefCloseDoc);
+    }, 0);
   }
 
   showSpeedControls(show) {

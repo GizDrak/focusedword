@@ -35,6 +35,7 @@ window.InteractionManager = class InteractionManager {
   }
 
   _onPointerDown(e) {
+    if (this._isCrossRefTap(e)) return;
     this._pointerStartX = e.clientX;
     this._pointerStartY = e.clientY;
     this._pointerStartTime = Date.now();
@@ -58,6 +59,7 @@ window.InteractionManager = class InteractionManager {
   }
 
   _onPointerUp(e) {
+    if (this._isCrossRefTap(e)) return;
     if (e.target.closest('.highlight-toolbar')) return;
 
     const dx = Math.abs(e.clientX - this._pointerStartX);
@@ -138,6 +140,18 @@ window.InteractionManager = class InteractionManager {
       rect: span.getBoundingClientRect(),
       tempEl: span
     });
+  }
+
+  _isCrossRefTap(e) {
+    if (e.target.closest('.crossref-indicator')) return true;
+    const vc = e.target.closest('.verse-container');
+    if (!vc) return false;
+    const ind = vc.querySelector('.crossref-indicator');
+    if (!ind) return false;
+    const r = ind.getBoundingClientRect();
+    const pad = 24;
+    return e.clientX >= r.left - pad && e.clientX <= r.right + pad &&
+           e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
   }
 
   _isSpotlightEdgeTap(e) {

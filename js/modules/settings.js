@@ -16,6 +16,7 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-theme').value = state.get('theme');
     document.getElementById('settings-bionic').checked = state.get('bionic');
     document.getElementById('settings-red-letter').checked = state.get('redLetter');
+    document.getElementById('settings-cross-refs').checked = state.get('crossRefs');
     document.getElementById('speed-auto-advance').checked = state.get('speedAutoAdvance');
     document.getElementById('settings-strength').value = state.get('bionicStrength');
     document.getElementById('settings-strength-label').textContent = Math.round(state.get('bionicStrength') * 100) + '%';
@@ -62,6 +63,7 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-theme').addEventListener('change', (e) => this.setTheme(e.target.value));
     document.getElementById('settings-bionic').addEventListener('change', (e) => this._setBionic(e.target.checked));
     document.getElementById('settings-red-letter').addEventListener('change', (e) => this._setRedLetter(e.target.checked));
+    document.getElementById('settings-cross-refs').addEventListener('change', (e) => this._setCrossRefs(e.target.checked));
     document.getElementById('speed-auto-advance').addEventListener('change', (e) => this.bridge.state.set('speedAutoAdvance', e.target.checked));
 
     document.getElementById('speed-wpm').addEventListener('input', (e) => this._onWpmChange(parseInt(e.target.value, 10)));
@@ -168,6 +170,22 @@ window.SettingsModule = class SettingsModule {
 
   _setRedLetter(enabled) {
     this.bridge.state.set('redLetter', enabled);
+    this.bridge.emit('render:refresh');
+  }
+
+  async _setCrossRefs(enabled) {
+    this.bridge.state.set('crossRefs', enabled);
+    const cr = this.bridge.get('cross-references');
+    if (!cr) return;
+    if (enabled) {
+      await cr.init();
+      if (!cr.enabled) {
+        this.bridge.state.set('crossRefs', false);
+        document.getElementById('settings-cross-refs').checked = false;
+      }
+    } else {
+      cr.destroy();
+    }
     this.bridge.emit('render:refresh');
   }
 

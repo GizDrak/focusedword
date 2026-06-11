@@ -112,6 +112,7 @@
   <!-- ========== Verse Progress Bar ========== -->
   <div id="verse-progress" class="verse-progress">
     <span class="verse-progress-label" id="verse-progress-label"></span>
+    <div id="crossref-bar" class="crossref-bar"></div>
   </div>
 
   <!-- ========== Mode Popup (above Tab 2) ========== -->
@@ -350,6 +351,13 @@
               <span class="toggle-pill"></span>
             </label>
           </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-cross-refs">
+              <span class="toggle-text">Cross References</span>
+              <input type="checkbox" id="settings-cross-refs" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -370,6 +378,8 @@
           </div>
         </div>
       </div>
+
+      <div class="settings-version">v0.5</div>
     </div>
   </div>
 
@@ -387,6 +397,16 @@
     <div class="bookmarks-body" id="bookmarks-body">
       <div class="bookmarks-empty">No bookmarks yet. Select text to create one.</div>
     </div>
+  </div>
+
+  <!-- ========== Cross-References Side Panel ========== -->
+  <div id="crossref-overlay" class="crossref-overlay" role="presentation"></div>
+  <div id="crossref-panel" class="crossref-panel" role="dialog" aria-modal="true" aria-label="Cross References">
+    <div class="crossref-header">
+      <span id="crossref-title">Cross References</span>
+      <button id="crossref-close" class="icon-btn" aria-label="Close cross-references">✕</button>
+    </div>
+    <div class="crossref-body" id="crossref-body"></div>
   </div>
 
   <!-- ========== Navigation Bottom Sheet ========== -->
@@ -438,6 +458,8 @@
       <p class="rotate-warning-text">Please rotate your device to portrait mode for the best experience.</p>
     </div>
   </div>
+  <script src="js/data/cross-references.js"></script>
+  <script src="js/modules/cross-refs-ui.js"></script>
   <script src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

@@ -9,7 +9,10 @@ window.StateStore = class StateStore {
       'focusMode', 'speedAutoAdvance', 'tapSwipe',
       'activeBookmarkSet',
       'fontFamily', 'fontSize', 'margins', 'lineSpacing', 'letterSpacing',
-      'redLetter'
+      'redLetter',
+      'crossRefs',
+      'currentTranslation',
+      'currentBook', 'currentChapter', 'currentVerse', 'currentBookName'
     ]);
     this._data = {
       bionic: false,
@@ -35,7 +38,8 @@ window.StateStore = class StateStore {
       margins: 1.0,
       lineSpacing: 1.8,
       letterSpacing: 0.005,
-      redLetter: true
+      redLetter: true,
+      crossRefs: false
     };
     this._loadState();
   }
@@ -151,7 +155,8 @@ window.StateStore = class StateStore {
         'focused-word:margins': 'margins',
         'focused-word:line-spacing': 'lineSpacing',
         'focused-word:letter-spacing': 'letterSpacing',
-        'focused-word:red-letter': 'redLetter'
+        'focused-word:red-letter': 'redLetter',
+        'focused-word:cross-refs': 'crossRefs'
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);

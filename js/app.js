@@ -52,6 +52,9 @@ window.App = class App {
 
     bridge.register('interaction', new window.InteractionManager(bridge));
 
+    bridge.register('cross-references', new window.CrossReferences(bridge));
+    bridge.register('cross-refs-ui', new window.CRefsUI(bridge));
+
     bridge.register('highlight-manager', new window.HighlightManager(bridge));
 
     bridge.selection = new window.SelectionManager(bridge);
@@ -60,6 +63,15 @@ window.App = class App {
     settings.init();
     settings._applyTextSettings();
     bookmarks.init();
+
+    if (bridge.state.get('crossRefs')) {
+      const cr = bridge.get('cross-references');
+      if (cr) {
+        cr.init().then(() => {
+          if (cr.enabled) bridge.emit('render:refresh');
+        });
+      }
+    }
 
     this._fetchTranslationManifest(bridge);
     this._setupModeButton(bridge);
@@ -71,7 +83,10 @@ window.App = class App {
     this._setupGlobalEvents(bridge);
     this._setupSettingsListeners(bridge);
 
-    await navigation.loadChapter(bridge.state.get('currentBook'), bridge.state.get('currentChapter'));
+    const restoredBook = bridge.state.get('currentBook');
+    const restoredChapter = bridge.state.get('currentChapter');
+    console.log('[app] restoring to book:', restoredBook, 'chapter:', restoredChapter);
+    await navigation.loadChapter(restoredBook, restoredChapter);
 
     document.getElementById('content').style.display = '';
     splashEl.classList.add('splash-hidden');
@@ -287,6 +302,10 @@ window.App = class App {
 
   _setupRenderDispatch(bridge) {
     const dispatch = () => {
+      const el = document.getElementById('content');
+      if (el) el.classList.remove('chapter-slide', 'slide-out-left', 'slide-out-right', 'slide-in-left', 'slide-in-right', 'slide-in');
+      const pb = document.getElementById('verse-progress');
+      if (pb) pb.classList.remove('show-references');
       const nav = bridge.get('navigation');
       if (!nav || !nav.currentVerses.length) return;
       const verses = nav.currentVerses;
@@ -351,17 +370,40 @@ window.App = class App {
         return;
       }
 
-      if (absDx > 50 && absDx > absDy * 1.5) {
+      if (absDx > 35 && absDy < absDx * 1.3) {
         if (interaction && interaction.selectionMode) return;
+        if (bridge._chapterNavLock) return;
+        bridge._chapterNavLock = true;
+        setTimeout(() => { bridge._chapterNavLock = false; }, 800);
         e.preventDefault();
-        if (dx < 0) nav.loadNextChapter();
-        else nav.loadPrevChapter();
+        const el = document.getElementById('content');
+        const dir = dx < 0 ? 'left' : 'right';
+        el.classList.add('chapter-slide', 'slide-out-' + dir);
+
+        let done = false;
+        const onEnd = () => {
+          if (done) return;
+          done = true;
+          el.classList.remove('chapter-slide', 'slide-out-' + dir);
+          bridge._chapterNavLock = true;
+          setTimeout(() => { bridge._chapterNavLock = false; }, 600);
+          if (dx < 0) nav.loadNextChapter();
+          else nav.loadPrevChapter();
+        };
+
+        el.addEventListener('transitionend', onEnd, { once: true });
+        setTimeout(onEnd, 350);
         return;
       }
 
       if (swipeMode && absDy > 50 && absDy > absDx * 1.5 && animDir !== 'horizontal') {
         const swipe = bridge.get('renderer-swipe');
         if (swipe) swipe.advance(nav.currentVerses, dy < 0 ? 'next' : 'prev');
+      }
+
+      if (bridge.state.get('spotlightMode') && absDy > 50 && absDy > absDx * 1.5) {
+        const spotlight = bridge.get('renderer-spotlight');
+        if (spotlight) spotlight.advance(nav.currentVerses, dy < 0 ? 'next' : 'prev');
       }
     });
 

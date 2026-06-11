@@ -23,9 +23,21 @@ window.SpotlightRenderer = class SpotlightRenderer {
     content.classList.remove('swipe-mode', 'speed-mode');
     content.classList.add('spotlight-mode');
 
+    let bulkRefs = {};
+    const state = this.bridge.state;
+    if (state.get('crossRefs')) {
+      this.base._currentBookId = state.get('currentBook');
+      this.base._currentChapter = state.get('currentChapter');
+      const cr = this.bridge.get('cross-references');
+      if (cr && cr.enabled) {
+        bulkRefs = cr.getRefsBulk(state.get('currentBook'), state.get('currentChapter')) || {};
+      }
+    }
+
     for (let i = 0; i < verses.length; i++) {
       const v = verses[i];
-      const container = this.base.createVerseElement(v, bionic, strength);
+      const refs = bulkRefs[v.verse] || null;
+      const container = this.base.createVerseElement(v, bionic, strength, refs);
       container.dataset.verseIndex = i;
 
       if (i === this.currentVerseIndex) {

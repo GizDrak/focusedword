@@ -89,6 +89,8 @@ window.NavigationModule = class NavigationModule {
     const bookIndex = this.booksCache.indexOf(book);
     const totalChapters = await this.bridge.db.getChapterCount(bookId);
 
+    state.set('currentVerse', 1);
+
     if (state.get('currentChapter') < totalChapters) {
       await this.loadChapter(bookId, state.get('currentChapter') + 1);
     } else if (bookIndex < this.booksCache.length - 1) {
@@ -107,6 +109,8 @@ window.NavigationModule = class NavigationModule {
     const bookId = state.get('currentBook');
     const book = this.booksCache.find(b => b.id === bookId);
     const bookIndex = this.booksCache.indexOf(book);
+
+    state.set('currentVerse', 1);
 
     if (state.get('currentChapter') > 1) {
       await this.loadChapter(bookId, state.get('currentChapter') - 1);

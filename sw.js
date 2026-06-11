@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v6';
+const CACHE_NAME = 'focused-word-v7';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -24,6 +24,8 @@ const APP_SHELL = [
   '/js/modules/interaction-manager.js',
   '/js/data/highlight-store.js',
   '/js/modules/highlight-manager.js',
+  '/js/data/cross-references.js',
+  '/js/modules/cross-refs-ui.js',
   '/manifest.json',
   '/assets/icon.svg',
   '/assets/favicon.svg',
