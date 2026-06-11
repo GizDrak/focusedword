@@ -40,7 +40,9 @@ window.ScrollRenderer = class ScrollRenderer {
     this.base.applyBookmarks();
     this.base.renderHighlights();
     this.base.updateFocusedVerse(state.get('currentVerse'));
-    this.bridge.call('navigation', 'scrollToVerse');
+    requestAnimationFrame(() => {
+      this.bridge.call('navigation', 'scrollToVerse');
+    });
     this._setupScrollTracking();
   }
 
@@ -57,7 +59,7 @@ window.ScrollRenderer = class ScrollRenderer {
         this._syncVerseFromScroll();
       });
     };
-    this._lastSyncVerse = null;
+    this._lastSyncVerse = this.bridge.state.get('currentVerse');
     this._scrollTarget.addEventListener('scroll', this._scrollHandler, { passive: true });
   }
 
@@ -65,20 +67,24 @@ window.ScrollRenderer = class ScrollRenderer {
     const containers = document.querySelectorAll('.verse-container');
     if (!containers.length) return;
 
-    const viewportMid = window.innerHeight / 2;
-    let active = null;
-    let minDist = Infinity;
+    const scrollEl = this._scrollTarget;
+    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+    const scrollFraction = maxScroll > 0 ? scrollEl.scrollTop / maxScroll : 0;
 
-    for (const c of containers) {
-      const rect = c.getBoundingClientRect();
-      const verseMid = (rect.top + rect.bottom) / 2;
-      const dist = Math.abs(verseMid - viewportMid);
-      if (dist < minDist) {
-        minDist = dist;
-        active = parseInt(c.dataset.verse);
+    const viewportCenter = window.innerHeight / 2;
+    const viewportBottom = window.innerHeight;
+    const bottomWeight = Math.max(0, (scrollFraction - 0.88) / 0.12);
+    const referencePoint = viewportCenter * (1 - bottomWeight) + viewportBottom * bottomWeight;
+
+    let active = parseInt(containers[0].dataset.verse);
+    for (let i = containers.length - 1; i >= 0; i--) {
+      if (containers[i].getBoundingClientRect().top <= referencePoint) {
+        active = parseInt(containers[i].dataset.verse);
+        break;
       }
     }
-    if (active !== null && active !== this._lastSyncVerse) {
+
+    if (active !== this._lastSyncVerse) {
       this._lastSyncVerse = active;
       this.bridge.state.set('currentVerse', active);
       this.base.updateFocusedVerse(active);

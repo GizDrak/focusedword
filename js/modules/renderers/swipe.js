@@ -126,6 +126,7 @@ window.SwipeRenderer = class SwipeRenderer {
     }
 
     content.appendChild(deck);
+    content.style.height = window.innerHeight + 'px';
     this.base.updateFocusedVerse(v.verse);
     this.base.showSpeedControls(false);
   }

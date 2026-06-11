@@ -53,6 +53,7 @@ window.SpotlightRenderer = class SpotlightRenderer {
     if (vCurrent && vCurrent.verse !== this.bridge.state.get('currentVerse')) {
       this.bridge.state.set('currentVerse', vCurrent.verse);
     }
+    this.base.updateFocusedVerse(vCurrent?.verse);
 
     this.base.scrollActiveVerseIntoView();
     this.base.showSpeedControls(false);

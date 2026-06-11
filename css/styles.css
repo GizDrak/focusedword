@@ -51,6 +51,10 @@
 }
 
 /* ========== Theme Variables ========== */
+:root {
+  --paper-texture: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhLS0gQ3JlYXRlZCB3aXRoIElua3NjYXBlIChodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy8pIC0tPgoKPHN2ZwogICB3aWR0aD0iNTA4bW0iCiAgIGhlaWdodD0iMjg1Ljc1bW0iCiAgIHZpZXdCb3g9IjAgMCA1MDggMjg1Ljc1IgogICB2ZXJzaW9uPSIxLjEiCiAgIGlkPSJzdmcxIgogICB4bWw6c3BhY2U9InByZXNlcnZlIgogICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzCiAgICAgaWQ9ImRlZnMxIj48ZmlsdGVyCiAgICAgICBzdHlsZT0iY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzOnNSR0IiCiAgICAgICBpZD0iZmlsdGVyMTAxIgogICAgICAgeD0iMCIKICAgICAgIHk9IjAiCiAgICAgICB3aWR0aD0iMSIKICAgICAgIGhlaWdodD0iMSI+PGZlVHVyYnVsZW5jZQogICAgICAgICBpZD0iZmVUdXJidWxlbmNlMTAxIgogICAgICAgICBiYXNlRnJlcXVlbmN5PSIwLjAyMDAwMDAwMDAwMDAwMDAxMSIKICAgICAgICAgbnVtT2N0YXZlcz0iOSIKICAgICAgICAgc2VlZD0iMTAiCiAgICAgICAgIHR5cGU9ImZyYWN0YWxOb2lzZSIgLz48ZmVEaWZmdXNlTGlnaHRpbmcKICAgICAgICAgaWQ9ImZlRGlmZnVzZUxpZ2h0aW5nMTAxIgogICAgICAgICBzdXJmYWNlU2NhbGU9IjIuMDQ5OTk5OTUiCiAgICAgICAgIGRpZmZ1c2VDb25zdGFudD0iMSI+PGZlRGlzdGFudExpZ2h0CiAgICAgICAgICAgaWQ9ImZlRGlzdGFudExpZ2h0MTAzIgogICAgICAgICAgIGF6aW11dGg9Ijc1IgogICAgICAgICAgIGVsZXZhdGlvbj0iNTAiIC8+PC9mZURpZmZ1c2VMaWdodGluZz48L2ZpbHRlcj48L2RlZnM+PGcKICAgICBpZD0ibGF5ZXIxIgogICAgIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xNTU0KSI+PHJlY3QKICAgICAgIHN0eWxlPSJvcGFjaXR5OjE7ZmlsbDojN2I0OTM4O2ZpbGwtb3BhY2l0eToxO3N0cm9rZS13aWR0aDoyLjY0NTgzO2ZpbHRlcjp1cmwoI2ZpbHRlcjEwMSkiCiAgICAgICBpZD0icmVjdDEwMSIKICAgICAgIHdpZHRoPSI1MDgiCiAgICAgICBoZWlnaHQ9IjI4NS43NSIKICAgICAgIHg9IjE1NTQiCiAgICAgICB5PSItNC45NzM3OTkyZS0xNCIgLz48L2c+PC9zdmc+Cg==);
+}
+
 :root,
 [data-theme="dark"] {
   --bg: #0A0A0A;
@@ -622,7 +626,7 @@ body {
 
 /* ========== Main Content ========== */
 main {
-  padding: 1rem 1rem 0;
+  padding: 3rem 1rem 0;
   max-width: 680px;
   margin-left: auto;
   margin-right: auto;
@@ -682,14 +686,15 @@ body.reading-mode main {
 
 .chapter-emblem {
   color: var(--accent-gold);
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   margin: 0 auto 1rem;
   filter: drop-shadow(0 0 12px var(--accent-glow));
   opacity: 0.8;
   transition: opacity 0.4s ease, filter 0.4s ease;
 }
 
+.chapter-emblem img,
 .chapter-emblem svg {
   width: 100%;
   height: 100%;
@@ -746,15 +751,33 @@ body.reading-mode main {
 }
 
 #content.swipe-mode {
-  min-height: 100vh;
-  min-height: 100svh;
+  --c: color-mix(in srgb, var(--bg), transparent 0%);
+  --c-deep: color-mix(in srgb, var(--bg), transparent 35%);
   width: 100%;
   max-width: none;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   touch-action: none;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(to right, var(--c), var(--c-deep) 30%, var(--c-deep) 70%, var(--c) 100%),
+    var(--paper-texture);
+  background-size: auto, contain;
+  background-repeat: repeat, repeat;
+  background-blend-mode: normal, multiply;
+}
+
+[data-theme="dark"] #content.swipe-mode,
+[data-theme="midnight"] #content.swipe-mode,
+[data-theme="forest"] #content.swipe-mode,
+[data-theme="nord"] #content.swipe-mode,
+[data-theme="dracula"] #content.swipe-mode {
+  --c-deep: color-mix(in srgb, var(--bg), transparent 8%);
+  background-blend-mode: normal, screen;
 }
 
 #content.swipe-mode .chapter-header.header-hidden {
@@ -778,7 +801,7 @@ body.reading-mode main {
   line-height: 1.65;
   padding: 2.5rem 2rem;
   text-align: center;
-  background: var(--bg-card);
+  background: transparent;
   border: 1px solid var(--border-light);
   border-radius: 1rem;
   box-shadow: 0 4px 24px rgba(0,0,0,0.2), 0 0 40px rgba(0,0,0,0.15);
@@ -788,6 +811,17 @@ body.reading-mode main {
   transform: translateY(0) rotate(4deg) translateX(25px) scale(1);
   transform-origin: 0 0;
   transition: transform 0.6s cubic-bezier(0.8, 0.2, 0.1, 0.8);
+  pointer-events: none;
+}
+
+#content.swipe-mode .verse-deck .verse-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--bg-card);
+  opacity: 0.35;
+  border-radius: inherit;
+  z-index: -1;
   pointer-events: none;
 }
 
@@ -803,7 +837,7 @@ body.reading-mode main {
 }
 
 #content.swipe-mode .verse-deck .verse-container.card--current.focused {
-  background: var(--bg-card);
+  background: transparent;
   box-shadow: inset 2px 0 0 var(--verse-focus-border), 0 4px 24px rgba(0,0,0,0.2);
 }
 
@@ -1107,8 +1141,14 @@ body.reading-mode main {
 }
 
 .splash-icon {
-  opacity: 0.3;
-  color: var(--text-primary);
+  opacity: 0.7;
+}
+
+.splash-icon img {
+  display: block;
+  margin: 0 auto;
+  width: 80px;
+  height: 80px;
 }
 
 .splash-title {
