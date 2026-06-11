@@ -1,5 +1,6 @@
 const CACHE_NAME = 'focused-word-v6';
 const APP_SHELL = [
+  '/',
   '/index.html',
   '/css/styles.css',
   '/js/app.js',
@@ -70,12 +71,13 @@ self.addEventListener('fetch', (event) => {
   if (CACHE_FIRST_PATTERNS.some(pattern => pattern.test(url.href) || pattern.test(path))) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
-        return cached || fetch(event.request).then((response) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
           const cacheCopy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cacheCopy));
           return response;
         });
-      })
+      }).catch(() => fetch(event.request))
     );
   } else {
     event.respondWith(
@@ -84,7 +86,7 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       }).catch(() => {
-        return caches.match(event.request).then((cached) => {
+        return caches.match(event.request).catch(() => null).then((cached) => {
           if (cached) return cached;
           if (event.request.mode === 'navigate') {
             return caches.match('/index.html');
