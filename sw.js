@@ -29,11 +29,10 @@ const APP_SHELL = [
   '/js/data/cross-references.js',
   '/js/modules/cross-refs-ui.js',
   '/manifest.json',
-  '/assets/icons/android/icon-192x192.png',
-  '/assets/icons/android/icon-512x512.png',
-  '/assets/icons/android/icon-maskable-512x512.png',
-  '/assets/icons/ios/apple-touch-icon.png',
-  '/assets/icons/ios/icon-180x180.png'
+  '/assets/icons/android/launchericon-192x192.png',
+  '/assets/icons/android/launchericon-512x512.png',
+  '/assets/icons/ios/1024.png',
+  '/assets/icons/ios/180.png'
 ];
 
 const CACHE_FIRST_PATTERNS = [
@@ -51,7 +50,9 @@ self.addEventListener('install', (event) => {
           cache.add(url).catch(() => {})
         )
       );
-    }).then(() => self.skipWaiting())
+    }).then(() => self.skipWaiting()).catch((error) => {
+      console.error('Service Worker installation failed to cache files:', error);
+    })
   );
 });
 
