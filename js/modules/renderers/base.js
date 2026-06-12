@@ -3,20 +3,6 @@ window.BaseRenderer = class BaseRenderer {
     this.bridge = bridge;
   }
 
-  clearContent() {
-    const el = document.getElementById('content');
-    const header = el.querySelector('#chapter-header');
-    const controls = el.querySelector('#speed-controls');
-    const keep = [];
-    if (header) keep.push(header);
-    if (controls) keep.push(controls);
-    for (let i = el.children.length - 1; i >= 0; i--) {
-      const child = el.children[i];
-      if (!keep.includes(child)) child.remove();
-    }
-    return el;
-  }
-
   _getEmblemSvg(bookId) {
     const id = Number(bookId);
     let emblem;
@@ -111,7 +97,16 @@ window.BaseRenderer = class BaseRenderer {
 
     if (state.get('swipeMode')) return;
 
+    const wasHidden = chapterHeader.classList.contains('header-hidden');
+
+    if (wasHidden) {
+      chapterHeader.style.transition = 'none';
+    }
     chapterHeader.classList.remove('hidden', 'header-hidden');
+    if (wasHidden) {
+      void chapterHeader.offsetHeight;
+      chapterHeader.style.transition = '';
+    }
   }
 
   setupScrollAutoHide(contentEl) {
@@ -323,11 +318,6 @@ window.BaseRenderer = class BaseRenderer {
   showSpeedControls(show) {
     const el = document.getElementById('speed-controls');
     if (el) el.classList.toggle('hidden', !show);
-  }
-
-  scrollActiveVerseIntoView() {
-    const el = document.querySelector('.verse-container.active-verse');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   async applyBookmarks() {

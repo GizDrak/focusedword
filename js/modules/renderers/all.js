@@ -10,8 +10,7 @@ window.AllRenderer = class AllRenderer {
     const strength = state.get('bionicStrength');
     const crossRefsOn = state.get('crossRefs');
 
-    const content = this.base.clearContent();
-    content.classList.remove('swipe-mode', 'spotlight-mode', 'speed-mode');
+    const content = document.getElementById('content');
 
     let bulkRefs = {};
     const bookId = state.get('currentBook');
@@ -32,11 +31,5 @@ window.AllRenderer = class AllRenderer {
       const refs = bulkRefs[v.verse] || null;
       content.appendChild(this.base.createVerseElement(v, bionic, strength, refs));
     }
-
-    this.base.showSpeedControls(false);
-    this.base.applyBookmarks();
-    this.base.renderHighlights();
-    this.base.updateFocusedVerse(state.get('currentVerse'));
-    this.bridge.call('navigation', 'scrollToVerse');
   }
 };

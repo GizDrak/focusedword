@@ -654,11 +654,17 @@ body.scroll-mode #content {
   padding-bottom: 1rem;
 }
 
+body.scroll-mode .verse-container {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
 body.reading-mode {
   overflow: hidden;
 }
 
-body.reading-mode main {
+body.swipe-mode main,
+body.speed-mode main {
   padding-top: 0;
 }
 

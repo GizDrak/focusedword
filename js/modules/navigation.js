@@ -144,7 +144,6 @@ window.NavigationModule = class NavigationModule {
     });
     this.closeSheet();
     await this.loadChapter(bookId, chapter);
-    this.scrollToVerse(verse);
   }
 
   renderBookList() {

@@ -5,16 +5,12 @@ window.ScrollRenderer = class ScrollRenderer {
   }
 
   render(verses) {
+    this._pendingRender = true;
     const state = this.bridge.state;
     const bionic = state.get('bionic');
     const strength = state.get('bionicStrength');
 
-    document.body.classList.add('scroll-mode');
-
-    const content = this.base.clearContent();
-    content.classList.remove('swipe-mode', 'spotlight-mode', 'speed-mode');
-
-    this.base.showChapterHeader(verses, state.get('currentBookName'));
+    const content = document.getElementById('content');
 
     let bulkRefs = {};
     const bookId = state.get('currentBook');
@@ -36,13 +32,6 @@ window.ScrollRenderer = class ScrollRenderer {
       content.appendChild(this.base.createVerseElement(v, bionic, strength, refs));
     }
 
-    this.base.showSpeedControls(false);
-    this.base.applyBookmarks();
-    this.base.renderHighlights();
-    this.base.updateFocusedVerse(state.get('currentVerse'));
-    requestAnimationFrame(() => {
-      this.bridge.call('navigation', 'scrollToVerse');
-    });
     this._setupScrollTracking();
   }
 
@@ -63,7 +52,12 @@ window.ScrollRenderer = class ScrollRenderer {
     this._scrollTarget.addEventListener('scroll', this._scrollHandler, { passive: true });
   }
 
+  onRenderComplete() {
+    setTimeout(() => { this._pendingRender = false; }, 400);
+  }
+
   _syncVerseFromScroll() {
+    if (this._pendingRender) return;
     const containers = document.querySelectorAll('.verse-container');
     if (!containers.length) return;
 

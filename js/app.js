@@ -79,7 +79,9 @@ window.App = class App {
     this._setupMoreButton(bridge);
     this._setupLibraryButton(bridge);
     this._setupSpeedControls(bridge);
-    this._setupRenderDispatch(bridge);
+    const viewMgr = new window.ViewManager(bridge);
+    bridge.register('view', viewMgr);
+    bridge.register('render', new window.RenderManager(bridge, viewMgr, baseRenderer));
     this._setupGlobalEvents(bridge);
     this._setupSettingsListeners(bridge);
 
@@ -298,42 +300,6 @@ window.App = class App {
     if (wpmSlider) wpmSlider.value = bridge.state.get('wpm');
     const wpmDisplay = document.getElementById('speed-wpm-display');
     if (wpmDisplay) wpmDisplay.textContent = bridge.state.get('wpm') + ' WPM';
-  }
-
-  _setupRenderDispatch(bridge) {
-    const dispatch = () => {
-      const el = document.getElementById('content');
-      if (el) el.classList.remove('chapter-slide', 'slide-out-left', 'slide-out-right', 'slide-in-left', 'slide-in-right', 'slide-in');
-      const pb = document.getElementById('verse-progress');
-      if (pb) pb.classList.remove('show-references');
-      const nav = bridge.get('navigation');
-      if (!nav || !nav.currentVerses.length) return;
-      const verses = nav.currentVerses;
-      if (bridge.state.get('speedMode')) {
-        bridge.call('renderer-speed', 'render', verses);
-      } else if (bridge.state.get('swipeMode')) {
-        bridge.call('renderer-swipe', 'render', verses);
-      } else if (bridge.state.get('spotlightMode')) {
-        bridge.call('renderer-spotlight', 'render', verses);
-      } else {
-        bridge.call('renderer-scroll', 'render', verses);
-      }
-      const base = bridge.get('base-renderer');
-      if (base) {
-        base.showChapterHeader(verses, bridge.state.get('currentBookName'));
-        base.setupScrollAutoHide(document.getElementById('content'));
-      }
-    };
-
-    bridge.on('nav:chapter-loaded', dispatch);
-    bridge.on('render:refresh', dispatch);
-
-    bridge.state.onChange('swipeMode spotlightMode speedMode'.split(' '), () => {
-      const anyActive = bridge.state.get('swipeMode') || bridge.state.get('spotlightMode') || bridge.state.get('speedMode');
-      document.body.classList.toggle('scroll-mode', !anyActive);
-      document.body.classList.toggle('reading-mode', anyActive);
-      if (anyActive) window.scrollTo(0, 0);
-    });
   }
 
   _setupGlobalEvents(bridge) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v7';
+const CACHE_NAME = 'focused-word-v8';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -9,6 +9,8 @@ const APP_SHELL = [
   '/js/core/debug.js',
   '/js/core/state-store.js',
   '/js/core/bridge.js',
+  '/js/core/view-manager.js',
+  '/js/core/render-manager.js',
   '/js/data/selection.js',
   '/js/modules/chapter-summary.js',
   '/js/modules/renderers/base.js',
@@ -27,14 +29,11 @@ const APP_SHELL = [
   '/js/data/cross-references.js',
   '/js/modules/cross-refs-ui.js',
   '/manifest.json',
-  '/assets/icon.svg',
-  '/assets/favicon.svg',
-  '/assets/icons/icon-48.png',
-  '/assets/icons/icon-72.png',
-  '/assets/icons/icon-96.png',
-  '/assets/icons/icon-144.png',
-  '/assets/icons/icon-192.png',
-  '/assets/icons/icon-512.png'
+  '/assets/icons/android/icon-192x192.png',
+  '/assets/icons/android/icon-512x512.png',
+  '/assets/icons/android/icon-maskable-512x512.png',
+  '/assets/icons/ios/apple-touch-icon.png',
+  '/assets/icons/ios/icon-180x180.png'
 ];
 
 const CACHE_FIRST_PATTERNS = [

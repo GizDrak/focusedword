@@ -30,7 +30,11 @@ window.SpeedRenderer = class SpeedRenderer {
   }
 
   _renderWord() {
-    const content = this.base.clearContent();
+    const content = document.getElementById('content');
+    for (let i = content.children.length - 1; i >= 0; i--) {
+      const c = content.children[i];
+      if (c.id !== 'chapter-header' && c.id !== 'speed-controls') c.remove();
+    }
     content.classList.remove('swipe-mode', 'spotlight-mode');
     content.classList.add('speed-mode');
 

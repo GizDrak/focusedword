@@ -19,9 +19,9 @@ window.SpotlightRenderer = class SpotlightRenderer {
   }
 
   _renderAll(verses, bionic, strength) {
-    const content = this.base.clearContent();
-    content.classList.remove('swipe-mode', 'speed-mode');
+    const content = document.getElementById('content');
     content.classList.add('spotlight-mode');
+    content.classList.remove('swipe-mode', 'speed-mode');
 
     let bulkRefs = {};
     const state = this.bridge.state;
@@ -53,12 +53,6 @@ window.SpotlightRenderer = class SpotlightRenderer {
     if (vCurrent && vCurrent.verse !== this.bridge.state.get('currentVerse')) {
       this.bridge.state.set('currentVerse', vCurrent.verse);
     }
-    this.base.updateFocusedVerse(vCurrent?.verse);
-
-    this.base.scrollActiveVerseIntoView();
-    this.base.showSpeedControls(false);
-    this.base.applyBookmarks();
-    this.base.renderHighlights();
   }
 
   setActiveVerse(verses, index) {
@@ -79,8 +73,8 @@ window.SpotlightRenderer = class SpotlightRenderer {
       this.bridge.state.set('currentVerse', v.verse);
     }
     this.base.updateFocusedVerse(v?.verse);
-
-    this.base.scrollActiveVerseIntoView();
+    const vm = this.bridge.get('view');
+    if (vm) vm.scrollToVerse(v?.verse);
   }
 
   advance(verses, direction) {

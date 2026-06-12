@@ -86,7 +86,11 @@ window.SwipeRenderer = class SwipeRenderer {
   }
 
   _renderCurrent(verses, bionic, strength) {
-    const content = this.base.clearContent();
+    const content = document.getElementById('content');
+    for (let i = content.children.length - 1; i >= 0; i--) {
+      const c = content.children[i];
+      if (c.id !== 'chapter-header' && c.id !== 'speed-controls') c.remove();
+    }
     content.classList.remove('spotlight-mode', 'speed-mode');
     content.classList.add('swipe-mode');
 
@@ -128,7 +132,6 @@ window.SwipeRenderer = class SwipeRenderer {
     content.appendChild(deck);
     content.style.height = window.innerHeight + 'px';
     this.base.updateFocusedVerse(v.verse);
-    this.base.showSpeedControls(false);
   }
 
   advance(verses, direction) {
