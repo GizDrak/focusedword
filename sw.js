@@ -52,7 +52,6 @@ const APP_SHELL = [
 
 const CACHE_FIRST_PATTERNS = [
   /\/scripture\/en\/.*\.(db|sqlite|json)$/,
-  /\/changes\.md$/,
   /^https:\/\/fonts\.googleapis\.com\//,
   /^https:\/\/fonts\.gstatic\.com\//
 ];
