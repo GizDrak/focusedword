@@ -16,6 +16,11 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-theme').value = state.get('theme');
     document.getElementById('settings-bionic').checked = state.get('bionic');
     document.getElementById('settings-red-letter').checked = state.get('redLetter');
+    document.getElementById('settings-footnotes').checked = state.get('footnotes');
+    document.getElementById('settings-section-headings').checked = state.get('sectionHeadings');
+    document.getElementById('settings-poetry').checked = state.get('poetryFormatting');
+    document.getElementById('settings-paragraph-mode').checked = state.get('paragraphMode');
+    this._syncBionicStrengthVisibility(state.get('bionic'));
     document.getElementById('settings-cross-refs').checked = state.get('crossRefs');
     document.getElementById('speed-auto-advance').checked = state.get('speedAutoAdvance');
     document.getElementById('settings-strength').value = state.get('bionicStrength');
@@ -30,6 +35,7 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-letter-spacing').value = state.get('letterSpacing');
     document.getElementById('settings-letter-spacing-label').textContent = state.get('letterSpacing').toFixed(3);
     this._renderAccentSwatches();
+    document.getElementById('settings-background-texture').checked = state.get('backgroundTexture');
     this._applyTextSettings();
   }
 
@@ -61,8 +67,18 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-overlay').addEventListener('click', () => this.closeSettings());
 
     document.getElementById('settings-theme').addEventListener('change', (e) => this.setTheme(e.target.value));
-    document.getElementById('settings-bionic').addEventListener('change', (e) => this._setBionic(e.target.checked));
-    document.getElementById('settings-red-letter').addEventListener('change', (e) => this._setRedLetter(e.target.checked));
+    document.getElementById('settings-background-texture').addEventListener('change', (e) => this._setToggle('backgroundTexture', e.target.checked));
+    document.getElementById('settings-bionic').addEventListener('change', (e) => this._setToggle('bionic', e.target.checked));
+    document.getElementById('settings-red-letter').addEventListener('change', (e) => this._setToggle('redLetter', e.target.checked));
+    document.getElementById('settings-footnotes').addEventListener('change', (e) => this._setToggle('footnotes', e.target.checked));
+    document.getElementById('settings-section-headings').addEventListener('change', (e) => this._setToggle('sectionHeadings', e.target.checked));
+    document.getElementById('settings-poetry').addEventListener('change', (e) => this._setToggle('poetryFormatting', e.target.checked));
+    document.getElementById('settings-paragraph-mode').addEventListener('change', (e) => {
+      this.bridge.state.set('paragraphMode', e.target.checked);
+      this.bridge.state.set('paragraphBreaks', e.target.checked);
+      this.bridge.emit('render:refresh');
+    });
+    document.getElementById('settings-bionic').addEventListener('change', (e) => this._syncBionicStrengthVisibility(e.target.checked));
     document.getElementById('settings-cross-refs').addEventListener('change', (e) => this._setCrossRefs(e.target.checked));
     document.getElementById('speed-auto-advance').addEventListener('change', (e) => this.bridge.state.set('speedAutoAdvance', e.target.checked));
 
@@ -75,6 +91,8 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-margins').addEventListener('input', (e) => this._setMargins(parseFloat(e.target.value)));
     document.getElementById('settings-line-spacing').addEventListener('input', (e) => this._setLineSpacing(parseFloat(e.target.value)));
     document.getElementById('settings-letter-spacing').addEventListener('input', (e) => this._setLetterSpacing(parseFloat(e.target.value)));
+
+    document.getElementById('view-changelog').addEventListener('click', () => this._openChangelog());
 
     document.getElementById('reset-settings').addEventListener('click', () => this.resetSettings());
     document.getElementById('reset-app').addEventListener('click', () => this.resetApp());
@@ -125,11 +143,12 @@ window.SettingsModule = class SettingsModule {
       dark: 'gold',
       sepia: 'amber',
       light: 'gold',
-      midnight: 'slate',
-      linen: 'sage',
-      forest: 'gold',
+      eclipse: 'slate',
+      parchment: 'gold',
+      pine: 'emerald',
       nord: 'ice',
-      royal: 'bronze'
+      velvet: 'sapphire',
+      galaxy: 'purple'
     };
     const defaultAccent = accentMap[name] || 'gold';
     const ct = this.bridge.get('color-theme');
@@ -163,14 +182,65 @@ window.SettingsModule = class SettingsModule {
     }, 150);
   }
 
-  _setBionic(enabled) {
-    this.bridge.state.set('bionic', enabled);
+  _setToggle(stateKey, enabled) {
+    this.bridge.state.set(stateKey, enabled);
     this.bridge.emit('render:refresh');
   }
 
-  _setRedLetter(enabled) {
-    this.bridge.state.set('redLetter', enabled);
-    this.bridge.emit('render:refresh');
+  async _openChangelog() {
+    const body = document.getElementById('changelog-body');
+    const panel = document.getElementById('changelog-panel');
+    const overlay = document.getElementById('changelog-overlay');
+    if (!body || !panel || !overlay) return;
+    body.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted)">Loading...</div>';
+    overlay.classList.add('open');
+    panel.classList.add('open');
+    try {
+      const resp = await fetch('changes.md');
+      const md = await resp.text();
+      const lines = md.split('\n');
+      let html = '';
+      let inList = false;
+      const escapeInline = (text) => {
+        const parts = text.split(/(`[^`]+`)/g);
+        return parts.map(p => {
+          if (p.startsWith('`') && p.endsWith('`')) return '<code>' + p.slice(1, -1) + '</code>';
+          return MarkdownParser.parse(p);
+        }).join('');
+      };
+      const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+      for (let line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) { closeList(); html += '<br>'; continue; }
+        const h1 = trimmed.match(/^# (.+)/);
+        const h2 = trimmed.match(/^## (.+)/);
+        const h3 = trimmed.match(/^### (.+)/);
+        const li = trimmed.match(/^- (.+)/);
+        const hr = trimmed.match(/^---+/);
+        if (h1) { closeList(); html += '<h1>' + escapeInline(h1[1]) + '</h1>'; }
+        else if (h2) { closeList(); html += '<h2>' + escapeInline(h2[1]) + '</h2>'; }
+        else if (h3) { closeList(); html += '<h3>' + escapeInline(h3[1]) + '</h3>'; }
+        else if (li) { if (!inList) { inList = true; html += '<ul>'; } html += '<li>' + escapeInline(li[1]) + '</li>'; }
+        else if (hr) { closeList(); html += '<hr>'; }
+        else { closeList(); html += '<p>' + escapeInline(trimmed) + '</p>'; }
+      }
+      closeList();
+      body.innerHTML = html;
+    } catch (e) {
+      body.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--error-text)">Failed to load changelog.</div>';
+    }
+    document.getElementById('changelog-close').addEventListener('click', () => this._closeChangelog());
+    overlay.addEventListener('click', () => this._closeChangelog());
+  }
+
+  _closeChangelog() {
+    document.getElementById('changelog-panel').classList.remove('open');
+    document.getElementById('changelog-overlay').classList.remove('open');
+  }
+
+  _syncBionicStrengthVisibility(enabled) {
+    const row = document.querySelector('.settings-strength-row');
+    if (row) row.style.display = enabled ? '' : 'none';
   }
 
   async _setCrossRefs(enabled) {
@@ -261,7 +331,7 @@ window.SettingsModule = class SettingsModule {
       theme: 'dark',
       accent: 'gold',
       fontFamily: 'inter',
-      fontSize: 1.2,
+      fontSize: 1.083,
       margins: 1.0,
       lineSpacing: 1.8,
       letterSpacing: 0.005,
@@ -269,7 +339,13 @@ window.SettingsModule = class SettingsModule {
       bionicStrength: 0.45,
       focusMode: false,
       swipeAnimDir: 'vertical',
-      redLetter: true
+      redLetter: true,
+      footnotes: true,
+      sectionHeadings: true,
+      poetryFormatting: true,
+      paragraphBreaks: false,
+      paragraphMode: false,
+      backgroundTexture: true
     });
     const ct = this.bridge.get('color-theme');
     if (ct) ct.apply('gold');

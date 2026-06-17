@@ -1,143 +1,168 @@
 window.BibleDB = class BibleDB {
   constructor() {
-    this.db = null;
-    this.SQL = null;
+    this._core = null;
     this._mode = null;
     this._booksCache = null;
+    this._codeCache = null;
+    this._slug = null;
   }
 
   static get _BOOKS() {
-    if (!BibleDB.__books) {
-      BibleDB.__books = [
-        { id: 1, name: 'Genesis' },
-        { id: 2, name: 'Exodus' },
-        { id: 3, name: 'Leviticus' },
-        { id: 4, name: 'Numbers' },
-        { id: 5, name: 'Deuteronomy' },
-        { id: 6, name: 'Joshua' },
-        { id: 7, name: 'Judges' },
-        { id: 8, name: 'Ruth' },
-        { id: 9, name: 'I Samuel' },
-        { id: 10, name: 'II Samuel' },
-        { id: 11, name: 'I Kings' },
-        { id: 12, name: 'II Kings' },
-        { id: 13, name: 'I Chronicles' },
-        { id: 14, name: 'II Chronicles' },
-        { id: 15, name: 'Ezra' },
-        { id: 16, name: 'Nehemiah' },
-        { id: 17, name: 'Esther' },
-        { id: 18, name: 'Job' },
-        { id: 19, name: 'Psalms' },
-        { id: 20, name: 'Proverbs' },
-        { id: 21, name: 'Ecclesiastes' },
-        { id: 22, name: 'Song of Solomon' },
-        { id: 23, name: 'Isaiah' },
-        { id: 24, name: 'Jeremiah' },
-        { id: 25, name: 'Lamentations' },
-        { id: 26, name: 'Ezekiel' },
-        { id: 27, name: 'Daniel' },
-        { id: 28, name: 'Hosea' },
-        { id: 29, name: 'Joel' },
-        { id: 30, name: 'Amos' },
-        { id: 31, name: 'Obadiah' },
-        { id: 32, name: 'Jonah' },
-        { id: 33, name: 'Micah' },
-        { id: 34, name: 'Nahum' },
-        { id: 35, name: 'Habakkuk' },
-        { id: 36, name: 'Zephaniah' },
-        { id: 37, name: 'Haggai' },
-        { id: 38, name: 'Zechariah' },
-        { id: 39, name: 'Malachi' },
-        { id: 40, name: 'Matthew' },
-        { id: 41, name: 'Mark' },
-        { id: 42, name: 'Luke' },
-        { id: 43, name: 'John' },
-        { id: 44, name: 'Acts' },
-        { id: 45, name: 'Romans' },
-        { id: 46, name: 'I Corinthians' },
-        { id: 47, name: 'II Corinthians' },
-        { id: 48, name: 'Galatians' },
-        { id: 49, name: 'Ephesians' },
-        { id: 50, name: 'Philippians' },
-        { id: 51, name: 'Colossians' },
-        { id: 52, name: 'I Thessalonians' },
-        { id: 53, name: 'II Thessalonians' },
-        { id: 54, name: 'I Timothy' },
-        { id: 55, name: 'II Timothy' },
-        { id: 56, name: 'Titus' },
-        { id: 57, name: 'Philemon' },
-        { id: 58, name: 'Hebrews' },
-        { id: 59, name: 'James' },
-        { id: 60, name: 'I Peter' },
-        { id: 61, name: 'II Peter' },
-        { id: 62, name: 'I John' },
-        { id: 63, name: 'II John' },
-        { id: 64, name: 'III John' },
-        { id: 65, name: 'Jude' },
-        { id: 66, name: 'Revelation of John' }
-      ];
+    return BookMap.getBooks();
+  }
+
+  static get _sqliteWasmPromise() {
+    if (!this.__wasmPromise) {
+      this.__wasmPromise = (async () => {
+        const mod = await import(AppConfig.SQLITE_WASM_URL);
+        const base = AppConfig.SQLITE_WASM_URL.substring(0, AppConfig.SQLITE_WASM_URL.lastIndexOf('/') + 1);
+        return await mod.default({
+          locateFile: (path) => base + path
+        });
+      })();
     }
-    return BibleDB.__books;
+    return this.__wasmPromise;
+  }
+
+static async createDbFromBytes(dbPath) {
+    const sqlite3 = await BibleDB._sqliteWasmPromise;
+    let buf;
+
+    try {
+      // Defensive check: Only use caches if they exist (i.e., we are in HTTPS/localhost)
+      if (typeof caches !== 'undefined') {
+        const cache = await caches.open('bible-database-cache');
+        let resp = await cache.match(dbPath);
+
+        if (!resp) {
+          resp = await fetch(dbPath);
+          if (resp.ok) await cache.put(dbPath, resp.clone());
+        }
+        buf = await resp.arrayBuffer();
+      } else {
+        // Fallback: Just fetch from the network if caches are not available
+        console.warn('[db] Cache API not available (HTTP connection). Skipping cache.');
+        const resp = await fetch(dbPath);
+        buf = await resp.arrayBuffer();
+      }
+    } catch (e) {
+      console.error('[db] Storage/Network error:', e);
+      return null;
+    }
+
+    const bytes = new Uint8Array(buf);
+
+    // SAFETY CHECK: Ensure the file isn't a corrupted HTML 404 page
+    const header = new TextDecoder().decode(bytes.slice(0, 15));
+    if (header !== "SQLite format 3") {
+      console.error(`[db] Invalid format! Expected database but got HTML.`);
+      // If the cache accidentally saved a bad file, delete it so it redownloads next time
+      caches.open('bible-database-cache').then(c => c.delete(dbPath));
+      return null;
+    }
+
+    // --- SAFETY PATCH: FORCE ROLLBACK MODE ---
+    if (bytes.length > 20) {
+      bytes[18] = 1;
+      bytes[19] = 1;
+    }
+
+    try {
+      // 2. Allocate memory and load into WASM
+      const pData = sqlite3.wasm.allocFromTypedArray(bytes);
+      if (!pData) {
+        console.error('[db] WASM out of memory!');
+        return null;
+      }
+
+      const db = new sqlite3.oo1.DB(':memory:');
+      
+      // Read-Only flag (4) combined with Free-On-Close (1)
+      const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | 4;
+
+      const rc = sqlite3.capi.sqlite3_deserialize(
+        db.pointer,
+        'main',
+        pData,
+        bytes.byteLength,
+        bytes.byteLength,
+        flags
+      );
+      
+      db.checkRc(rc);
+      return db;
+    } catch (e) {
+      console.error('[db] createDbFromBytes error:', e);
+      return null;
+    }
+  }
+  
+
+  _slugFor(translationId) {
+    return translationId.toLowerCase();
+  }
+
+  _tableExists(db, name) {
+    try {
+      const val = db.selectValue("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [name]);
+      return val !== undefined;
+    } catch (e) {
+      console.error('[db] _tableExists error:', e);
+      return false;
+    }
   }
 
   async init(translationId = 'BSB') {
     try {
-      const sqlPromise = window.initSqlJs({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/${file}`
-      });
-      this.SQL = await sqlPromise;
-      const response = await fetch(`/scripture/en/${translationId}.db`);
-      const buffer = await response.arrayBuffer();
-      this.db = new this.SQL.Database(new Uint8Array(buffer));
-
-      const tables = this.db.exec("SELECT name FROM sqlite_master WHERE type='table'");
-      const names = tables[0].values.flat();
-      this._mode = names.includes('BSB_verses') ? 'bsb' : 'crosswire';
-      this._booksCache = null;
-      return true;
+      const slug = this._slugFor(translationId);
+      const core = await BibleDB.createDbFromBytes(`/scripture/en/trans/${slug}_v1.sqlite`);
+      if (core && this._tableExists(core, 'bible_verses')) {
+        this._core = core;
+        this._slug = slug;
+        this._mode = 'tokens';
+        this._booksCache = null;
+        this._codeCache = null;
+        return true;
+      }
+      if (core) core.close();
+      return false;
     } catch (e) {
       console.error('BibleDB init failed:', e);
       return false;
     }
   }
 
-  _schema() {
-    if (this._mode === 'bsb') {
-      return {
-        versesTable: 'BSB_verses',
-        booksTable: 'BSB_books',
-        bookCol: 'book_id',
-        hasBooksTable: true
-      };
-    }
-    return {
-      versesTable: 'verses',
-      booksTable: null,
-      bookCol: 'book',
-      hasBooksTable: false
-    };
-  }
-
   _ensureBooksCache() {
-    if (!this._booksCache) {
-      this._booksCache = BibleDB._BOOKS;
+    if (this._booksCache) return this._booksCache;
+    const staticBooks = BibleDB._BOOKS;
+    this._booksCache = staticBooks.map(b => ({
+      id: b.id,
+      code: BookMap.idToCode(b.id),
+      name: b.name
+    }));
+    this._codeCache = {};
+    for (const b of this._booksCache) {
+      this._codeCache[b.id] = b.code;
+      this._codeCache[b.code] = b.id;
     }
     return this._booksCache;
   }
 
+  idToCode(id) {
+    this._ensureBooksCache();
+    if (this._codeCache) return this._codeCache[id];
+    return BookMap.idToCode(id);
+  }
+
+  codeToId(code) {
+    this._ensureBooksCache();
+    if (this._codeCache) return this._codeCache[code];
+    return BookMap.codeToId(code);
+  }
+
   async getBooks() {
-    const s = this._schema();
-    if (s.hasBooksTable) {
-      const result = this.db.exec(`SELECT id, name FROM ${s.booksTable} ORDER BY id`);
-      if (!result.length) return [];
-      const { columns, values } = result[0];
-      return values.map((row) => {
-        const obj = {};
-        columns.forEach((col, i) => { obj[col] = row[i]; });
-        return obj;
-      });
-    }
-    return this._ensureBooksCache();
+    this._ensureBooksCache();
+    return this._booksCache.map(({ id, name }) => ({ id, name }));
   }
 
   async getBookId(name) {
@@ -146,80 +171,74 @@ window.BibleDB = class BibleDB {
     return book ? book.id : null;
   }
 
-  async getVerses(bookId, chapter) {
-    const s = this._schema();
-    const extra = s.hasBooksTable ? ', has_wj, text_wj' : '';
-    const stmt = this.db.prepare(`SELECT verse, text${extra} FROM ${s.versesTable} WHERE ${s.bookCol} = ? AND chapter = ? ORDER BY verse`);
-    stmt.bind([bookId, chapter]);
-    const verses = [];
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      verses.push(row);
-    }
-    stmt.free();
-    return verses;
-  }
-
   async getChapterCount(bookId) {
-    const s = this._schema();
-    const result = this.db.exec(`SELECT MAX(chapter) as count FROM ${s.versesTable} WHERE ${s.bookCol} = ?`, [bookId]);
-    if (!result.length || !result[0].values.length || result[0].values[0][0] === null) return 0;
-    return result[0].values[0][0];
+    const code = this.idToCode(bookId);
+    if (!code || !this._core) return 0;
+    try {
+      return this._core.selectValue('SELECT MAX(chapter) FROM bible_verses WHERE book = ?', [code]) ?? 0;
+    } catch (e) { console.error('[db] getChapterCount:', e); return 0; }
   }
 
   async getVerseCount(bookId, chapter) {
-    const s = this._schema();
-    const result = this.db.exec(`SELECT COUNT(*) as count FROM ${s.versesTable} WHERE ${s.bookCol} = ? AND chapter = ?`, [bookId, chapter]);
-    if (!result.length || !result[0].values.length) return 0;
-    return result[0].values[0][0];
+    const code = this.idToCode(bookId);
+    if (!code || !this._core) return 0;
+    try {
+      return this._core.selectValue('SELECT COUNT(*) FROM bible_verses WHERE book = ? AND chapter = ?', [code, chapter]) ?? 0;
+    } catch (e) { console.error('[db] getVerseCount:', e); return 0; }
   }
 
-  async searchVerses(query) {
-    const s = this._schema();
-    const terms = query.trim().split(/\s+/).filter(Boolean);
-    if (!terms.length) return [];
+  getCoreDb() {
+    return this._core;
+  }
 
-    const cond = () => `' ' || v.text || ' ' LIKE '% ' || ? || ' %'`;
-    const caseExprs = terms.map(() => `CASE WHEN ${cond()} THEN 1 ELSE 0 END`);
-    const whereExprs = terms.map(() => cond());
+  async getChapterTokens(bookCode, chapter) {
+    if (!this._core) return [];
+    try {
+      const rows = [];
+      this._core.exec({
+        sql: 'SELECT verse, json_tokens, clean_text FROM bible_verses WHERE book = ? AND chapter = ? ORDER BY verse',
+        bind: [bookCode, chapter],
+        rowMode: 'object', 
+        resultRows: rows
+      });
 
-    if (s.hasBooksTable) {
-      const sql = `SELECT v.verse, v.text, b.name as book_name, v.chapter, v.${s.bookCol} as book_id,
-                          (${caseExprs.join(' + ')}) as match_count
-                   FROM ${s.versesTable} v
-                   JOIN ${s.booksTable} b ON b.id = v.${s.bookCol}
-                   WHERE ${whereExprs.join(' OR ')}
-                   ORDER BY match_count DESC, v.${s.bookCol}, v.chapter, v.verse
-                   LIMIT 50`;
-      const stmt = this.db.prepare(sql);
-      const bindParams = [];
-      terms.forEach(t => { bindParams.push(t); bindParams.push(t); });
-      stmt.bind(bindParams);
-      const results = [];
-      while (stmt.step()) results.push(stmt.getAsObject());
-      stmt.free();
-      return results;
+      return rows.map(r => ({
+        verse: r.verse,
+        tokens: JSON.parse(r.json_tokens || '[]'),
+        clean_text: r.clean_text || ''
+      }));
+    } catch (e) {
+      console.error('[db] getChapterTokens:', e, { bookCode, chapter });
+      return [];
     }
+  }
+  
+  async searchBible(searchTerm) {
+    if (!this._core || !searchTerm) return [];
+    try {
+      const rows = [];
+      this._core.exec({
+        sql: `SELECT v.book, v.chapter, v.verse, v.clean_text, v.json_tokens
+              FROM bible_search s
+              JOIN bible_verses v ON s.verse_id = v.id
+              WHERE bible_search MATCH ?
+              ORDER BY bm25(bible_search)
+              LIMIT 50`,
+        bind: [searchTerm],
+        rowMode: 'object',
+        resultRows: rows
+      });
 
-    const sql = `SELECT v.verse, v.text, v.${s.bookCol} as book_id, v.chapter,
-                        (${caseExprs.join(' + ')}) as match_count
-                 FROM ${s.versesTable} v
-                 WHERE ${whereExprs.join(' OR ')}
-                 ORDER BY match_count DESC, v.${s.bookCol}, v.chapter, v.verse
-                 LIMIT 50`;
-    const stmt = this.db.prepare(sql);
-    const bindParams = [];
-    terms.forEach(t => { bindParams.push(t); bindParams.push(t); });
-    stmt.bind(bindParams);
-    const results = [];
-    while (stmt.step()) results.push(stmt.getAsObject());
-    stmt.free();
-
-    const books = this._ensureBooksCache();
-    for (const r of results) {
-      const book = books.find(b => b.id === r.book_id);
-      r.book_name = book ? book.name : '';
+      return rows.map(r => ({
+        book: r.book,
+        chapter: r.chapter,
+        verse: r.verse,
+        cleanText: r.clean_text || '',
+        tokens: JSON.parse(r.json_tokens || '[]')
+      }));
+    } catch (e) {
+      console.error('[db] searchBible error:', e);
+      return [];
     }
-    return results;
   }
 };

@@ -77,8 +77,17 @@ window.NavigationModule = class NavigationModule {
     const book = this.booksCache.find(b => b.id === bookId);
     if (book) state.set('currentBookName', book.name);
 
-    this.currentVerses = await this.bridge.db.getVerses(bookId, chapter);
-
+    const bookCode = this.bridge.db.idToCode(bookId);
+    if (bookCode) {
+      const tokenVerses = await this.bridge.db.getChapterTokens(bookCode, chapter);
+      this.currentVerses = tokenVerses.map(v => ({
+        ...v,
+        book_code: bookCode,
+        book_id: bookId
+      }));
+    } else {
+      this.currentVerses = [];
+    }
     this.bridge.emit('nav:chapter-loaded', { verses: this.currentVerses });
   }
 
@@ -118,20 +127,6 @@ window.NavigationModule = class NavigationModule {
       const prevBook = this.booksCache[bookIndex - 1];
       const totalChapters = await this.bridge.db.getChapterCount(prevBook.id);
       await this.loadChapter(prevBook.id, totalChapters);
-    }
-  }
-
-  scrollToVerse(verseNum) {
-    const state = this.bridge.state;
-    if (!verseNum) verseNum = state.get('currentVerse');
-
-    const containers = document.querySelectorAll('.verse-container');
-    for (const c of containers) {
-      const num = c.querySelector('.verse-num');
-      if (num && parseInt(num.textContent) === verseNum) {
-        c.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        break;
-      }
     }
   }
 

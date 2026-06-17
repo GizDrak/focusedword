@@ -9,8 +9,10 @@ window.StateStore = class StateStore {
       'focusMode', 'speedAutoAdvance', 'tapSwipe',
       'activeBookmarkSet',
       'fontFamily', 'fontSize', 'margins', 'lineSpacing', 'letterSpacing',
-      'redLetter',
-      'crossRefs',
+      'redLetter', 'crossRefs',
+      'footnotes', 'sectionHeadings',
+      'poetryFormatting', 'paragraphBreaks',
+      'paragraphMode', 'backgroundTexture',
       'currentTranslation',
       'currentBook', 'currentChapter', 'currentVerse', 'currentBookName'
     ]);
@@ -34,12 +36,18 @@ window.StateStore = class StateStore {
       activeBookmarkSet: null,
       swipeAnimDir: 'vertical',
       fontFamily: 'inter',
-      fontSize: 1.2,
+      fontSize: 1.083,
       margins: 1.0,
       lineSpacing: 1.8,
       letterSpacing: 0.005,
       redLetter: true,
-      crossRefs: false
+      crossRefs: false,
+      footnotes: true,
+      sectionHeadings: true,
+      poetryFormatting: true,
+      paragraphBreaks: false,
+      paragraphMode: false,
+      backgroundTexture: true
     };
     this._loadState();
   }
@@ -53,7 +61,7 @@ window.StateStore = class StateStore {
     const old = this._data[key];
     this._data[key] = value;
     this._notify(key, value, old);
-    if (this._immediateKeys.has(key) || key === 'currentTranslation') {
+    if (this._immediateKeys.has(key)) {
       this._persist(key);
     } else {
       this._throttledPersist(key);
@@ -100,7 +108,7 @@ window.StateStore = class StateStore {
     const listeners = this._listeners.get(key);
     if (listeners) {
       for (const cb of listeners) {
-        try { cb(key, value, old); } catch (e) { /* swallow handler errors */ }
+        try { cb(key, value, old); } catch (e) { console.error('[state-store] handler error:', e); }
       }
     }
   }
@@ -112,7 +120,7 @@ window.StateStore = class StateStore {
       } else {
         localStorage.setItem('focused-word:' + key.replace(/([A-Z])/g, '-$1').toLowerCase(), JSON.stringify(this._data[key]));
       }
-    } catch (e) { /* storage full etc */ }
+    } catch (e) { console.error('[state-store] persist failed:', e); }
   }
 
   _saveProgress() {
@@ -123,7 +131,7 @@ window.StateStore = class StateStore {
         verse: this._data.currentVerse,
         bookName: this._data.currentBookName
       }));
-    } catch (e) { /* ignore */ }
+    } catch (e) { console.error('[state-store] saveProgress failed:', e); }
   }
 
   _throttledPersist(key) {
@@ -156,7 +164,13 @@ window.StateStore = class StateStore {
         'focused-word:line-spacing': 'lineSpacing',
         'focused-word:letter-spacing': 'letterSpacing',
         'focused-word:red-letter': 'redLetter',
-        'focused-word:cross-refs': 'crossRefs'
+        'focused-word:cross-refs': 'crossRefs',
+        'focused-word:footnotes': 'footnotes',
+        'focused-word:section-headings': 'sectionHeadings',
+        'focused-word:poetry-formatting': 'poetryFormatting',
+        'focused-word:paragraph-breaks': 'paragraphBreaks',
+        'focused-word:paragraph-mode': 'paragraphMode',
+        'focused-word:background-texture': 'backgroundTexture'
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);
@@ -165,7 +179,12 @@ window.StateStore = class StateStore {
           if (val !== null) localStorage.removeItem('focused-word:zen-mode');
         }
         if (val !== null) {
-          this._data[dataKey] = JSON.parse(val);
+          try {
+            this._data[dataKey] = JSON.parse(val);
+          } catch (e) {
+            console.warn('[state-store] cleaning up corrupted value for', storageKey);
+            localStorage.removeItem(storageKey);
+          }
         }
       }
       const progress = localStorage.getItem('focused-word:progress');
@@ -176,6 +195,6 @@ window.StateStore = class StateStore {
         if (p.verse) this._data.currentVerse = p.verse;
         if (p.bookName) this._data.currentBookName = p.bookName;
       }
-    } catch (e) { /* ignore parse failures */ }
+    } catch (e) { console.error('[state-store] loadState failed:', e); }
   }
 };

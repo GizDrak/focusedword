@@ -4,22 +4,33 @@ window.ColorTheme = class ColorTheme {
   }
 
   static definitions = [
-    { id: 'gold', label: 'Gold', color: '#D0A96C', contrastText: 'dark' },
-    { id: 'purple', label: 'Purple', color: '#8B5CF6', contrastText: 'light' },
+    { id: 'gold', label: 'Gold', color: '#D4AF37', contrastText: 'dark' },
+    { id: 'purple', label: 'Purple', color: '#7C3AED', contrastText: 'light' },
     { id: 'emerald', label: 'Emerald', color: '#10B981', contrastText: 'light' },
-    { id: 'sapphire', label: 'Sapphire', color: '#3B82F6', contrastText: 'light' },
+    { id: 'sapphire', label: 'Sapphire', color: '#2563EB', contrastText: 'light' },
     { id: 'rose', label: 'Rose', color: '#E11D48', contrastText: 'light' },
     { id: 'amber', label: 'Amber', color: '#F59E0B', contrastText: 'dark' },
-    { id: 'pink', label: 'Pink', color: '#EC4899', contrastText: 'light' },
-    { id: 'slate', label: 'Slate', color: '#5E81AC', contrastText: 'light' },
-    { id: 'sage', label: 'Sage', color: '#4A6B5D', contrastText: 'light' },
-    { id: 'ice', label: 'Ice', color: '#88C0D0', contrastText: 'dark' },
-    { id: 'bronze', label: 'Bronze', color: '#B8860B', contrastText: 'light' },
-    { id: 'teal', label: 'Teal', color: '#14B8A6', contrastText: 'light' },
-    { id: 'coral', label: 'Coral', color: '#E06B6B', contrastText: 'light' },
-    { id: 'lilac', label: 'Lilac', color: '#A78BFA', contrastText: 'dark' },
+    { id: 'slate', label: 'Slate', color: '#64748B', contrastText: 'light' },
+    { id: 'pink', label: 'Pink', color: '#F472B6', contrastText: 'dark' },
+    { id: 'mint', label: 'Mint', color: '#34D399', contrastText: 'dark' },
+    { id: 'ice', label: 'Ice', color: '#67E8F9', contrastText: 'dark' },
+    { id: 'bronze', label: 'Bronze', color: '#B45309', contrastText: 'light' },
+    { id: 'teal', label: 'Teal', color: '#0F766E', contrastText: 'light' },
+    { id: 'indigo', label: 'Indigo', color: '#4F46E5', contrastText: 'light' },
+    { id: 'coral', label: 'Coral', color: '#F87171', contrastText: 'light' },
   ];
 
+  static getSetColors() {
+    return [
+      { label: 'Purple', color: '#7C3AED' },
+      { label: 'Gold', color: '#D4AF37' },
+      { label: 'Emerald', color: '#10B981' },
+      { label: 'Sapphire', color: '#2563EB' },
+      { label: 'Rose', color: '#E11D48' },
+      { label: 'Amber', color: '#F59E0B' },
+      { label: 'Mint', color: '#34D399' },
+    ];
+  }
   init() {
     const saved = this.bridge.state.get('accent');
     this.apply(saved || 'gold');
@@ -39,9 +50,5 @@ window.ColorTheme = class ColorTheme {
         def.contrastText === 'dark' ? '#111827' : '#F9FAFB'
       );
     }
-  }
-
-  current() {
-    return this.bridge.state.get('accent') || 'gold';
   }
 };

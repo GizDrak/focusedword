@@ -14,21 +14,13 @@ window.ChapterSummary = class ChapterSummary {
     const book = books.find(b => b.id === bookId);
     if (!book) return null;
 
-    const jsonName = ChapterSummary._normalizeBookName(book.name);
+    const jsonName = window.BookMap.denormalizeName(book.name);
     const bookData = ChapterSummary._data.Bible['Old Testament'][jsonName] ||
                      ChapterSummary._data.Bible['New Testament'][jsonName];
     if (!bookData) return null;
 
     const ch = bookData.find(c => c.chapter === chapter);
     return ch ? ch.title : null;
-  }
-
-  static _normalizeBookName(name) {
-    if (name === 'Revelation of John') return 'Revelation';
-    if (name.startsWith('I ')) return '1 ' + name.slice(2);
-    if (name.startsWith('II ')) return '2 ' + name.slice(3);
-    if (name.startsWith('III ')) return '3 ' + name.slice(4);
-    return name;
   }
 
   static async _load() {

@@ -2,6 +2,7 @@ window.App = class App {
   async init() {
     const debug = new window.Debug();
     const bridge = new window.Bridge(debug);
+    this._bridgeRef = bridge;
 
     bridge.state = new window.StateStore();
     bridge.db = new window.BibleDB();
@@ -34,7 +35,6 @@ window.App = class App {
 
     const baseRenderer = new window.BaseRenderer(bridge);
     bridge.register('base-renderer', baseRenderer);
-    bridge.register('renderer-all', new window.AllRenderer(bridge, baseRenderer));
     bridge.register('renderer-swipe', new window.SwipeRenderer(bridge, baseRenderer));
     bridge.register('renderer-spotlight', new window.SpotlightRenderer(bridge, baseRenderer));
     bridge.register('renderer-speed', new window.SpeedRenderer(bridge, baseRenderer));
@@ -50,7 +50,7 @@ window.App = class App {
     const bookmarks = new window.BookmarksUI(bridge);
     bridge.register('bookmarks-ui', bookmarks);
 
-    bridge.register('interaction', new window.InteractionManager(bridge));
+    bridge.register('interaction-manager', new window.InteractionManager(bridge));
 
     bridge.register('cross-references', new window.CrossReferences(bridge));
     bridge.register('cross-refs-ui', new window.CRefsUI(bridge));
@@ -64,6 +64,14 @@ window.App = class App {
     settings._applyTextSettings();
     bookmarks.init();
 
+    const searchModule = new window.SearchModule(bridge);
+    bridge.register('search', searchModule);
+    searchModule.init();
+
+    const fnui = new window.FootnotesUI(bridge);
+    bridge.register('footnotes-ui', fnui);
+    fnui.init();
+
     if (bridge.state.get('crossRefs')) {
       const cr = bridge.get('cross-references');
       if (cr) {
@@ -75,13 +83,12 @@ window.App = class App {
 
     this._fetchTranslationManifest(bridge);
     this._setupModeButton(bridge);
-    this._setupDiscover(bridge);
     this._setupMoreButton(bridge);
     this._setupLibraryButton(bridge);
     this._setupSpeedControls(bridge);
     const viewMgr = new window.ViewManager(bridge);
-    bridge.register('view', viewMgr);
-    bridge.register('render', new window.RenderManager(bridge, viewMgr, baseRenderer));
+    bridge.register('view-manager', viewMgr);
+    bridge.register('render-manager', new window.RenderManager(bridge, viewMgr, baseRenderer));
     this._setupGlobalEvents(bridge);
     this._setupSettingsListeners(bridge);
 
@@ -89,6 +96,43 @@ window.App = class App {
     const restoredChapter = bridge.state.get('currentChapter');
     console.log('[app] restoring to book:', restoredBook, 'chapter:', restoredChapter);
     await navigation.loadChapter(restoredBook, restoredChapter);
+
+    const scrollNav = bridge.get('navigation');
+    const firstVerseText = scrollNav?.currentVerses?.[0]?.text ?? '';
+
+    const scrollVerseContainer = document.querySelector('.verse-container');
+    const scrollContainerWidth = scrollVerseContainer?.clientWidth ?? 320;
+    const scrollFontSizePx = scrollVerseContainer
+      ? parseFloat(getComputedStyle(scrollVerseContainer).fontSize) || 16
+      : 16;
+
+    const scrollFirstBlockSingleLine = window.LineEstimator.isLikelySingleLine(
+      firstVerseText,
+      scrollContainerWidth,
+      scrollFontSizePx
+    );
+
+    const scrollModeTarget = document.getElementById('content');
+
+    const scrollModeSwitcher = new window.ScrollModeSwitcher({
+      mode: 'new',
+      selector: '.verse-container',
+      bridge,
+      firstBlockSingleLine: scrollFirstBlockSingleLine,
+      scrollTarget: scrollModeTarget
+    });
+
+    const scrollRenderer = bridge.get('renderer-scroll');
+    if (scrollRenderer) {
+      scrollRenderer.disableScrollTracking();
+    }
+
+    const renderMgr = bridge.get('render-manager');
+    if (renderMgr) renderMgr._scrollSwitcher = scrollModeSwitcher;
+
+    if (!bridge.state.get('swipeMode') && !bridge.state.get('spotlightMode') && !bridge.state.get('speedMode')) {
+      scrollModeSwitcher.start();
+    }
 
     document.getElementById('content').style.display = '';
     splashEl.classList.add('splash-hidden');
@@ -122,6 +166,7 @@ window.App = class App {
         else if (action === 'swipe') isActive = bridge.state.get('swipeMode');
         else if (action === 'speed') isActive = bridge.state.get('speedMode');
         el.classList.toggle('active', isActive);
+        el.setAttribute('aria-pressed', isActive.toString());
       });
     };
 
@@ -168,78 +213,6 @@ window.App = class App {
 
     bridge.state.onChange('spotlightMode swipeMode speedMode'.split(' '), () => {
       if (modePopup.classList.contains('open')) setModeActive();
-    });
-  }
-
-  _setupDiscover(bridge) {
-    const discoverTab = document.querySelector('.tab-item[data-tab="discover"]');
-    const backdrop = document.getElementById('discover-backdrop');
-    const panel = document.getElementById('discover-panel');
-    const input = document.getElementById('discover-input');
-    const results = document.getElementById('discover-results');
-    if (!discoverTab || !backdrop || !panel || !input) return;
-
-    let searchTimer = null;
-
-    const hideDiscover = () => {
-      backdrop.classList.add('hidden');
-      panel.classList.add('hidden');
-      results.innerHTML = '';
-      input.value = '';
-    };
-
-    discoverTab.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const mp = document.getElementById('mode-popup');
-      if (mp && mp.classList.contains('open')) { mp.classList.remove('open'); mp.classList.add('hidden'); }
-      const mrp = document.getElementById('more-popup');
-      if (mrp && mrp.classList.contains('open')) { mrp.classList.remove('open'); mrp.classList.add('hidden'); }
-      backdrop.classList.remove('hidden');
-      panel.classList.remove('hidden');
-      requestAnimationFrame(() => input.focus());
-    });
-
-    backdrop.addEventListener('click', hideDiscover);
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !panel.classList.contains('hidden')) {
-        hideDiscover();
-      }
-    });
-
-    input.addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      const query = input.value.trim();
-      if (!query) {
-        results.innerHTML = '';
-        return;
-      }
-      searchTimer = setTimeout(async () => {
-        const hits = await bridge.db.searchVerses(query);
-        if (!hits.length) {
-          results.innerHTML = '<div class="search-empty">No results found</div>';
-          return;
-        }
-        const terms = query.split(/\s+/).filter(Boolean);
-        const frag = document.createDocumentFragment();
-        for (const r of hits) {
-          let text = r.text;
-          if (terms.length) {
-            const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-            text = text.replace(new RegExp(`\\b(${escaped})\\b`, 'gi'), '<mark>$1</mark>');
-          }
-          const btn = document.createElement('button');
-          btn.className = 'search-result-item';
-          btn.innerHTML = '<span class="search-result-ref">' + r.book_name + ' ' + r.chapter + ':' + r.verse + '</span><span class="search-result-text">' + text + '</span>';
-          btn.addEventListener('click', () => {
-            hideDiscover();
-            bridge.call('navigation', 'navigateTo', r.book_id, r.chapter, r.verse);
-          });
-          frag.appendChild(btn);
-        }
-        results.innerHTML = '';
-        results.appendChild(frag);
-      }, 250);
     });
   }
 
@@ -291,7 +264,7 @@ window.App = class App {
     if (!libTab) return;
     libTab.addEventListener('click', () => {
       const bm = bridge.get('bookmarks-ui');
-      if (bm) bm.open();
+      if (bm) bm.openSlideUp();
     });
   }
 
@@ -324,7 +297,7 @@ window.App = class App {
 
       const nav = bridge.get('navigation');
       if (!nav) return;
-      const interaction = bridge.get('interaction');
+      const interaction = bridge.get('interaction-manager');
       const swipeMode = bridge.state.get('swipeMode');
       const animDir = bridge.state.get('swipeAnimDir') || 'vertical';
 
@@ -376,9 +349,20 @@ window.App = class App {
     let clickTimer = null;
 
     content.addEventListener('click', (e) => {
-      const interaction = bridge.get('interaction');
+      const interaction = bridge.get('interaction-manager');
       if (interaction && interaction.selectionMode) return;
       if (interaction && interaction._clearedAt && Date.now() - interaction._clearedAt < 300) return;
+
+      const ref = e.target.closest('.token-cross-ref[data-ref-book-id]');
+      if (ref) {
+        const bookId = parseInt(ref.dataset.refBookId);
+        const chapter = parseInt(ref.dataset.refChapter);
+        const verse = parseInt(ref.dataset.refVerse);
+        if (bookId && chapter && verse) {
+          bridge.get('navigation').navigateTo(bookId, chapter, verse);
+        }
+        return;
+      }
 
       const nav = bridge.get('navigation');
       if (!nav) return;
@@ -495,7 +479,7 @@ window.App = class App {
     if (bridge.state.get('focusMode')) {
       document.body.classList.add('focus-mode');
     }
-    bridge.state.onChange('focusMode', (val) => {
+    bridge.state.onChange('focusMode', (_, val) => {
       document.body.classList.toggle('focus-mode', val);
     });
   }

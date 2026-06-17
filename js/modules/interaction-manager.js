@@ -36,6 +36,8 @@ window.InteractionManager = class InteractionManager {
 
   _onPointerDown(e) {
     if (this._isCrossRefTap(e)) return;
+    if (this._isFootnoteTap(e)) return;
+    if (this._isSectionHeadingRefTap(e)) return;
     this._pointerStartX = e.clientX;
     this._pointerStartY = e.clientY;
     this._pointerStartTime = Date.now();
@@ -59,9 +61,6 @@ window.InteractionManager = class InteractionManager {
   }
 
   _onPointerUp(e) {
-    if (this._isCrossRefTap(e)) return;
-    if (e.target.closest('.highlight-toolbar')) return;
-
     const dx = Math.abs(e.clientX - this._pointerStartX);
     const dy = Math.abs(e.clientY - this._pointerStartY);
 
@@ -154,6 +153,14 @@ window.InteractionManager = class InteractionManager {
            e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
   }
 
+  _isFootnoteTap(e) {
+    return !!e.target.closest('.footnote-caller');
+  }
+
+  _isSectionHeadingRefTap(e) {
+    return !!e.target.closest('.token-section-heading-ref');
+  }
+
   _isSpotlightEdgeTap(e) {
     if (!this.bridge.state?.get('spotlightMode')) return false;
     const contentRect = document.getElementById('content').getBoundingClientRect();
@@ -164,9 +171,10 @@ window.InteractionManager = class InteractionManager {
   _enterSelectionMode(verseContainer) {
     if (this.selectionMode) return;
     this.selectionMode = true;
+    document.body.classList.add('selection-mode');
+    document.getElementById('content').classList.add('verse-selecting');
     this.selectedVerses.add(verseContainer);
     verseContainer.classList.add('temp-selected');
-    this._toggleVerseSelectingClass();
     this._emitVerseSelection();
   }
 
@@ -189,7 +197,12 @@ window.InteractionManager = class InteractionManager {
     const firstVerse = Array.from(this.selectedVerses)[0];
     const rect = firstVerse.getBoundingClientRect();
     const text = Array.from(this.selectedVerses)
-      .map(v => v.querySelector('.verse-text')?.textContent?.trim() || '')
+      .map(v => {
+        const vt = v.querySelector('.verse-text');
+        if (!vt) return '';
+        const parts = Array.from(vt.childNodes).filter(n => n.nodeType === Node.TEXT_NODE || (n.classList && !n.classList.contains('verse-num')));
+        return parts.map(n => n.textContent).join('').trim();
+      })
       .filter(Boolean)
       .join(' ');
 
@@ -218,19 +231,12 @@ window.InteractionManager = class InteractionManager {
 
   clearSelection() {
     this.selectionMode = false;
+    document.body.classList.remove('selection-mode');
+    const content = document.getElementById('content');
+    if (content) content.classList.remove('verse-selecting');
     this.selectedVerses.forEach(v => v.classList.remove('temp-selected'));
     this.selectedVerses.clear();
     this._dismissWordSelection();
-    this._toggleVerseSelectingClass();
-  }
-
-  _toggleVerseSelectingClass() {
-    const content = document.getElementById('content');
-    if (this.selectionMode && this.bridge.state?.get('spotlightMode')) {
-      content.classList.add('verse-selecting');
-    } else {
-      content.classList.remove('verse-selecting');
-    }
   }
 
   clearTempSelection() {

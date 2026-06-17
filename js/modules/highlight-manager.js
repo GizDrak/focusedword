@@ -54,6 +54,10 @@ window.HighlightManager = class HighlightManager {
     this._toolbar.classList.remove('hidden');
   }
 
+  _positionToolbar(rect) {
+    // Fixed right-side panel — no dynamic positioning needed
+  }
+
   _onSelectionCleared() {
     this._tempSelection = null;
     this._multiVerseRange = null;
@@ -62,24 +66,44 @@ window.HighlightManager = class HighlightManager {
     this._toolbar.classList.add('hidden');
   }
 
-  _positionToolbar(rect) {
-    // Fixed right-side panel — no dynamic positioning needed
-  }
-
   async _applyPrecisionHighlight(color) {
     if (this._activeContainers && this._activeContainers.length) {
       const state = this.bridge.state;
       const bookId = state.get('currentBook');
       const chapter = state.get('currentChapter');
+
+      const verseNums = [];
       for (const container of this._activeContainers) {
         const vne = container.querySelector('.verse-num');
         if (!vne) continue;
-        const verseNum = parseInt(vne.textContent);
-        const existing = await this.store.getByVerse(bookId, chapter, verseNum);
-        for (const h of existing) await this.store.delete(h.id);
-        await this._applyFullHighlight(container, verseNum, color);
+        verseNums.push(parseInt(vne.textContent));
       }
-      const interaction = this.bridge.get('interaction');
+      verseNums.sort((a, b) => a - b);
+      if (!verseNums.length) return;
+
+      for (const vn of verseNums) {
+        const existing = await this.store.getByVerse(bookId, chapter, vn);
+        for (const h of existing) await this.store.delete(h.id);
+      }
+
+      const verseStart = verseNums[0];
+      const verseEnd = verseNums[verseNums.length - 1];
+      const text = this._activeText || '';
+      await this.store.save({
+        bookId, chapter,
+        verse: verseStart,
+        verseEnd,
+        type: 'full',
+        color,
+        text
+      });
+
+      for (const container of this._activeContainers) {
+        container.classList.add('highlighted');
+        container.style.setProperty('--hl-color', color);
+      }
+
+      const interaction = this.bridge.get('interaction-manager');
       if (interaction) interaction.clearSelection();
       this._activeContainers = null;
       this._activeText = '';
@@ -125,7 +149,7 @@ window.HighlightManager = class HighlightManager {
       text: this._activeText
     });
 
-    const interaction = this.bridge.get('interaction');
+    const interaction = this.bridge.get('interaction-manager');
     if (interaction) interaction.clearTempSelection();
     this._tempSelection = null;
     this._activeText = '';
@@ -149,7 +173,17 @@ window.HighlightManager = class HighlightManager {
         const verseNum = parseInt(vne.textContent);
         if (isNaN(verseNum)) continue;
         verseNums.push(verseNum);
-        await this._removeFullHighlight(container, bookId, chapter, verseNum);
+        container.classList.remove('highlighted');
+        container.style.removeProperty('--hl-color');
+      }
+      verseNums.sort((a, b) => a - b);
+      if (verseNums.length) {
+        const existing = await this.store.getForChapter(bookId, chapter);
+        const rangeHl = existing.find(h =>
+          h.type === 'full' && h.verseEnd &&
+          h.verse <= verseNums[0] && h.verseEnd >= verseNums[verseNums.length - 1]
+        );
+        if (rangeHl) await this.store.delete(rangeHl.id);
       }
     } else {
       if (!this._tempSelection || !this._activeText) return;
@@ -195,7 +229,7 @@ window.HighlightManager = class HighlightManager {
       if (baseRenderer) baseRenderer.applyBookmarks();
     }
 
-    const interaction = this.bridge.get('interaction');
+    const interaction = this.bridge.get('interaction-manager');
     if (this._activeContainers && this._activeContainers.length) {
       if (interaction) interaction.clearSelection();
     } else {
@@ -274,6 +308,8 @@ window.HighlightManager = class HighlightManager {
     const options = document.getElementById('bsp-options');
     if (!options) return;
 
+    this._hideBookmarkSetPicker();
+
     const toolbarRect = this._toolbar.getBoundingClientRect();
     const pickerW = 200;
     const pickerH = 260;
@@ -333,15 +369,7 @@ window.HighlightManager = class HighlightManager {
   _showNewSetInput() {
     this._hideBookmarkSetPicker();
 
-    const COLORS = [
-      { label: 'Purple', color: '#8B5CF6' },
-      { label: 'Gold', color: '#D4A017' },
-      { label: 'Emerald', color: '#10B981' },
-      { label: 'Sapphire', color: '#3B82F6' },
-      { label: 'Rose', color: '#E11D48' },
-      { label: 'Amber', color: '#F59E0B' },
-      { label: 'Pink', color: '#EC4899' },
-    ];
+    const COLORS = ColorTheme.getSetColors();
 
     const overlay = document.createElement('div');
     overlay.className = 'new-set-overlay';
@@ -439,7 +467,7 @@ window.HighlightManager = class HighlightManager {
       pb.bookId, pb.chapter, pb.verses, pb.text, setId
     );
 
-    const interaction = this.bridge.get('interaction');
+    const interaction = this.bridge.get('interaction-manager');
     if (interaction) interaction.clearSelection();
     this._tempSelection = null;
     this._multiVerseRange = null;
@@ -458,7 +486,7 @@ window.HighlightManager = class HighlightManager {
   }
 
   _copyText() {
-    const interaction = this.bridge.get('interaction');
+    const interaction = this.bridge.get('interaction-manager');
     const state = this.bridge.state;
     let text = '';
 
@@ -522,10 +550,10 @@ window.HighlightManager = class HighlightManager {
       ta.select();
       copied = document.execCommand('copy');
       document.body.removeChild(ta);
-    } catch (_) {}
+    } catch (_) { console.error('[highlights] copy fallback failed:'); }
 
     if (!copied && navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).catch(() => {});
+      navigator.clipboard.writeText(text).catch(() => { console.warn('[highlights] clipboard write failed'); });
     }
 
     if (interaction) interaction.clearSelection();
@@ -563,11 +591,71 @@ window.HighlightManager = class HighlightManager {
     const walker = document.createTreeWalker(parentEl, NodeFilter.SHOW_TEXT, null, false);
     let pos = 0;
     let node;
-    while (node = walker.nextNode()) {
+    let maxNodes = 5000;
+    while ((node = walker.nextNode()) && maxNodes-- > 0) {
       if (span.contains(node)) break;
       pos += node.textContent.length;
     }
     return pos;
+  }
+
+  _applyPartialHighlight(container, hl) {
+    const vt = container.querySelector('.verse-text');
+    if (!vt) return;
+    vt.normalize();
+
+    const textNodes = [];
+    const walker = document.createTreeWalker(vt, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while (node = walker.nextNode()) textNodes.push(node);
+
+    let pos = 0;
+    let startNode = null, startOff = 0;
+    let endNode = null, endOff = 0;
+    let started = false;
+
+    for (const tn of textNodes) {
+      const len = tn.textContent.length;
+      const nodeStart = pos;
+      const nodeEnd = pos + len;
+
+      if (!started) {
+        if (hl.startOffset >= nodeStart && hl.startOffset < nodeEnd) {
+          started = true;
+          startNode = tn;
+          startOff = hl.startOffset - nodeStart;
+          if (hl.endOffset <= nodeEnd) {
+            endNode = tn;
+            endOff = hl.endOffset - nodeStart;
+            break;
+          }
+        }
+      } else {
+        if (hl.endOffset <= nodeEnd) {
+          endNode = tn;
+          endOff = hl.endOffset - nodeStart;
+          break;
+        }
+      }
+      pos += len;
+    }
+
+    if (startNode) {
+      const span = document.createElement('span');
+      span.className = window.HighlightStore.colorToClass(hl.color);
+      const range = document.createRange();
+      range.setStart(startNode, Math.min(startOff, startNode.textContent.length));
+      const finalNode = endNode || startNode;
+      const finalOff = endNode ? endOff : Math.min(startOff, startNode.textContent.length);
+      range.setEnd(finalNode, Math.min(finalOff, finalNode.textContent.length));
+      try {
+        range.surroundContents(span);
+      } catch (_) {
+        const frag = range.extractContents();
+        span.appendChild(frag);
+        range.insertNode(span);
+      }
+    }
   }
 
   async _renderHighlightsForSingleVerse(bookId, chapter, verseNum) {
@@ -591,64 +679,9 @@ window.HighlightManager = class HighlightManager {
       container.style.setProperty('--hl-color', fullHl.color);
     }
 
-    const vt = container.querySelector('.verse-text');
-    if (!vt) return;
-    vt.normalize();
-
     const partials = highlights.filter(h => h.type === 'partial');
     for (const hl of partials) {
-      const textNodes = [];
-      const walker = document.createTreeWalker(vt, NodeFilter.SHOW_TEXT, null, false);
-      let node;
-      while (node = walker.nextNode()) textNodes.push(node);
-
-      let pos = 0;
-      let startNode = null, startOff = 0;
-      let endNode = null, endOff = 0;
-      let started = false;
-
-      for (const tn of textNodes) {
-        const len = tn.textContent.length;
-        const nodeStart = pos;
-        const nodeEnd = pos + len;
-
-        if (!started) {
-          if (hl.startOffset >= nodeStart && hl.startOffset < nodeEnd) {
-            started = true;
-            startNode = tn;
-            startOff = hl.startOffset - nodeStart;
-            if (hl.endOffset <= nodeEnd) {
-              endNode = tn;
-              endOff = hl.endOffset - nodeStart;
-              break;
-            }
-          }
-        } else {
-          if (hl.endOffset <= nodeEnd) {
-            endNode = tn;
-            endOff = hl.endOffset - nodeStart;
-            break;
-          }
-        }
-        pos += len;
-      }
-
-      if (startNode) {
-        const span = document.createElement('span');
-        span.className = window.HighlightStore.colorToClass(hl.color);
-        const range = document.createRange();
-        range.setStart(startNode, Math.min(startOff, startNode.textContent.length));
-        const finalNode = endNode || startNode;
-        const finalOff = endNode ? endOff : Math.min(startOff, startNode.textContent.length);
-        range.setEnd(finalNode, Math.min(finalOff, finalNode.textContent.length));
-        try {
-          range.surroundContents(span);
-        } catch (_) {
-          const frag = range.extractContents();
-          span.appendChild(frag);
-          range.insertNode(span);
-        }
-      }
+      this._applyPartialHighlight(container, hl);
     }
   }
 
@@ -669,70 +702,27 @@ window.HighlightManager = class HighlightManager {
     }
 
     for (const hl of highlights) {
-      const c = Array.from(containers).find(
-        el => parseInt(el.querySelector('.verse-num')?.textContent) === hl.verse
-      );
-      if (!c) continue;
-
-      if (hl.type === 'full') {
+      if (hl.type === 'full' && hl.verseEnd) {
+        for (const c of containers) {
+          const vn = parseInt(c.querySelector('.verse-num')?.textContent);
+          if (vn >= hl.verse && vn <= hl.verseEnd) {
+            c.classList.add('highlighted');
+            c.style.setProperty('--hl-color', hl.color);
+          }
+        }
+      } else if (hl.type === 'full') {
+        const c = Array.from(containers).find(
+          el => parseInt(el.querySelector('.verse-num')?.textContent) === hl.verse
+        );
+        if (!c) continue;
         c.classList.add('highlighted');
         c.style.setProperty('--hl-color', hl.color);
       } else if (hl.type === 'partial') {
-        const vt = c.querySelector('.verse-text');
-        if (!vt) continue;
-        vt.normalize();
-        const textNodes = [];
-        const walker = document.createTreeWalker(vt, NodeFilter.SHOW_TEXT, null, false);
-        let node;
-        while (node = walker.nextNode()) textNodes.push(node);
-
-        let pos = 0;
-        let startNode = null, startOff = 0;
-        let endNode = null, endOff = 0;
-        let started = false;
-
-        for (const tn of textNodes) {
-          const len = tn.textContent.length;
-          const nodeStart = pos;
-          const nodeEnd = pos + len;
-
-          if (!started) {
-            if (hl.startOffset >= nodeStart && hl.startOffset < nodeEnd) {
-              started = true;
-              startNode = tn;
-              startOff = hl.startOffset - nodeStart;
-              if (hl.endOffset <= nodeEnd) {
-                endNode = tn;
-                endOff = hl.endOffset - nodeStart;
-                break;
-              }
-            }
-          } else {
-            if (hl.endOffset <= nodeEnd) {
-              endNode = tn;
-              endOff = hl.endOffset - nodeStart;
-              break;
-            }
-          }
-          pos += len;
-        }
-
-        if (startNode) {
-          const span = document.createElement('span');
-          span.className = window.HighlightStore.colorToClass(hl.color);
-          const range = document.createRange();
-          range.setStart(startNode, Math.min(startOff, startNode.textContent.length));
-          const finalNode = endNode || startNode;
-          const finalOff = endNode ? endOff : Math.min(startOff, startNode.textContent.length);
-          range.setEnd(finalNode, Math.min(finalOff, finalNode.textContent.length));
-          try {
-            range.surroundContents(span);
-          } catch (_) {
-            const frag = range.extractContents();
-            span.appendChild(frag);
-            range.insertNode(span);
-          }
-        }
+        const c = Array.from(containers).find(
+          el => parseInt(el.querySelector('.verse-num')?.textContent) === hl.verse
+        );
+        if (!c) continue;
+        this._applyPartialHighlight(c, hl);
       }
     }
   }

@@ -18,16 +18,23 @@ window.RenderManager = class RenderManager {
   _dispatch(verses) {
     const s = this.bridge.state;
     if (s.get('speedMode')) {
+      this._scrollSwitcher?.stop();
       this.vm.setMode('speed');
       this.bridge.call('renderer-speed', 'render', verses);
     } else if (s.get('swipeMode')) {
+      this._scrollSwitcher?.stop();
       this.vm.setMode('swipe');
       this.bridge.call('renderer-swipe', 'render', verses);
     } else if (s.get('spotlightMode')) {
+      this._scrollSwitcher?.stop();
       this.vm.setMode('spotlight');
       this.bridge.call('renderer-spotlight', 'render', verses);
     } else {
       this.bridge.call('renderer-scroll', 'render', verses);
+      if (this._scrollSwitcher) {
+        this._scrollSwitcher.stop();
+        this._scrollSwitcher.start();
+      }
     }
   }
 
@@ -40,7 +47,6 @@ window.RenderManager = class RenderManager {
       const currentVerse = state.get('currentVerse');
 
       this.base.showChapterHeader(verses, bookName);
-      this.base.setupScrollAutoHide(this.vm.content);
       this.base.updateFocusedVerse(currentVerse);
       this.base.showSpeedControls(!!state.get('speedMode'));
 
@@ -51,6 +57,7 @@ window.RenderManager = class RenderManager {
       if (!state.get('swipeMode') && !state.get('spotlightMode') && !state.get('speedMode')) {
         const sr = this.bridge.get('renderer-scroll');
         if (sr) sr.onRenderComplete();
+        this._scrollSwitcher?.start();
       }
 
       if (!state.get('swipeMode') && !state.get('speedMode')) {
@@ -66,6 +73,13 @@ window.RenderManager = class RenderManager {
     this.bridge.state.onChange('swipeMode spotlightMode speedMode'.split(' '), () => {
       this.vm.syncBodyClasses(this._modeFlags());
     });
+    this.bridge.state.onChange('paragraphMode', (_, val) => {
+      document.body.classList.toggle('paragraph-mode', val);
+      this.bridge.state.set('paragraphBreaks', val);
+    });
+    this.bridge.state.onChange('backgroundTexture', (_, val) => {
+      document.body.classList.toggle('background-texture', val);
+    });
   }
 
   _modeFlags() {
@@ -75,5 +89,12 @@ window.RenderManager = class RenderManager {
 
   _syncOnInit() {
     this.vm.syncBodyClasses(this._modeFlags());
+    if (this.bridge.state.get('paragraphMode')) {
+      document.body.classList.add('paragraph-mode');
+      this.bridge.state.set('paragraphBreaks', true);
+    }
+    if (this.bridge.state.get('backgroundTexture')) {
+      document.body.classList.add('background-texture');
+    }
   }
 };

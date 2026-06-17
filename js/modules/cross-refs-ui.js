@@ -15,7 +15,7 @@ window.CRefsUI = class CRefsUI {
     this.overlay.addEventListener('click', () => this.close());
 
     this.bridge.on('crossref:show', (detail) => this._show(detail));
-    this.bridge.on('state:changed:crossRefs', (val) => {
+    this.bridge.state.onChange('crossRefs', (key, val) => {
       if (!val) this.close();
     });
   }
@@ -76,9 +76,11 @@ window.CRefsUI = class CRefsUI {
 
   async _fetchVerseText(bookId, chapter, verse) {
     try {
-      const verses = await this.bridge.db.getVerses(bookId, chapter);
+      const code = this.bridge.db.idToCode(bookId);
+      if (!code) return '';
+      const verses = await this.bridge.db.getChapterTokens(code, chapter);
       const v = verses.find(v => v.verse === verse);
-      return v ? v.text.trim() : '';
+      return v ? v.clean_text.trim() : '';
     } catch {
       return '';
     }

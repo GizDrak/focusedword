@@ -42,8 +42,25 @@ window.SelectionManager = class SelectionManager {
   }
 
   async getBookmarksForChapter(bookId, chapter) {
-    const all = await this._getAll('bookmarks');
-    return all.filter((b) => b.bookId === bookId && b.chapter === chapter);
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = this._db.transaction('bookmarks', 'readonly');
+        const store = tx.objectStore('bookmarks');
+        if (!store.indexNames.contains('byChapter')) {
+          const allReq = store.getAll();
+          allReq.onsuccess = () => resolve((allReq.result || []).filter(b => b.bookId === bookId && b.chapter === chapter));
+          allReq.onerror = () => reject(allReq.error);
+          return;
+        }
+        const range = IDBKeyRange.only([bookId, chapter]);
+        const req = store.index('byChapter').getAll(range);
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      const all = await this._getAll('bookmarks');
+      return all.filter(b => b.bookId === bookId && b.chapter === chapter);
+    }
   }
 
   async getAllBookmarks() {
@@ -91,9 +108,10 @@ window.SelectionManager = class SelectionManager {
 
   _openDB() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('FocusedWord', 3);
+      const req = indexedDB.open('FocusedWord', 5);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
+        const tx = e.target.transaction;
         if (e.oldVersion < 1) {
           if (!db.objectStoreNames.contains('bookmarks')) db.createObjectStore('bookmarks', { keyPath: 'id', autoIncrement: true });
           if (!db.objectStoreNames.contains('highlights')) db.createObjectStore('highlights', { keyPath: 'id' });
@@ -104,6 +122,34 @@ window.SelectionManager = class SelectionManager {
         }
         if (e.oldVersion < 3) {
           if (!db.objectStoreNames.contains('bookmark_sets')) db.createObjectStore('bookmark_sets', { keyPath: 'id', autoIncrement: true });
+        }
+        if (e.oldVersion < 4) {
+          if (tx.objectStoreNames.contains('highlights')) {
+            const store = tx.objectStore('highlights');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
+          if (tx.objectStoreNames.contains('bookmarks')) {
+            const store = tx.objectStore('bookmarks');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
+        }
+        if (e.oldVersion < 5) {
+          if (tx.objectStoreNames.contains('highlights')) {
+            const store = tx.objectStore('highlights');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
+          if (tx.objectStoreNames.contains('bookmarks')) {
+            const store = tx.objectStore('bookmarks');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
         }
       };
       req.onsuccess = (e) => { this._db = e.target.result; resolve(); };

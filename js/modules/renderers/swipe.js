@@ -2,9 +2,60 @@ window.SwipeRenderer = class SwipeRenderer {
   constructor(bridge, base) {
     this.bridge = bridge;
     this.base = base;
-    this.currentVerseIndex = 0;
+    this._cards = [];
+    this.currentCardIndex = 0;
     this._showHeader = true;
     this._animating = false;
+    this._bulkRefs = {};
+  }
+
+  _isHeadingOnly(verse) {
+    if (!verse.tokens || !verse.tokens.length) return false;
+    return verse.tokens.every(t => t.type === 'section_heading');
+  }
+
+  _buildCardSequence(verses) {
+    const cards = [];
+    const showHeadings = this.bridge.state.get('sectionHeadings');
+    for (const v of verses) {
+      if (!v.tokens) {
+        cards.push({ type: 'verse', verse: v.verse, tokens: null, raw: v });
+        continue;
+      }
+      if (showHeadings && this._isHeadingOnly(v)) continue;
+
+      const headingGroups = [];
+      const textTokens = [];
+      let currentHeading = null;
+
+      for (const t of v.tokens) {
+        if (t.type === 'section_heading' && showHeadings) {
+          if (currentHeading !== null) {
+            headingGroups.push(currentHeading);
+          }
+          currentHeading = [t];
+        } else if (t.type === 'cross_ref' && currentHeading !== null) {
+          currentHeading.push(t);
+        } else {
+          if (currentHeading !== null) {
+            headingGroups.push(currentHeading);
+            currentHeading = null;
+          }
+          textTokens.push(t);
+        }
+      }
+      if (currentHeading !== null) {
+        headingGroups.push(currentHeading);
+      }
+
+      for (const group of headingGroups) {
+        cards.push({ type: 'heading', verse: v.verse, tokens: group, raw: v });
+      }
+      if (textTokens.length > 0) {
+        cards.push({ type: 'verse', verse: v.verse, tokens: textTokens, raw: v });
+      }
+    }
+    return cards;
   }
 
   render(verses) {
@@ -13,54 +64,116 @@ window.SwipeRenderer = class SwipeRenderer {
     const state = this.bridge.state;
     const bionic = state.get('bionic');
     const strength = state.get('bionicStrength');
+    const bookId = state.get('currentBook');
+    const chapter = state.get('currentChapter');
 
     this.bridge.state.set('swipeMode', true);
     this.animDir = state.get('swipeAnimDir') || 'horizontal';
 
-    const idx = verses.findIndex(v => v.verse === state.get('currentVerse'));
-    this._showHeader = idx <= 0;
-    this.currentVerseIndex = Math.max(idx, 0);
-
-    this._renderCurrent(verses, bionic, strength);
-  }
-
-  _createContainer(verse, bionic, strength, height) {
-    const container = document.createElement('div');
-    container.className = 'verse-container';
-    container.dataset.verse = verse.verse;
-
-    const verseText = document.createElement('span');
-    verseText.className = 'verse-text';
-    verseText.setAttribute('dir', 'auto');
-
-    const verseNum = document.createElement('sup');
-    verseNum.className = 'verse-num';
-    verseNum.textContent = verse.verse;
-
-    const useWj = this.bridge.state.get('redLetter') && verse.has_wj && verse.text_wj;
-
-    if (useWj) {
-      verseText.innerHTML = bionic
-        ? this.base._applyBionicToWj(verse.text_wj, strength)
-        : verse.text_wj;
-    } else if (bionic) {
-      verseText.innerHTML = this.bridge.bionic.parse(verse.text, strength);
+    if (state.get('crossRefs')) {
+      this.base._currentBookId = bookId;
+      this.base._currentChapter = chapter;
+      const cr = this.bridge.get('cross-references');
+      this._bulkRefs = cr && cr.enabled ? (cr.getRefsBulk(bookId, chapter) || {}) : {};
     } else {
-      verseText.textContent = verse.text;
+      this._bulkRefs = {};
     }
 
-    verseText.prepend(verseNum);
-    container.appendChild(verseText);
+    const currentVerse = state.get('currentVerse');
+    this._cards = this._buildCardSequence(verses);
+    const cardIdx = this._cards.findIndex(c => c.type === 'verse' && c.verse === currentVerse);
+    this.currentCardIndex = cardIdx >= 0 ? cardIdx : 0;
+    this._showHeader = verses.findIndex(v => v.verse === currentVerse) <= 0;
 
-    if (height) {
-      container.style.height = height + 'px';
-      container.style.overflow = 'hidden';
-    }
-
-    return container;
+    this._renderCurrent(bionic, strength);
   }
 
-  _computeMaxHeight(verses, bionic, strength) {
+  _createContainer(card, bionic, strength, height, settings) {
+    if (card.type === 'heading') {
+      const el = document.createElement('div');
+      el.className = 'verse-container heading-card';
+      el.dataset.verse = card.verse;
+      for (const t of card.tokens) {
+        if (t.type === 'section_heading') {
+          const hEl = document.createElement('div');
+          hEl.className = 'token-section-heading heading-card-text';
+          hEl.textContent = t.text || '';
+          el.appendChild(hEl);
+        } else if (t.type === 'cross_ref') {
+          const refEl = document.createElement('span');
+          refEl.className = 'token-section-heading-ref';
+          refEl.textContent = t.text || '';
+          const refs = new window.TokenRenderer()._parseCrossRefRefs(t.text);
+          if (refs && refs.length) {
+            refEl.dataset.refs = JSON.stringify(refs);
+          }
+          refEl.addEventListener('click', (e) => {
+            const im = this.bridge.get('interaction-manager');
+            if (im && im.selectionMode) return;
+            e.stopPropagation();
+            try {
+              const refs = JSON.parse(refEl.dataset.refs);
+              if (refs && refs.length) {
+                const verseNum = parseInt(el.dataset.verse);
+                this.base._showInlineCrossRefs(refs, verseNum);
+              }
+            } catch (e) {
+              console.error('[swipe] heading cross-ref parse:', e);
+            }
+          });
+          el.appendChild(refEl);
+        }
+      }
+      if (height) {
+        el.style.height = height + 'px';
+        el.style.overflow = 'hidden';
+      }
+      return el;
+    }
+
+    let el;
+    if (card.tokens) {
+      el = new window.TokenRenderer()._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings());
+    }
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'verse-container';
+      el.dataset.verse = card.verse;
+      const verseNum = document.createElement('sup');
+      verseNum.className = 'verse-num';
+      verseNum.textContent = card.verse;
+      const verseText = document.createElement('span');
+      verseText.className = 'verse-text';
+      verseText.textContent = card.raw && card.raw.clean_text || '';
+      verseText.prepend(verseNum);
+      el.appendChild(verseText);
+    }
+    el.dataset.verse = card.verse;
+    if (this.bridge.state.get('crossRefs') && this._bulkRefs && this._bulkRefs[card.verse] && this._bulkRefs[card.verse].length) {
+      this.base._addCrossRefIndicator(el, card.verse);
+    }
+    if (height) {
+      el.style.height = height + 'px';
+      el.style.overflow = 'hidden';
+    }
+    return el;
+  }
+
+  _computeMaxHeight(bionic, strength) {
+    const state = this.bridge.state;
+    const cacheKey = `${state.get('currentBook')}_${state.get('currentChapter')}_${bionic}_${strength}`;
+    if (this._maxHeightCache?.key === cacheKey) {
+      return this._maxHeightCache.value;
+    }
+
+    const verseCards = this._cards.filter(c => c.type === 'verse');
+    if (!verseCards.length) {
+      const result = Math.round(window.innerHeight * 0.5);
+      this._maxHeightCache = { key: cacheKey, value: result };
+      return result;
+    }
+
+    const settings = this.base._getSettings();
     const meas = document.createElement('div');
     meas.id = 'content';
     meas.className = 'swipe-mode';
@@ -72,9 +185,10 @@ window.SwipeRenderer = class SwipeRenderer {
     document.body.appendChild(meas);
 
     let max = 0;
-    const len = Math.min(verses.length, 500);
-    for (let i = 0; i < len; i++) {
-      const container = this._createContainer(verses[i], bionic, strength);
+    const len = Math.min(verseCards.length, AppConfig.SWIPE_MAX_VERSE_MEASURE);
+    const step = len > 100 ? 5 : 1;
+    for (let i = 0; i < len; i += step) {
+      const container = this._createContainer(verseCards[i], bionic, strength, null, settings);
       deck.appendChild(container);
       const h = container.offsetHeight;
       if (h > max) max = h;
@@ -82,10 +196,13 @@ window.SwipeRenderer = class SwipeRenderer {
     }
 
     document.body.removeChild(meas);
-    return Math.min(max, Math.round(window.innerHeight * 0.8));
+    const result = Math.min(max, Math.round(window.innerHeight * 0.8));
+    this._maxHeightCache = { key: cacheKey, value: result };
+    return result;
   }
 
-  _renderCurrent(verses, bionic, strength) {
+  _renderCurrent(bionic, strength) {
+    const settings = this.base._getSettings();
     const content = document.getElementById('content');
     for (let i = content.children.length - 1; i >= 0; i--) {
       const c = content.children[i];
@@ -104,13 +221,13 @@ window.SwipeRenderer = class SwipeRenderer {
 
     if (header) header.classList.add('header-hidden');
 
-    const v = verses[this.currentVerseIndex];
-    if (!v) return;
-    if (v.verse !== this.bridge.state.get('currentVerse')) {
-      this.bridge.state.set('currentVerse', v.verse);
+    const card = this._cards[this.currentCardIndex];
+    if (!card) return;
+    if (card.type === 'verse' && card.verse !== this.bridge.state.get('currentVerse')) {
+      this.bridge.state.set('currentVerse', card.verse);
     }
 
-    const maxHeight = this._computeMaxHeight(verses, bionic, strength);
+    const maxHeight = this._computeMaxHeight(bionic, strength);
     this._cardHeight = maxHeight;
 
     const deck = document.createElement('div');
@@ -118,20 +235,21 @@ window.SwipeRenderer = class SwipeRenderer {
     deck.classList.toggle('swipe-anim-vertical', this.animDir === 'vertical');
     deck.style.height = maxHeight + 'px';
 
-    const current = this._createContainer(v, bionic, strength, maxHeight);
+    const current = this._createContainer(card, bionic, strength, maxHeight, settings);
     current.classList.add('card--current');
     deck.appendChild(current);
 
-    if (this.currentVerseIndex < verses.length - 1) {
-      const nextV = verses[this.currentVerseIndex + 1];
-      const nextCard = this._createContainer(nextV, bionic, strength, maxHeight);
+    if (this.currentCardIndex < this._cards.length - 1) {
+      const nextCard = this._createContainer(this._cards[this.currentCardIndex + 1], bionic, strength, maxHeight, settings);
       nextCard.classList.add('card--next');
       deck.appendChild(nextCard);
     }
 
     content.appendChild(deck);
     content.style.height = window.innerHeight + 'px';
-    this.base.updateFocusedVerse(v.verse);
+    if (card.type === 'verse') {
+      this.base.updateFocusedVerse(card.verse);
+    }
   }
 
   advance(verses, direction) {
@@ -143,46 +261,49 @@ window.SwipeRenderer = class SwipeRenderer {
     if (direction === 'next') {
       if (this._showHeader) {
         this._showHeader = false;
-        this.currentVerseIndex = 0;
-        this._renderCurrent(verses, this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
-      } else if (this.currentVerseIndex < verses.length - 1) {
-        this.currentVerseIndex++;
+        this.currentCardIndex = 0;
+        this._renderCurrent(this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
+      } else if (this.currentCardIndex < this._cards.length - 1) {
+        this.currentCardIndex++;
         if (currentCard && deck) {
-          this._animatedTransition(verses, currentCard, deck, 'next');
+          this._animatedTransition(currentCard, deck, 'next');
         } else {
-          this._renderCurrent(verses, this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
+          this._renderCurrent(this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
         }
       } else {
         this.bridge.emit('nav:advance-chapter', { direction: 'next' });
       }
     } else {
-      if (this.currentVerseIndex > 0) {
-        this.currentVerseIndex--;
+      if (this.currentCardIndex > 0) {
+        this.currentCardIndex--;
         if (currentCard && deck) {
-          this._animatedTransition(verses, currentCard, deck, 'prev');
+          this._animatedTransition(currentCard, deck, 'prev');
         } else {
-          this._renderCurrent(verses, this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
+          this._renderCurrent(this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
         }
-      } else if (this.currentVerseIndex === 0 && !this._showHeader) {
+      } else if (this.currentCardIndex === 0 && !this._showHeader) {
         this._showHeader = true;
-        this._renderCurrent(verses, this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
+        this._renderCurrent(this.bridge.state.get('bionic'), this.bridge.state.get('bionicStrength'));
       } else {
         this.bridge.emit('nav:advance-chapter', { direction: 'prev' });
       }
     }
   }
 
-  _animatedTransition(verses, currentCard, deck, direction) {
+  _animatedTransition(currentCard, deck, direction) {
     this._animating = true;
     const state = this.bridge.state;
     const bionic = state.get('bionic');
     const strength = state.get('bionicStrength');
+    const settings = this.base._getSettings();
     const h = this._cardHeight;
 
-    const v = verses[this.currentVerseIndex];
-    if (!v) { this._animating = false; return; }
+    const card = this._cards[this.currentCardIndex];
+    if (!card) { this._animating = false; return; }
 
-    state.set('currentVerse', v.verse);
+    if (card.type === 'verse') {
+      state.set('currentVerse', card.verse);
+    }
 
     if (direction === 'next') {
       const nextCard = deck.querySelector('.card--next');
@@ -206,11 +327,12 @@ window.SwipeRenderer = class SwipeRenderer {
         }
       }
 
-      this.base.updateFocusedVerse(v.verse);
+      if (card.type === 'verse') {
+        this.base.updateFocusedVerse(card.verse);
+      }
 
-      if (this.currentVerseIndex < verses.length - 1) {
-        const nextV = verses[this.currentVerseIndex + 1];
-        const newNext = this._createContainer(nextV, bionic, strength, h);
+      if (this.currentCardIndex < this._cards.length - 1) {
+        const newNext = this._createContainer(this._cards[this.currentCardIndex + 1], bionic, strength, h, settings);
         newNext.classList.add('card--next');
         deck.appendChild(newNext);
       }
@@ -219,7 +341,7 @@ window.SwipeRenderer = class SwipeRenderer {
         this._finishTransition(deck, currentCard);
       }, 600);
     } else {
-      const enteringCard = this._createContainer(v, bionic, strength, h);
+      const enteringCard = this._createContainer(card, bionic, strength, h, settings);
       enteringCard.classList.add('card--enter');
       enteringCard.style.transition = 'none';
       if (this.animDir === 'vertical') {
@@ -239,15 +361,16 @@ window.SwipeRenderer = class SwipeRenderer {
         const staleNext = deck.querySelector('.card--next');
         if (staleNext) staleNext.remove();
 
-        this.base.updateFocusedVerse(v.verse);
+        if (card.type === 'verse') {
+          this.base.updateFocusedVerse(card.verse);
+        }
 
         setTimeout(() => {
           currentCard.remove();
           enteringCard.classList.remove('card--enter');
           enteringCard.classList.add('card--current');
-          if (this.currentVerseIndex < verses.length - 1) {
-            const nextV = verses[this.currentVerseIndex + 1];
-            const newNext = this._createContainer(nextV, bionic, strength, this._cardHeight);
+          if (this.currentCardIndex < this._cards.length - 1) {
+            const newNext = this._createContainer(this._cards[this.currentCardIndex + 1], bionic, strength, this._cardHeight, settings);
             newNext.classList.add('card--next');
             deck.appendChild(newNext);
           }
@@ -267,7 +390,9 @@ window.SwipeRenderer = class SwipeRenderer {
 
         currentCard.classList.add('card--to-peek');
 
-        this.base.updateFocusedVerse(v.verse);
+        if (card.type === 'verse') {
+          this.base.updateFocusedVerse(card.verse);
+        }
 
         setTimeout(() => {
           currentCard.classList.remove('card--current', 'card--to-peek');
@@ -302,13 +427,13 @@ window.SwipeRenderer = class SwipeRenderer {
         enter.classList.remove('card--enter');
         enter.classList.add('card--current');
       }
-      const current = deck.querySelector('.verse-container');
-      if (current) {
-        current.classList.remove('card--next');
-        current.style.transition = '';
-        current.style.transform = '';
-        current.style.opacity = '';
-      }
+      const current = deck.querySelectorAll('.verse-container, .heading-card');
+      current.forEach(el => {
+        el.classList.remove('card--next');
+        el.style.transition = '';
+        el.style.transform = '';
+        el.style.opacity = '';
+      });
       deck.style.height = '';
     }
     this._animating = false;

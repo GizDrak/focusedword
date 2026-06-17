@@ -16,7 +16,7 @@ window.HighlightStore = class HighlightStore {
 
   _openDB() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('FocusedWord', 3);
+      const req = indexedDB.open('FocusedWord', 5);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
         const tx = e.target.transaction;
@@ -30,6 +30,34 @@ window.HighlightStore = class HighlightStore {
         }
         if (e.oldVersion < 3) {
           if (!db.objectStoreNames.contains('bookmark_sets')) db.createObjectStore('bookmark_sets', { keyPath: 'id', autoIncrement: true });
+        }
+        if (e.oldVersion < 4) {
+          if (tx.objectStoreNames.contains('highlights')) {
+            const store = tx.objectStore('highlights');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
+          if (tx.objectStoreNames.contains('bookmarks')) {
+            const store = tx.objectStore('bookmarks');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
+        }
+        if (e.oldVersion < 5) {
+          if (tx.objectStoreNames.contains('highlights')) {
+            const store = tx.objectStore('highlights');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
+          if (tx.objectStoreNames.contains('bookmarks')) {
+            const store = tx.objectStore('bookmarks');
+            if (!store.indexNames.contains('byChapter')) {
+              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
+            }
+          }
         }
       };
       req.onsuccess = (e) => { this._db = e.target.result; resolve(); };
@@ -49,6 +77,7 @@ window.HighlightStore = class HighlightStore {
       bookId: data.bookId,
       chapter: data.chapter,
       verse: data.verse,
+      verseEnd: data.verseEnd || null,
       type: data.type,
       startOffset: data.type === 'partial' ? data.startOffset : null,
       endOffset: data.type === 'partial' ? data.endOffset : null,
@@ -75,14 +104,34 @@ window.HighlightStore = class HighlightStore {
 
   async getForChapter(bookId, chapter) {
     await this._ensureOpen();
-    const all = await this._getAll();
-    return all.filter(h => h.bookId === bookId && h.chapter === chapter);
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = this._db.transaction('highlights', 'readonly');
+        const store = tx.objectStore('highlights');
+        if (!store.indexNames.contains('byChapter')) {
+          const allReq = store.getAll();
+          allReq.onsuccess = () => resolve((allReq.result || []).filter(h => h.bookId === bookId && h.chapter === chapter));
+          allReq.onerror = () => reject(allReq.error);
+          return;
+        }
+        const range = IDBKeyRange.only([bookId, chapter]);
+        const req = store.index('byChapter').getAll(range);
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      const all = await this._getAll();
+      return all.filter(h => h.bookId === bookId && h.chapter === chapter);
+    }
   }
 
   async getByVerse(bookId, chapter, verse) {
-    await this._ensureOpen();
-    const all = await this._getAll();
-    return all.filter(h => h.bookId === bookId && h.chapter === chapter && h.verse === verse);
+    const rows = await this.getForChapter(bookId, chapter);
+    return rows.filter(h => {
+      if (h.verse === verse) return true;
+      if (h.verseEnd && verse >= h.verse && verse <= h.verseEnd) return true;
+      return false;
+    });
   }
 
   async getAll() {

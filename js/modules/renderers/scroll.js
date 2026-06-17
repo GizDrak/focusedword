@@ -4,35 +4,38 @@ window.ScrollRenderer = class ScrollRenderer {
     this.base = base;
   }
 
-  render(verses) {
+  async render(verses) {
     this._pendingRender = true;
     const state = this.bridge.state;
+    const content = document.getElementById('content');
+    await this._renderVerses(verses, content);
+    if (!this._scrollTrackingDisabled) {
+      this._setupScrollTracking();
+    }
+  }
+
+  async _renderVerses(verses, content) {
+    if (!verses.length) return;
+    const state = this.bridge.state;
+    const settings = this.base._getSettings();
+    const bookId = state.get('currentBook');
+    const chapter = state.get('currentChapter');
     const bionic = state.get('bionic');
     const strength = state.get('bionicStrength');
 
-    const content = document.getElementById('content');
-
     let bulkRefs = {};
-    const bookId = state.get('currentBook');
-    const chapter = state.get('currentChapter');
-
     if (state.get('crossRefs')) {
       this.base._currentBookId = bookId;
       this.base._currentChapter = chapter;
-      if (bookId && chapter) {
-        const cr = this.bridge.get('cross-references');
-        if (cr && cr.enabled) {
-          bulkRefs = cr.getRefsBulk(bookId, chapter) || {};
-        }
+      const cr = this.bridge.get('cross-references');
+      if (cr && cr.enabled) {
+        bulkRefs = cr.getRefsBulk(bookId, chapter) || {};
       }
     }
 
-    for (const v of verses) {
-      const refs = bulkRefs[v.verse] || null;
-      content.appendChild(this.base.createVerseElement(v, bionic, strength, refs));
-    }
-
-    this._setupScrollTracking();
+    const frag = this.base.renderTokenChapter(verses, bionic, strength, settings);
+    this.base._addCrossRefIndicators(frag, bulkRefs);
+    content.appendChild(frag);
   }
 
   _setupScrollTracking() {
@@ -52,12 +55,25 @@ window.ScrollRenderer = class ScrollRenderer {
     this._scrollTarget.addEventListener('scroll', this._scrollHandler, { passive: true });
   }
 
+  disableScrollTracking() {
+    this._scrollTrackingDisabled = true;
+    if (this._scrollHandler && this._scrollTarget) {
+      this._scrollTarget.removeEventListener('scroll', this._scrollHandler, { passive: true });
+      this._scrollHandler = null;
+    }
+  }
+
+  enableScrollTracking() {
+    this._scrollTrackingDisabled = false;
+  }
+
   onRenderComplete() {
     setTimeout(() => { this._pendingRender = false; }, 400);
   }
 
   _syncVerseFromScroll() {
     if (this._pendingRender) return;
+    if (document.body.classList.contains('paragraph-mode')) return;
     const containers = document.querySelectorAll('.verse-container');
     if (!containers.length) return;
 

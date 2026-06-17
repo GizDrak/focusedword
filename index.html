@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0A0A0A">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com https://fonts.googleapis.com">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="FocusedWord">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -88,12 +89,12 @@
           <span class="mode-badge"></span>
         </button>
         <button class="mode-item" data-action="swipe">
-          <span class="mode-icon">⊳</span>
+          <span class="mode-icon">↔</span>
           <span class="mode-label">Swipe</span>
           <span class="mode-badge"></span>
         </button>
         <button class="mode-item" data-action="speed">
-          <span class="mode-icon">⚡</span>
+          <span class="mode-icon">▶</span>
           <span class="mode-label">Speed</span>
           <span class="mode-badge"></span>
         </button>
@@ -203,16 +204,24 @@
               <option value="dark">Dark</option>
               <option value="sepia">Sepia</option>
               <option value="light">Light</option>
-              <option value="midnight">Midnight</option>
-              <option value="linen">Linen</option>
-              <option value="forest">Forest</option>
+              <option value="eclipse">Eclipse</option>
+              <option value="parchment">Parchment</option>
+              <option value="pine">Pine</option>
               <option value="nord">Nord</option>
-              <option value="royal">Royal</option>
+              <option value="velvet">Velvet</option>
+              <option value="galaxy">Galaxy</option>
             </select>
           </div>
           <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
             <span>Accent</span>
             <div class="accent-swatches" id="settings-accents"></div>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-background-texture">
+              <span class="toggle-text">Background Texture</span>
+              <input type="checkbox" id="settings-background-texture" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
           </div>
         </div>
       </div>
@@ -254,9 +263,9 @@
           <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
             <div style="display:flex;justify-content:space-between;">
               <span>Font Size</span>
-              <span id="settings-font-size-label" class="strength-label">14pt</span>
+              <span id="settings-font-size-label" class="strength-label">13pt</span>
             </div>
-            <input type="range" id="settings-font-size" min="10" max="24" step="1" value="14">
+            <input type="range" id="settings-font-size" min="10" max="24" step="1" value="13">
           </div>
           <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
             <div style="display:flex;justify-content:space-between;">
@@ -292,6 +301,48 @@
         </button>
         <div class="section-body">
           <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-paragraph-mode">
+              <span class="toggle-text">Paragraph Reading</span>
+              <input type="checkbox" id="settings-paragraph-mode" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-red-letter">
+              <span class="toggle-text">Red Letter</span>
+              <input type="checkbox" id="settings-red-letter" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-footnotes">
+              <span class="toggle-text">Footnotes</span>
+              <input type="checkbox" id="settings-footnotes" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-section-headings">
+              <span class="toggle-text">Section Headings</span>
+              <input type="checkbox" id="settings-section-headings" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-poetry">
+              <span class="toggle-text">Poetry Formatting</span>
+              <input type="checkbox" id="settings-poetry" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-cross-refs">
+              <span class="toggle-text">Cross References</span>
+              <input type="checkbox" id="settings-cross-refs" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row">
             <label class="toggle-label-wrapper" for="settings-bionic">
               <span class="toggle-text">Bionic Reading</span>
               <input type="checkbox" id="settings-bionic" class="toggle-checkbox">
@@ -302,20 +353,6 @@
             <span>Bionic Strength</span>
             <input type="range" id="settings-strength" min="0.10" max="0.90" step="0.05" value="0.45">
             <span id="settings-strength-label" class="strength-label">45%</span>
-          </div>
-          <div class="setting-row">
-            <label class="toggle-label-wrapper" for="settings-red-letter">
-              <span class="toggle-text">Red Letter</span>
-              <input type="checkbox" id="settings-red-letter" class="toggle-checkbox">
-              <span class="toggle-pill"></span>
-            </label>
-          </div>
-          <div class="setting-row">
-            <label class="toggle-label-wrapper" for="settings-cross-refs">
-              <span class="toggle-text">Cross References</span>
-              <input type="checkbox" id="settings-cross-refs" class="toggle-checkbox">
-              <span class="toggle-pill"></span>
-            </label>
           </div>
         </div>
       </div>
@@ -338,11 +375,40 @@
         </div>
       </div>
 
-      <div class="settings-version">v0.7</div>
+          <div class="data-section-row">
+            <button id="view-changelog" class="btn-secondary">What's New</button>
+          </div>
+      <div class="settings-version">v0.8</div>
     </div>
   </div>
 
-  <!-- ========== Bookmarks Panel ========== -->
+  <!-- ========== Changelog Panel ========== -->
+  <div id="changelog-overlay" class="changelog-overlay"></div>
+  <div id="changelog-panel" class="changelog-panel">
+    <div class="changelog-header">
+      <h2>What's New</h2>
+      <button id="changelog-close" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div id="changelog-body" class="changelog-body"></div>
+  </div>
+
+  <!-- ========== Library Panel (slide-up) ========== -->
+  <div id="library-backdrop" class="library-backdrop"></div>
+  <div id="library-panel" class="library-panel" role="dialog" aria-modal="true" aria-label="Bookmarks and Highlights">
+    <div class="library-header">
+      <h2>Bookmarks &amp; Highlights</h2>
+      <button id="library-close" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div class="library-tabs">
+      <button id="library-tab-bm" class="library-tab active">Bookmarks</button>
+      <button id="library-tab-hl" class="library-tab">Highlights</button>
+    </div>
+    <div class="library-body" id="library-body">
+      <div class="bookmarks-empty">No bookmarks yet. Select text to create one.</div>
+    </div>
+  </div>
+
+  <!-- ========== Bookmarks Modal (legacy) ========== -->
   <div id="bookmarks-backdrop" class="bookmarks-backdrop"></div>
   <div id="bookmarks-modal" class="bookmarks-modal" role="dialog" aria-modal="true" aria-label="Bookmarks and Highlights">
     <div class="bookmarks-header">
@@ -368,6 +434,16 @@
     <div class="crossref-body" id="crossref-body"></div>
   </div>
 
+  <!-- ========== Footnotes Popup ========== -->
+  <div id="footnote-overlay" class="footnote-overlay hidden" role="presentation"></div>
+  <div id="footnote-popup" class="footnote-popup hidden" role="dialog" aria-modal="true" aria-label="Footnote">
+    <div class="footnote-popup-header">
+      <span id="footnote-popup-title">Footnote</span>
+      <button id="footnote-popup-close" class="icon-btn" aria-label="Close footnote">✕</button>
+    </div>
+    <div id="footnote-popup-body" class="footnote-popup-body"></div>
+  </div>
+
   <!-- ========== Navigation Bottom Sheet ========== -->
   <div id="nav-backdrop" class="nav-backdrop" role="presentation"></div>
   <div id="nav-sheet" class="nav-sheet" role="dialog" aria-modal="true" aria-label="Navigate Bible">
@@ -375,11 +451,11 @@
       <span id="nav-sheet-title">Books</span>
       <button id="nav-close" class="icon-btn" aria-label="Close">✕</button>
     </div>
+    <div class="nav-translation-row">
+      <label for="nav-translation">Translation</label>
+      <select id="nav-translation"></select>
+    </div>
     <div id="nav-view-books" class="nav-view">
-      <div class="nav-translation-row">
-        <label for="nav-translation">Translation</label>
-        <select id="nav-translation"></select>
-      </div>
       <div id="nav-book-list" class="nav-book-list"></div>
     </div>
     <div id="nav-view-chapters" class="nav-view hidden">
@@ -390,8 +466,9 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.js"></script>
+  <script src="js/core/config.js"></script>
   <script src="js/utils/bionic.js"></script>
+  <script src="js/data/book-map.js"></script>
   <script src="js/data/db.js"></script>
   <script src="js/core/debug.js"></script>
   <script src="js/core/state-store.js"></script>
@@ -401,7 +478,6 @@
   <script src="js/data/selection.js"></script>
   <script src="js/modules/chapter-summary.js"></script>
   <script src="js/modules/renderers/base.js"></script>
-  <script src="js/modules/renderers/all.js"></script>
   <script src="js/modules/renderers/swipe.js"></script>
   <script src="js/modules/renderers/spotlight.js"></script>
   <script src="js/modules/renderers/speed.js"></script>
@@ -409,6 +485,7 @@
   <script src="js/modules/navigation.js"></script>
   <script src="js/modules/color-theme.js"></script>
   <script src="js/modules/settings.js"></script>
+  <script src="js/modules/search.js"></script>
   <script src="js/modules/bookmarks-ui.js"></script>
   <script src="js/modules/interaction-manager.js"></script>
   <script src="js/data/highlight-store.js"></script>
@@ -421,6 +498,16 @@
   </div>
   <script src="js/data/cross-references.js"></script>
   <script src="js/modules/cross-refs-ui.js"></script>
+  <script src="js/modules/footnotes-ui.js"></script>
+  <script src="js/modules/scroll-mode/band-engine.js"></script>
+  <script src="js/modules/scroll-mode/char-resolver.js"></script>
+  <script src="js/modules/scroll-mode/line-estimator.js"></script>
+  <script src="js/modules/scroll-mode/highlight-renderer.js"></script>
+  <script src="js/modules/scroll-mode/block-resolver.js"></script>
+  <script src="js/modules/scroll-mode/reading-tracker.js"></script>
+  <script src="js/modules/scroll-mode/switcher.js"></script>
+  <script src="js/utils/markdown-parser.js"></script>
+  <script src="js/utils/token-renderer.js"></script>
   <script src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

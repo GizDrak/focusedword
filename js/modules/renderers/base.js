@@ -1,6 +1,20 @@
 window.BaseRenderer = class BaseRenderer {
   constructor(bridge) {
     this.bridge = bridge;
+    this._currentBookId = null;
+    this._currentChapter = null;
+  }
+
+  _getSettings() {
+    const state = this.bridge.state;
+    return {
+      redLetter: state.get('redLetter'),
+      footnotes: state.get('footnotes'),
+      sectionHeadings: state.get('sectionHeadings'),
+      poetryFormatting: state.get('poetryFormatting'),
+      paragraphBreaks: state.get('paragraphBreaks'),
+      paragraphMode: state.get('paragraphMode')
+    };
   }
 
   _getEmblemSvg(bookId) {
@@ -41,7 +55,7 @@ window.BaseRenderer = class BaseRenderer {
   _extractChapterTitle(text) {
     if (!text) return 'The Beginning';
     const cleaned = text.replace(/^And\s+|^So\s+|^Then\s+|^Now\s+/i, '');
-    const parts = cleaned.split(/[,;:—–-]/);
+    const parts = cleaned.split(/[,;:\u2014\u2013-]/);
     const firstPart = parts[0].trim();
     let words = firstPart.split(/\s+/);
 
@@ -87,12 +101,13 @@ window.BaseRenderer = class BaseRenderer {
     if (titleEl) {
       const cs = this.bridge.get('chapter-summary');
       const summary = cs ? cs.getSummary(bookId, chapter) : ChapterSummary.getSummary(bookId, chapter);
-      titleEl.textContent = summary || this._extractChapterTitle(verses[0]?.text || '');
+      titleEl.textContent = summary || this._extractChapterTitle(verses[0]?.clean_text || verses[0]?.text || '');
     }
 
     const subtitleEl = document.getElementById('chapter-subtitle');
     if (subtitleEl) {
-      subtitleEl.textContent = bookName + ' ' + chapter + ' \u00B7 ' + verses.length + ' verses';
+      const count = verses.filter(v => v.verse > 0).length;
+      subtitleEl.textContent = bookName + ' ' + chapter + ' \u00B7 ' + count + ' verses';
     }
 
     if (state.get('swipeMode')) return;
@@ -109,16 +124,48 @@ window.BaseRenderer = class BaseRenderer {
     }
   }
 
-  setupScrollAutoHide(contentEl) {
-    if (this._scrollHandler) {
-      if (this._scrollTarget) {
-        this._scrollTarget.removeEventListener('scroll', this._scrollHandler, { passive: true });
-      }
-      this._scrollHandler = null;
+  renderTokenChapter(verses, bionic, strength, settings) {
+    if (!this._tokenRenderer) {
+      this._tokenRenderer = new window.TokenRenderer();
     }
+    const frag = this._tokenRenderer.renderChapter(verses, bionic, strength, settings || this._getSettings());
+    frag.querySelectorAll('.token-section-heading-ref[data-refs]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const im = this.bridge.get('interaction-manager');
+        if (im && im.selectionMode) return;
+        e.stopPropagation();
+        try {
+          const refs = JSON.parse(el.dataset.refs);
+          if (refs && refs.length) {
+            const verseContainer = el.closest('.verse-container');
+            const verseNum = verseContainer ? parseInt(verseContainer.dataset.verse) : null;
+            this._showInlineCrossRefs(refs, verseNum);
+          }
+        } catch (e) { console.error('[base] cross-ref inline parse:', e); }
+      });
+    });
+    return frag;
+  }
+
+  renderTokenVerse(verseTokens, verseNum) {
+    if (!this._tokenRenderer) {
+      this._tokenRenderer = new window.TokenRenderer();
+    }
+    return this._tokenRenderer._renderVerseTokens(verseNum, verseTokens, false, 0, this._getSettings());
   }
 
   createVerseElement(verse, bionic, strength, crossRefs) {
+    if (verse.tokens) {
+      const frag = this.renderTokenChapter([verse], bionic, strength);
+      const container = frag.querySelector('.verse-container');
+      if (container) {
+        if (crossRefs && crossRefs.length > 0 && this.bridge.state.get('crossRefs')) {
+          this._addCrossRefIndicator(container, verse.verse);
+        }
+        return container;
+      }
+    }
+
     const container = document.createElement('div');
     container.className = 'verse-container';
     container.dataset.verse = verse.verse;
@@ -131,42 +178,19 @@ window.BaseRenderer = class BaseRenderer {
     verseText.className = 'verse-text';
     verseText.setAttribute('dir', 'auto');
 
-    const useWj = this.bridge.state.get('redLetter') && verse.has_wj && verse.text_wj;
-
-    if (useWj) {
-      verseText.innerHTML = bionic
-        ? this._applyBionicToWj(verse.text_wj, strength)
-        : verse.text_wj;
-    } else if (bionic) {
-      verseText.innerHTML = this.bridge.bionic.parse(verse.text, strength);
+    const text = verse.clean_text || '';
+    if (bionic) {
+      verseText.innerHTML = this.bridge.bionic.parse(text, strength);
     } else {
-      verseText.textContent = verse.text;
+      verseText.textContent = text;
     }
 
     verseText.prepend(verseNum);
-
-    if (crossRefs && crossRefs.length > 0 && this.bridge.state.get('crossRefs')) {
-      const indicator = document.createElement('sup');
-      indicator.className = 'crossref-indicator';
-      indicator.textContent = '\u2020';
-      indicator.title = 'Cross references';
-      indicator.addEventListener('pointerdown', (e) => e.stopPropagation());
-      indicator.addEventListener('pointerup', (e) => e.stopPropagation());
-      indicator.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await this._showCrossRefBar(this._currentBookId, this._currentChapter, verse.verse);
-      });
-      verseText.appendChild(indicator);
-    }
-
     container.appendChild(verseText);
+    if (crossRefs && crossRefs.length > 0 && this.bridge.state.get('crossRefs')) {
+      this._addCrossRefIndicator(container, verse.verse);
+    }
     return container;
-  }
-
-  _applyBionicToWj(html, strength) {
-    return html.replace(/(^|>)([^<]+)(?=<|$)/g, (_, before, text) => {
-      return before + this.bridge.bionic.parse(text, strength);
-    });
   }
 
   updateFocusedVerse(verseNum) {
@@ -186,7 +210,7 @@ window.BaseRenderer = class BaseRenderer {
 
     const state = this.bridge.state;
     const nav = this.bridge.get('navigation');
-    const total = nav?.currentVerses?.length ||
+    const total = (nav?.currentVerses || []).filter(v => v.verse > 0).length ||
                   document.querySelectorAll('.verse-container').length;
 
     if (!total) {
@@ -202,54 +226,64 @@ window.BaseRenderer = class BaseRenderer {
     bar.classList.add('visible');
   }
 
-  async _showCrossRefBar(bookId, chapter, verse) {
-    const key = `${bookId}_${chapter}_${verse}`;
-    if (this._crossRefShowingKey === key) {
-      const bar = document.getElementById('verse-progress');
-      const refsContainer = document.getElementById('crossref-bar');
-      if (bar && refsContainer) {
-        const dismissBtn = refsContainer.querySelector('.crossref-bar-dismiss');
-        if (dismissBtn) dismissBtn.click();
+  _addCrossRefIndicator(container, verseNum) {
+    const verseText = container.querySelector('.verse-text');
+    if (!verseText) return;
+    const indicator = document.createElement('span');
+    indicator.className = 'crossref-indicator';
+    indicator.textContent = '\u2020';
+    indicator.addEventListener('click', async (e) => {
+      const im = this.bridge.get('interaction-manager');
+      if (im && im.selectionMode) return;
+      e.stopPropagation();
+      await this._showCrossRefBar(this._currentBookId, this._currentChapter, verseNum);
+    });
+    const children = Array.from(verseText.children);
+    let target = null;
+    for (let i = children.length - 1; i >= 0; i--) {
+      if (children[i].textContent.trim()) {
+        target = children[i];
+        break;
       }
-      return;
     }
+    if (target) {
+      const lastEl = target.lastElementChild;
+      if (lastEl && lastEl.tagName === 'BR') {
+        target.insertBefore(indicator, lastEl);
+      } else {
+        target.appendChild(indicator);
+      }
+    } else {
+      verseText.appendChild(indicator);
+    }
+  }
 
-    const bar = document.getElementById('verse-progress');
-    const refsContainer = document.getElementById('crossref-bar');
-    if (!bar || !refsContainer) return;
+  _addCrossRefIndicators(fragment, bulkRefs) {
+    if (!this.bridge.state.get('crossRefs')) return;
+    const containers = fragment.querySelectorAll('.verse-container');
+    for (const c of containers) {
+      const v = parseInt(c.dataset.verse);
+      if (bulkRefs && bulkRefs[v] && bulkRefs[v].length) {
+        this._addCrossRefIndicator(c, v);
+      }
+    }
+  }
 
-    const refs = this.bridge.get('cross-references').getRefs(bookId, chapter, verse);
-    const topRefs = refs.slice(0, 3);
+  async _renderCrossRefEntries(refs, container, onNavigate) {
     const books = window.BibleDB._BOOKS;
-
-    refsContainer.innerHTML = '';
-
-    if (topRefs.length === 0) return;
-
-    const doDismiss = () => {
-      this._crossRefShowingKey = null;
-      if (document.activeElement && typeof document.activeElement.blur === 'function') {
-        document.activeElement.blur();
-      }
-      if (this._crossRefCleanup) { this._crossRefCleanup(); this._crossRefCleanup = null; }
-      if (this._crossRefCloseDoc) {
-        document.removeEventListener('click', this._crossRefCloseDoc);
-        document.removeEventListener('wheel', this._crossRefCloseDoc);
-        this._crossRefCloseDoc = null;
-      }
-      refsContainer.innerHTML = '';
-    };
-
-    for (const ref of topRefs) {
+    for (const ref of refs) {
       const toBook = books.find(b => b.id === ref.to_book_id);
       if (!toBook) continue;
 
       let text = '';
       try {
-        const verses = await this.bridge.db.getVerses(ref.to_book_id, ref.to_chapter);
-        const v = verses.find(v => v.verse === ref.to_verse_start);
-        if (v) text = v.text.trim();
-      } catch {}
+        const code = this.bridge.db.idToCode(ref.to_book_id);
+        if (code) {
+          const verses = await this.bridge.db.getChapterTokens(code, ref.to_chapter);
+          const v = verses.find(v => v.verse === ref.to_verse_start);
+          if (v) text = v.clean_text.trim();
+        }
+      } catch (e) { console.error('[base] fetch cross-ref text:', e, ref); }
 
       const label = `${toBook.name} ${ref.to_chapter}:${ref.to_verse_start}` +
         (ref.to_verse_end > ref.to_verse_start ? `-${ref.to_verse_end}` : '');
@@ -257,7 +291,7 @@ window.BaseRenderer = class BaseRenderer {
       const entry = document.createElement('div');
       entry.className = 'crossref-bar-entry';
       entry.addEventListener('click', () => {
-        doDismiss();
+        onNavigate();
         this.bridge.get('navigation').navigateTo(ref.to_book_id, ref.to_chapter, ref.to_verse_start);
       });
 
@@ -271,14 +305,45 @@ window.BaseRenderer = class BaseRenderer {
 
       entry.appendChild(textSpan);
       entry.appendChild(refSpan);
-      refsContainer.appendChild(entry);
+      container.appendChild(entry);
+    }
+  }
+
+  _dismissCrossRef(key) {
+    this._crossRefShowingKey = null;
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    if (this._crossRefCleanup) { this._crossRefCleanup(); this._crossRefCleanup = null; }
+    if (this._crossRefCloseDoc) {
+      document.removeEventListener('click', this._crossRefCloseDoc);
+      document.removeEventListener('wheel', this._crossRefCloseDoc);
+      this._crossRefCloseDoc = null;
+    }
+    const refsContainer = document.getElementById('crossref-bar');
+    if (refsContainer) refsContainer.innerHTML = '';
+  }
+
+  async _showCrossRefBar(bookId, chapter, verse) {
+    const key = `${bookId}_${chapter}_${verse}`;
+    if (this._crossRefShowingKey === key) {
+      const refsContainer = document.getElementById('crossref-bar');
+      const dismissBtn = refsContainer?.querySelector('.crossref-bar-dismiss');
+      if (dismissBtn) dismissBtn.click();
+      return;
     }
 
-    if (this._crossRefCleanup) this._crossRefCleanup();
-    this._crossRefCleanup = () => {
-      bar.classList.remove('show-references');
-      this._updateProgressBar();
-    };
+    const bar = document.getElementById('verse-progress');
+    const refsContainer = document.getElementById('crossref-bar');
+    if (!bar || !refsContainer) return;
+
+    const refs = this.bridge.get('cross-references').getRefs(bookId, chapter, verse);
+    const topRefs = refs.slice(0, 3);
+
+    if (topRefs.length === 0) return;
+
+    refsContainer.innerHTML = '';
+    await this._renderCrossRefEntries(topRefs, refsContainer, () => this._dismissCrossRef(key));
 
     bar.classList.add('visible', 'show-references');
     this._crossRefShowingKey = key;
@@ -286,8 +351,14 @@ window.BaseRenderer = class BaseRenderer {
     const dismiss = document.createElement('button');
     dismiss.className = 'crossref-bar-dismiss';
     dismiss.textContent = '\u2715';
-    dismiss.addEventListener('click', doDismiss);
+    dismiss.addEventListener('click', () => this._dismissCrossRef(key));
     refsContainer.appendChild(dismiss);
+
+    if (this._crossRefCleanup) this._crossRefCleanup();
+    this._crossRefCleanup = () => {
+      bar.classList.remove('show-references');
+      this._updateProgressBar();
+    };
 
     if (this._crossRefCloseDoc) {
       document.removeEventListener('click', this._crossRefCloseDoc);
@@ -306,7 +377,59 @@ window.BaseRenderer = class BaseRenderer {
               e.clientY >= r.top - pad && e.clientY <= r.bottom + pad) return;
         }
       }
-      doDismiss();
+      this._dismissCrossRef(key);
+    };
+
+    setTimeout(() => {
+      document.addEventListener('click', this._crossRefCloseDoc);
+      document.addEventListener('wheel', this._crossRefCloseDoc);
+    }, 0);
+  }
+
+  async _showInlineCrossRefs(refs, verseNum) {
+    const key = 'inline_' + refs.map(r => `${r.to_book_id}:${r.to_chapter}:${r.to_verse_start}`).join(',');
+    if (this._crossRefShowingKey === key) {
+      const refsContainer = document.getElementById('crossref-bar');
+      const dismissBtn = refsContainer?.querySelector('.crossref-bar-dismiss');
+      if (dismissBtn) dismissBtn.click();
+      return;
+    }
+
+    const bar = document.getElementById('verse-progress');
+    const refsContainer = document.getElementById('crossref-bar');
+    if (!bar || !refsContainer) return;
+
+    const topRefs = refs.slice(0, 3);
+
+    if (this._crossRefCleanup) this._crossRefCleanup();
+    refsContainer.innerHTML = '';
+
+    if (topRefs.length === 0) return;
+
+    await this._renderCrossRefEntries(topRefs, refsContainer, () => this._dismissCrossRef(key));
+
+    this._crossRefCleanup = () => {
+      bar.classList.remove('show-references');
+      this._updateProgressBar();
+    };
+
+    bar.classList.add('visible', 'show-references');
+    this._crossRefShowingKey = key;
+
+    const dismiss = document.createElement('button');
+    dismiss.className = 'crossref-bar-dismiss';
+    dismiss.textContent = '\u2715';
+    dismiss.addEventListener('click', () => this._dismissCrossRef(key));
+    refsContainer.appendChild(dismiss);
+
+    if (this._crossRefCloseDoc) {
+      document.removeEventListener('click', this._crossRefCloseDoc);
+      document.removeEventListener('wheel', this._crossRefCloseDoc);
+    }
+
+    this._crossRefCloseDoc = (e) => {
+      if (e.target && e.target.closest && e.target.closest('#verse-progress')) return;
+      this._dismissCrossRef(key);
     };
 
     setTimeout(() => {

@@ -11,7 +11,8 @@ window.SpeedRenderer = class SpeedRenderer {
   buildWordStream(verses) {
     this.wordStream = [];
     for (const v of verses) {
-      const words = v.text.split(/\s+/);
+      const text = v.clean_text || '';
+      const words = text.split(/\s+/);
       for (const word of words) {
         if (word) this.wordStream.push({ text: word, verseNum: v.verse });
       }
@@ -165,9 +166,9 @@ window.SpeedRenderer = class SpeedRenderer {
       if (this.currentWordIndex < this.wordStream.length - 1) {
         this.currentWordIndex++;
         this._syncVerse();
-    this._renderWord();
-    const wordObj = this.wordStream[this.currentWordIndex];
-    if (wordObj) this.base._updateProgressBar(wordObj.verseNum);
+        this._renderWord();
+        const wordObj = this.wordStream[this.currentWordIndex];
+        if (wordObj) this.base._updateProgressBar(wordObj.verseNum);
         this._scheduleNext();
       } else {
         this._stopTimer();

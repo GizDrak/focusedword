@@ -39,6 +39,4 @@ window.ViewManager = class ViewManager {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }
-
-  get height() { return window.innerHeight; }
 };

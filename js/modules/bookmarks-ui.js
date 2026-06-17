@@ -15,6 +15,30 @@ window.BookmarksUI = class BookmarksUI {
 
     document.getElementById('bookmarks-tab-bm').addEventListener('click', () => this.renderBookmarksTab());
     document.getElementById('bookmarks-tab-hl').addEventListener('click', () => this.renderHighlightsTab());
+
+    document.getElementById('library-close').addEventListener('click', () => this.closeSlideUp());
+    document.getElementById('library-backdrop').addEventListener('click', () => this.closeSlideUp());
+
+    document.getElementById('library-tab-bm').addEventListener('click', () => this.renderBookmarksTab());
+    document.getElementById('library-tab-hl').addEventListener('click', () => this.renderHighlightsTab());
+  }
+
+  _bodyEl() {
+    const panel = document.getElementById('library-panel');
+    if (panel.classList.contains('open')) return document.getElementById('library-body');
+    return document.getElementById('bookmarks-body');
+  }
+
+  _tabBmEl() {
+    const panel = document.getElementById('library-panel');
+    if (panel.classList.contains('open')) return document.getElementById('library-tab-bm');
+    return document.getElementById('bookmarks-tab-bm');
+  }
+
+  _tabHlEl() {
+    const panel = document.getElementById('library-panel');
+    if (panel.classList.contains('open')) return document.getElementById('library-tab-hl');
+    return document.getElementById('bookmarks-tab-hl');
   }
 
   open() {
@@ -30,6 +54,15 @@ window.BookmarksUI = class BookmarksUI {
     }
   }
 
+  openSlideUp() {
+    const panel = document.getElementById('library-panel');
+    const backdrop = document.getElementById('library-backdrop');
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+    this._activeFilterSet = this.bridge.state.get('activeBookmarkSet');
+    this.renderBookmarksTab();
+  }
+
   closeModal() {
     const modal = document.getElementById('bookmarks-modal');
     const backdrop = document.getElementById('bookmarks-backdrop');
@@ -38,10 +71,19 @@ window.BookmarksUI = class BookmarksUI {
     if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
 
+  closeSlideUp() {
+    const panel = document.getElementById('library-panel');
+    const backdrop = document.getElementById('library-backdrop');
+    panel.classList.remove('open');
+    backdrop.classList.remove('open');
+  }
+
   refreshIfOpen() {
     const modal = document.getElementById('bookmarks-modal');
-    if (!modal.classList.contains('open')) return;
-    const tabBm = document.getElementById('bookmarks-tab-bm');
+    const panel = document.getElementById('library-panel');
+    const isOpen = modal.classList.contains('open') || panel.classList.contains('open');
+    if (!isOpen) return;
+    const tabBm = this._tabBmEl();
     if (tabBm.classList.contains('active')) {
       this.renderBookmarksTab();
     } else {
@@ -50,9 +92,9 @@ window.BookmarksUI = class BookmarksUI {
   }
 
   async renderBookmarksTab() {
-    document.getElementById('bookmarks-tab-bm').classList.add('active');
-    document.getElementById('bookmarks-tab-hl').classList.remove('active');
-    const body = document.getElementById('bookmarks-body');
+    this._tabBmEl().classList.add('active');
+    this._tabHlEl().classList.remove('active');
+    const body = this._bodyEl();
 
     const [items, sets] = await Promise.all([
       this.bridge.selection.getAllBookmarks(),
@@ -71,10 +113,12 @@ window.BookmarksUI = class BookmarksUI {
       ? items.filter(item => item.setId === this._activeFilterSet)
       : items;
 
-    if (!items.length) {
+    if (!filtered.length) {
       const empty = document.createElement('div');
       empty.className = 'bookmarks-empty';
-      empty.textContent = 'No bookmarks yet. Select text to create one.';
+      empty.textContent = this._activeFilterSet && items.length
+        ? 'No bookmarks in this set. Select a different filter or create new bookmarks.'
+        : 'No bookmarks yet. Select text to create one.';
       body.appendChild(empty);
       return;
     }
@@ -94,12 +138,15 @@ window.BookmarksUI = class BookmarksUI {
       const verses = item.verses || [item.verse];
       const sorted = [...verses].sort((a, b) => a - b);
       const verseRange = BookmarksUI._formatVerseRange(sorted);
-      const text = base ? base.escapeHtml(item.text) : item.text;
-      const name = `${ref} ${item.chapter}:${verseRange} ${text}`;
+      let text = item.text || '';
+      text = text.replace(/^\d+\s*/, '');
+      if (text.length > 80) text = text.slice(0, 80) + '...';
+      const name = `${ref} ${item.chapter}:${verseRange} ${base ? base.escapeHtml(text) : ''}`;
 
       let badgeHtml = '';
       if (set) {
-        badgeHtml = `<span class="bm-set-badge" style="background:${set.color || '#8B5CF6'}">${set.name.slice(0, 2).toUpperCase()}</span>`;
+        const safeName = (base ? base.escapeHtml(set.name) : set.name).slice(0, 2).toUpperCase();
+        badgeHtml = `<span class="bm-set-badge" style="background:${set.color || '#8B5CF6'}">${safeName}</span>`;
       }
 
       el.innerHTML = `
@@ -114,6 +161,12 @@ window.BookmarksUI = class BookmarksUI {
         e.stopPropagation();
         await this.bridge.selection.deleteItem(item.id);
         this.renderBookmarksTab();
+        const curBook = this.bridge.state.get('currentBook');
+        const curChap = this.bridge.state.get('currentChapter');
+        if (item.bookId === curBook && item.chapter === curChap) {
+          const br = this.bridge.get('base-renderer');
+          if (br) br.applyBookmarks();
+        }
       });
       body.appendChild(el);
     }
@@ -188,7 +241,7 @@ window.BookmarksUI = class BookmarksUI {
   }
 
   _showNewSetForm() {
-    const body = document.getElementById('bookmarks-body');
+    const body = this._bodyEl();
     const form = document.createElement('div');
     form.className = 'bm-set-form';
 
@@ -206,7 +259,7 @@ window.BookmarksUI = class BookmarksUI {
     input.placeholder = 'Set name...';
     input.maxLength = 30;
 
-    const colors = ['#8B5CF6', '#D4A017', '#10B981', '#3B82F6', '#E11D48', '#F59E0B', '#EC4899'];
+    const colors = ColorTheme.getSetColors().map(c => c.color);
     let selectedColor = colors[0];
     const colorRow = document.createElement('div');
     colorRow.className = 'bm-set-colors';
@@ -306,7 +359,7 @@ window.BookmarksUI = class BookmarksUI {
   }
 
   _renameSet(set) {
-    const body = document.getElementById('bookmarks-body');
+    const body = this._bodyEl();
     const filterBar = body.querySelector('.bm-set-filter');
     const form = document.createElement('div');
     form.className = 'bm-set-form';
@@ -318,15 +371,7 @@ window.BookmarksUI = class BookmarksUI {
 
     const swatchRow = document.createElement('div');
     swatchRow.className = 'accent-swatches';
-    const COLORS = [
-      { label: 'Purple', color: '#8B5CF6' },
-      { label: 'Gold', color: '#D4A017' },
-      { label: 'Emerald', color: '#10B981' },
-      { label: 'Sapphire', color: '#3B82F6' },
-      { label: 'Rose', color: '#E11D48' },
-      { label: 'Amber', color: '#F59E0B' },
-      { label: 'Pink', color: '#EC4899' },
-    ];
+    const COLORS = ColorTheme.getSetColors();
     const selectedColor = { current: set.color || '#8B5CF6' };
     for (const c of COLORS) {
       const btn = document.createElement('button');
@@ -384,9 +429,9 @@ window.BookmarksUI = class BookmarksUI {
   }
 
   async renderHighlightsTab() {
-    document.getElementById('bookmarks-tab-hl').classList.add('active');
-    document.getElementById('bookmarks-tab-bm').classList.remove('active');
-    const body = document.getElementById('bookmarks-body');
+    this._tabHlEl().classList.add('active');
+    this._tabBmEl().classList.remove('active');
+    const body = this._bodyEl();
 
     const hm = this.bridge.get('highlight-manager');
     if (!hm) {
@@ -410,10 +455,14 @@ window.BookmarksUI = class BookmarksUI {
       el.className = 'bookmark-item';
       const ref = booksCache.find(b => b.id === item.bookId)?.name || '';
       let text = item.text || '';
-      if (item.type === 'partial' && text.length > 60) {
-        text = text.slice(0, 60) + '...';
+      text = text.replace(/^\d+\s*/, '');
+      if (text.length > 80) {
+        text = text.slice(0, 80) + '...';
       }
-      const name = `${ref} ${item.chapter}:${item.verse} ${base ? base.escapeHtml(text) : text}`;
+      const verseLabel = item.verseEnd && item.verseEnd !== item.verse
+        ? `${item.verse}–${item.verseEnd}`
+        : `${item.verse}`;
+      const name = `${ref} ${item.chapter}:${verseLabel} ${base ? base.escapeHtml(text) : ''}`;
       el.innerHTML = `
         <div class="bm-color" style="background:${item.color}"></div>
         <div class="bm-content">
@@ -437,13 +486,15 @@ window.BookmarksUI = class BookmarksUI {
   _navigateToItem(item) {
     const state = this.bridge.state;
     const verses = item.verses || [item.verse];
+    const verseTarget = item.verseEnd ? item.verse : verses[0];
     state.batch({
       currentBook: item.bookId,
       currentChapter: item.chapter,
-      currentVerse: verses[0]
+      currentVerse: verseTarget
     });
     this.bridge.call('navigation', 'loadChapter', item.bookId, item.chapter);
     this.closeModal();
+    this.closeSlideUp();
   }
 
   static _formatVerseRange(verses) {
