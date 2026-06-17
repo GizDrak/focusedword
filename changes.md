@@ -1,113 +1,77 @@
 # Changelog — Focused Word
 
+## v0.8.1
+
+### Better Search
+- Search is now much smarter and more accurate. It understands word variations (like “begin,” “begins,” “beginning,” “begun”) automatically — no more needing to add * wildcards.
+- Fixed a bug that was sometimes preventing good search results.
+
 ## v0.8
 
-### Themes & Accents
-- Added **Galaxy** theme (#0F0A1F / #E6D9FF) — deep purple-dark with purple accent
-- Renamed themes: Midnight → Eclipse, Linen → Parchment, Forest → Pine, Royal → Velvet
-- New accent palette: 15 colors spread across the color wheel (Purple, Indigo, Sapphire, Ice, Teal, Emerald, Mint, Sage, Rose, Coral, Amber, Gold, Bronze, Slate)
-- Sage (green) replaced with Pink (`#F472B6`)
-- Removed Lilac accent
+### New Looks & Customization
+- **New Galaxy theme** — a beautiful deep purple night-sky look.
+- Renamed several themes for clearer names (Midnight is now Eclipse, etc.).
+- Added **15 new accent colors** so you can personalize the app even more.
+- Replaced the old Sage green accent with a nice Pink.
 
-### Paragraph Reading
-- Paragraph mode now works in **spotlight mode** (inline focus pill instead of dimmed verses)
-- Paragraph breaks are automatically enabled when Paragraph Reading is on
-- `paragraph_start` tokens create `<br>` + spacing span in paragraph mode
-- Leading paragraph break suppressed if at start of a verse
-- Left sidebar accent removed in paragraph mode focus state
+### Paragraph Reading Mode
+- Paragraph mode now works beautifully in Spotlight mode too (with a clean inline focus highlight).
+- Paragraph breaks turn on automatically when you enable Paragraph Reading.
+- Smoother layout and spacing when reading in paragraph form.
 
-### Search
-- Added full **SearchModule** with pagination (25 results, Load More)
-- XSS-safe highlighting with `_escapeHtml()`
-- Prefix search highlighting fixed (no trailing `\b`)
-- Discover tab opens search panel (slide-up from navigation)
+### Search Improvements
+- Full search experience with **pagination** (25 results at a time + “Load More”).
+- Better result highlighting.
+- Tapping the Discover tab now opens the search panel smoothly.
 
 ### Library Panel
-- Redesigned **slide-up library panel** from bottom (styled like nav sheet)
-- Old centered modal retained as fallback (`open()` vs `openSlideUp()`)
-- Bookmark filter bar made sticky (stays at top while scrolling)
+- Redesigned the Library as a nice slide-up panel from the bottom (easier to use on phones).
+- The bookmark filter bar now stays visible while you scroll.
+- Old centered popup is still available as a backup.
 
-### Text Settings
-- Section headings now use `--verse-font-family`, `calc(--verse-font-size * 0.92)`, `--verse-line-height`, `--verse-letter-spacing`
-- Default font size changed from 14pt to 13pt
+### Text & Reading Experience
+- Section headings now match the verse font style better for a cleaner look.
+- Slightly smaller default font size (13pt) for improved readability.
 
-### Scripture Database
-- All `.sqlite` files renamed to `{slug}_v1.sqlite` (versioned paths)
-- Added `getCoreDb()` method for direct SQLite access
-- WAL-mode safety patch in `createDbFromBytes()` (bytes 18–19 forced to rollback mode)
+### Highlights
+- You can now highlight a range of verses (e.g., 1–8) as one single highlight instead of many separate ones.
+- Highlights look better on both light and dark themes.
+- Cleaner text when copying highlighted verses (no verse numbers included).
 
-### API Migration
-- `cross-references.js` migrated from `selectObjects()` to `oo1.DB.exec()`
-- `search.js` uses `returnValue: 'resultRows'` for SQLite-WASM compliance
+### Other Nice Touches
+- Search box is taller and easier to tap.
+- Better spacing at the bottom of long chapters.
+- Improved poetry and formatting layout.
+- New, clearer icons for Speed and Swipe modes.
+- Translation picker stays visible and easy to reach.
+- Added a **“What’s New”** changelog panel (you’re reading it now!).
 
-### Highlight System
-- **Range highlights**: multi-verse full highlights save as a single entry with `verseEnd`
-- Display shows `"1–8"` instead of 8 separate entries
-- Highlight style: text color on dark themes, background on light themes
-- Selection text no longer includes verse number digits
-
-### Interaction Fixes
-- Selection mode blocks footnotes and cross-references from activating
-- Spotlight mode undims verses during selection mode (`#content.verse-selecting`)
-- Fixed `_positionToolbar` (no-op — toolbar stays at CSS position)
-- Removed nonexistent `_toggleVerseSelectingClass` call
-
-### Cross-References
-- Fixed FTS5 MATCH query — table aliases not supported, uses `bible_search` directly
-- Removed invalid `returnValue: 'resultRows'` option from exec call
-
-### UI Polish
-- Search input height increased for better usability
-- Scroll mode padding-bottom increased to 25vh for last-verse clearance
-- `.verse-text` set to `display: block` globally (fixes poetry div spacing)
-- Speed mode icon changed from ⚡ to ▶
-- Swipe mode icon changed from ⊳ to ↔
-- Translation selector moved outside scrollable nav view (sticky)
-- Changelog panel (What's New button in Data section)
-- Changelog markdown rendered with proper headings, lists, bold, inline code
-
-### Bugfixes
-- Bookmark delete now removes left border from verse containers
-- Highlight/bookmark display text strips leading verse number digits, truncates at 80 chars
-- Database fails to load (WAL mode crash) — safety patch
-- Section heading bottom padding reduced
-- `idToCode` returning undefined for book IDs
+### Bug Fixes
+- Deleting a bookmark now cleans up the visual border properly.
+- Fixed several small display and interaction issues.
+- Improved database loading reliability.
+- Various small polish improvements across the app.
 
 ---
 
-## v0.7
+## v0.7 (Major Update)
 
-### SQLite Schema Refactor
-- New `bible_verses` + `bible_search` (FTS5) schema with `json_tokens` for rich rendering
-- Token-based rendering with `TokenRenderer` — handles paragraph_start, poetry_start, section_heading, text, style_start/end (wj), footnote, cross_ref, line_break
-- `MarkdownParser` for inline markdown (`*italic*` / `**bold**`)
-- Legacy USFM format removed
-- All 4 renderers (scroll/swipe/spotlight/speed) use token-format verses
+### Big Foundation Improvements
+- Completely rebuilt how the Bible text is stored and displayed for better formatting, future features, and reliability.
+- Added proper support for **Red Letter** text (Jesus’ words) — toggle it on or off in settings.
 
-### Red Letter (Words of Jesus)
-- Handled via `style_start`/`style_end` tokens with `style:"wj"` — wrappable in `<span class="wj">`
-- Conditionally rendered via `settings.redLetter` toggle
+### Fresh New Look
+- Modern bottom navigation bar (Discover, Mode, Bible, Library, More).
+- Beautiful dark-first design with gold/amber accents.
+- Larger, more readable verse text and elegant chapter titles.
+- New mode selection grid and improved menus.
 
-### Premium Dark UI Redesign
-- Bottom navigation bar (Discover, Mode, Bible, Library, More)
-- Mode grid popup (3-column), More popup (search + settings)
-- Gold/amber accent theme, chapter header with SVG emblem
-- Floating dropdown, vertical verse progress bar, dark default theme
-- Large verse typography (1.2rem), Playfair Display for titles
+### Smoother Experience
+- Better overall rendering and performance when switching reading modes.
+- More reliable cross-references with clear indicators.
+- Many navigation and mode-switching bugs fixed (no more jumping to the wrong verse, stuck views, etc.).
 
-### Render Pipeline Refactor
-- ViewManager + RenderManager with three-phase lifecycle (prepare → dispatch → finalize)
-- RAF-based post-render: header, focus, scroll, bookmarks, highlights
-- Renderers only build DOM; per-advance side effects stay in renderers
-
-### Cross-References Restoration
-- Old `cross_references.db` system restored alongside token cross-refs
-- Cross-ref indicators on verse containers (controlled by `crossRefs` toggle)
-
-### Various Bugfixes
-- Swipe→scroll verse jump, swipe→spotlight viewport stuck
-- Mode-switch verse off-center (header animation)
-- Scroll mode verse skipping on desktop/tablet
-- Text spacing differences between scroll and spotlight
-- currentVerse restoration lost on app refresh
-- Paragraph mode toggle failures
+### Other Fixes
+- Improved consistency between Scroll and Spotlight modes.
+- Better verse restoration when reopening the app.
+- Smoother paragraph mode toggling.

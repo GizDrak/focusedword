@@ -27,19 +27,18 @@ window.SearchModule = class SearchModule {
       ) ?? 0;
       if (!total) return { results: [], total: 0, page, pageSize };
 
-      const rows = db.exec(
-        `SELECT bv.book, bv.chapter, bv.verse, bv.clean_text, bv.json_tokens
+      const rows = [];
+      db.exec({
+        sql: `SELECT bv.book, bv.chapter, bv.verse, bv.clean_text, bv.json_tokens
          FROM bible_search
          JOIN bible_verses bv ON bible_search.verse_id = bv.id
          WHERE bible_search MATCH ?
          ORDER BY bm25(bible_search)
          LIMIT ? OFFSET ?`,
-        {
-          bind: [ftsQuery, pageSize, offset],
-          rowMode: 'object',
-          returnValue: 'resultRows'
-        }
-      );
+        bind: [ftsQuery, pageSize, offset],
+        rowMode: 'object',
+        resultRows: rows
+      });
 
       const results = rows.map(r => {
         const bookInfo = this._bookCache[r.book] || {};
@@ -62,7 +61,8 @@ window.SearchModule = class SearchModule {
   }
 
   _sanitizeQuery(input) {
-    const s = input.trim().slice(0, AppConfig.SEARCH_MAX_LENGTH);
+    const maxLength = (typeof AppConfig !== 'undefined' && AppConfig.SEARCH_MAX_LENGTH) ? AppConfig.SEARCH_MAX_LENGTH : 100;
+    const s = input.trim().slice(0, maxLength);
     if (!s) return '';
 
     const phrases = [];
@@ -77,10 +77,17 @@ window.SearchModule = class SearchModule {
       .replace(/\s+/g, ' ')
       .trim();
 
-    const terms = cleaned ? cleaned.split(/\s+/).filter(Boolean).map(t => t + '*') : [];
+    const words = cleaned ? cleaned.split(/\s+/).filter(Boolean) : [];
 
-    const result = [...phrases, ...terms].join(' ');
-    return result || '';
+    if (words.length >= 2) {
+      phrases.unshift('"' + words.join(' ') + '"');
+    }
+
+    const terms = words.length > 0 ? `(${words.join(' ')})` : '';
+
+    const result = [...phrases, terms].filter(Boolean).join(' OR ');
+
+    return result;
   }
 
   _ensureBookCache() {
@@ -161,6 +168,8 @@ window.SearchModule = class SearchModule {
     const highlightTerms = query.split(/\s+/)
       .map(t => t.replace(/["*^()+\-,:]/g, ''))
       .filter(Boolean);
+
+    container.innerHTML = '';
 
     const frag = document.createDocumentFragment();
     for (const r of hits) {

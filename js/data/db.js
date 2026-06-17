@@ -115,7 +115,7 @@ static async createDbFromBytes(dbPath) {
   async init(translationId = 'BSB') {
     try {
       const slug = this._slugFor(translationId);
-      const core = await BibleDB.createDbFromBytes(`/scripture/en/trans/${slug}_v1.sqlite`);
+      const core = await BibleDB.createDbFromBytes(`/scripture/en/trans/${slug}_v2.sqlite`);
       if (core && this._tableExists(core, 'bible_verses')) {
         this._core = core;
         this._slug = slug;
