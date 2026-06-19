@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v11';
+const CACHE_NAME = 'focused-word-v12';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -14,7 +14,10 @@ const APP_SHELL = [
   '/js/data/highlight-store.js',
   '/js/data/selection.js',
   '/js/core/debug.js',
+  '/js/core/idb-service.js',
   '/js/core/state-store.js',
+  '/js/core/sync-service.js',
+  '/js/core/verse-manager.js',
   '/js/core/bridge.js',
   '/js/core/view-manager.js',
   '/js/core/render-manager.js',
@@ -23,6 +26,7 @@ const APP_SHELL = [
   '/js/modules/navigation.js',
   '/js/modules/color-theme.js',
   '/js/modules/settings.js',
+  '/js/modules/settings-sync-ui.js',
   '/js/modules/bookmarks-ui.js',
   '/js/modules/interaction-manager.js',
   '/js/modules/highlight-manager.js',

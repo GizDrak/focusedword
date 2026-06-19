@@ -96,7 +96,7 @@ window.ScrollRenderer = class ScrollRenderer {
 
     if (active !== this._lastSyncVerse) {
       this._lastSyncVerse = active;
-      this.bridge.state.set('currentVerse', active);
+      window.verseManager.setPassive(active);
       this.base.updateFocusedVerse(active);
     }
   }

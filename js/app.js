@@ -1,10 +1,14 @@
 window.App = class App {
   async init() {
     const debug = new window.Debug();
+    debug.clearLogs();
     const bridge = new window.Bridge(debug);
+    bridge.debug = debug;
+    window.__debug = debug;
     this._bridgeRef = bridge;
 
     bridge.state = new window.StateStore();
+    window.verseManager = new window.VerseManager(bridge.state);
     bridge.db = new window.BibleDB();
     bridge.bionic = window.BionicParser;
 
@@ -62,6 +66,11 @@ window.App = class App {
     await navigation.init();
     settings.init();
     settings._applyTextSettings();
+    if (window.SyncSettingsUI) {
+      const syncUI = new window.SyncSettingsUI(bridge);
+      bridge.register('sync-ui', syncUI);
+      syncUI.init();
+    }
     bookmarks.init();
 
     const searchModule = new window.SearchModule(bridge);
@@ -89,6 +98,7 @@ window.App = class App {
     const viewMgr = new window.ViewManager(bridge);
     bridge.register('view-manager', viewMgr);
     bridge.register('render-manager', new window.RenderManager(bridge, viewMgr, baseRenderer));
+    this._setupScrollRelease(bridge);
     this._setupGlobalEvents(bridge);
     this._setupSettingsListeners(bridge);
 
@@ -273,6 +283,16 @@ window.App = class App {
     if (wpmSlider) wpmSlider.value = bridge.state.get('wpm');
     const wpmDisplay = document.getElementById('speed-wpm-display');
     if (wpmDisplay) wpmDisplay.textContent = bridge.state.get('wpm') + ' WPM';
+  }
+
+  _setupScrollRelease(bridge) {
+    let scrollTimer = null;
+    document.addEventListener('scroll', () => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        if (window.verseManager) window.verseManager.releaseLock();
+      }, 150);
+    }, { passive: true });
   }
 
   _setupGlobalEvents(bridge) {

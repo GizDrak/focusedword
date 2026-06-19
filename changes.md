@@ -1,5 +1,34 @@
 # Changelog — Focused Word
 
+## v0.8.2
+
+### Sync & Backup
+- New **Sync** system for keeping settings and reading position in sync across devices.
+- Uses a BIP-39 style wordlist passphrase (generated from the BSB Bible text) for secure device pairing.
+- Sync supports: Auto-Sync (periodic + on tab-hide), pull-before-push conflict resolution, and last-write-wins state merge.
+- Settings panel redesigned: Enable Sync toggles visibility of all sync settings; Auto-Sync linked to Enable.
+- Tap-to-copy sync key with visual feedback; server URL editable via prompt dialog.
+- Auto-pull server state on app start when Auto-Sync is enabled.
+- Online event now triggers full pull + push cycle.
+
+### Debug Log Viewer
+- New in-app **Debug Log** panel accessible from Settings > Data > Debug Log.
+- Captures `console.error`, `console.warn`, window errors, and unhandled promise rejections into a 200-entry buffer.
+- Filter by All / Errors / Warnings; tap to expand stack traces; Clear button to reset.
+- Useful for diagnosing issues on mobile where DevTools aren't available.
+
+### Library
+- **Highlight color filter** — added a sticky filter bar to the highlights tab with colored chips for each highlight color, showing item counts. Filter selection persists across sessions.
+
+### Bug Fixes
+- Fixed enable sync toggle being stuck on (decoupled enable state from key existence).
+- Fixed sync loop where local changes were overwritten before push (state applier now respects timestamp guard).
+- Fixed book/chapter/verse restoration from server state.
+- **Fixed: verse off-by-1 regression** — smooth scroll animation was overwriting the restored verse position. Each auto-sync cycle pushed the decremented verse to the server. Now the correct verse is re-asserted after scroll tracking settles.
+- **Fixed: 409 conflict retry loop** — when the server returned a conflict, the retry used the same old timestamp and kept getting rejected. Now uses a fresh timestamp.
+- **Fixed: auto-sync not triggering on tab return** — visibility change handler now syncs on both hide and show (was hidden-only).
+- **Fixed: sync resume verse not restored** — resume toast `setIntentional(verse)` was called after `loadChapter`, so the render pipeline scrolled to verse 1 before the target verse was set. Now the verse is set before loading the chapter, matching the pattern used by bookmark navigation and chapter picker.
+
 ## v0.8.1
 
 ### Better Search

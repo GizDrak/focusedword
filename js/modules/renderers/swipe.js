@@ -224,7 +224,7 @@ window.SwipeRenderer = class SwipeRenderer {
     const card = this._cards[this.currentCardIndex];
     if (!card) return;
     if (card.type === 'verse' && card.verse !== this.bridge.state.get('currentVerse')) {
-      this.bridge.state.set('currentVerse', card.verse);
+      window.verseManager.setPassive(card.verse);
     }
 
     const maxHeight = this._computeMaxHeight(bionic, strength);
@@ -302,7 +302,7 @@ window.SwipeRenderer = class SwipeRenderer {
     if (!card) { this._animating = false; return; }
 
     if (card.type === 'verse') {
-      state.set('currentVerse', card.verse);
+      window.verseManager.setPassive(card.verse);
     }
 
     if (direction === 'next') {

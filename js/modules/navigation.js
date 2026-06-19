@@ -98,7 +98,7 @@ window.NavigationModule = class NavigationModule {
     const bookIndex = this.booksCache.indexOf(book);
     const totalChapters = await this.bridge.db.getChapterCount(bookId);
 
-    state.set('currentVerse', 1);
+    window.verseManager.setIntentional(1);
 
     if (state.get('currentChapter') < totalChapters) {
       await this.loadChapter(bookId, state.get('currentChapter') + 1);
@@ -119,7 +119,7 @@ window.NavigationModule = class NavigationModule {
     const book = this.booksCache.find(b => b.id === bookId);
     const bookIndex = this.booksCache.indexOf(book);
 
-    state.set('currentVerse', 1);
+    window.verseManager.setIntentional(1);
 
     if (state.get('currentChapter') > 1) {
       await this.loadChapter(bookId, state.get('currentChapter') - 1);
@@ -134,9 +134,9 @@ window.NavigationModule = class NavigationModule {
     const state = this.bridge.state;
     state.batch({
       currentBook: bookId,
-      currentChapter: chapter,
-      currentVerse: verse
+      currentChapter: chapter
     });
+    window.verseManager.setIntentional(verse);
     this.closeSheet();
     await this.loadChapter(bookId, chapter);
   }

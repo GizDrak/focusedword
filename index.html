@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0A0A0A">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com https://fonts.googleapis.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com https://fonts.googleapis.com http://localhost:* http:">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="FocusedWord">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -357,6 +357,61 @@
         </div>
       </div>
 
+      <!-- Sync -->
+      <div class="settings-section">
+        <button class="section-header" aria-expanded="false" data-section="sync">
+          <span>Sync</span>
+          <svg class="section-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 6l4 4 4-4"/>
+          </svg>
+        </button>
+        <div class="section-body" id="sync-section-body">
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="sync-enabled">
+              <span class="toggle-text">Enable Sync</span>
+              <input type="checkbox" id="sync-enabled" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div id="sync-settings-body">
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="sync-auto">
+              <span class="toggle-text">Auto-Sync</span>
+              <input type="checkbox" id="sync-auto" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="sync-settings">
+              <span class="toggle-text">Sync Settings</span>
+              <input type="checkbox" id="sync-settings" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.3rem;">
+            <span>Sync Key</span>
+            <button type="button" id="sync-key-display"
+                    style="background:none;border:none;font-family:monospace;cursor:pointer;display:block;padding:0.3rem 0;text-align:left;width:100%;font-size:16px;color:inherit;"
+                    title="Tap to copy">—</button>
+          </div>
+          <div class="setting-row">
+            <button id="sync-restore-key" class="btn-secondary" style="flex:1;">Restore Key</button>
+          </div>
+          <div class="setting-row" style="display:flex;gap:0.4rem;">
+            <button id="sync-now" class="btn-secondary" style="flex:1;">Sync Now</button>
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.3rem;">
+            <span>Last Sync:</span>
+            <span id="sync-last-label" style="font-family:monospace;font-size:0.8rem;">—</span>
+          </div>
+          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.3rem;">
+            <span>Server URL: <span id="sync-server-url-display" style="font-family:monospace;font-size:0.8rem;">http://localhost:4000</span></span>
+            <button id="sync-change-url" class="btn-secondary" style="align-self:flex-start;">Change</button>
+          </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Data -->
       <div class="settings-section">
         <button class="section-header" aria-expanded="false" data-section="data">
@@ -370,15 +425,26 @@
             <button id="reset-settings" class="btn-secondary">Reset to Default Settings</button>
           </div>
           <div class="data-section-row">
+            <button id="sync-reset" class="btn-danger">Reset Sync Settings</button>
+          </div>
+          <div class="data-section-row">
+            <button id="sync-revoke" class="btn-danger">Erase Cloud Data</button>
+          </div>
+          <div class="data-section-row">
             <button id="reset-app" class="btn-danger">Reset App</button>
           </div>
         </div>
       </div>
 
-          <div class="data-section-row">
-            <button id="view-changelog" class="btn-secondary">What's New</button>
-          </div>
-      <div class="settings-version">v0.8.1</div>
+      <div class="settings-version">
+        <a href="#" id="view-changelog" class="settings-changelog-link">What's New</a>
+        <span class="settings-version-label">v0.8.2</span>
+        <button id="view-debug-log" class="debug-gear-btn" aria-label="Debug Log">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -390,6 +456,24 @@
       <button id="changelog-close" class="icon-btn" aria-label="Close">✕</button>
     </div>
     <div id="changelog-body" class="changelog-body"></div>
+  </div>
+
+  <!-- ========== Debug Log Panel ========== -->
+  <div id="debuglog-overlay" class="changelog-overlay"></div>
+  <div id="debuglog-panel" class="changelog-panel">
+    <div class="changelog-header">
+      <h2>Debug Log</h2>
+      <button id="debuglog-clear" class="btn-danger" style="font-size:0.8rem;padding:0.25rem 0.6rem">Clear</button>
+      <button id="debuglog-close" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div id="debuglog-body" class="changelog-body">
+      <div class="debuglog-filter">
+        <button class="debuglog-filter-btn active" data-level="all">All</button>
+        <button class="debuglog-filter-btn" data-level="error">Errors</button>
+        <button class="debuglog-filter-btn" data-level="warn">Warnings</button>
+      </div>
+      <div id="debuglog-entries"></div>
+    </div>
   </div>
 
   <!-- ========== Library Panel (slide-up) ========== -->
@@ -471,10 +555,13 @@
   <script src="js/data/book-map.js"></script>
   <script src="js/data/db.js"></script>
   <script src="js/core/debug.js"></script>
+  <script src="js/core/idb-service.js"></script>
   <script src="js/core/state-store.js"></script>
   <script src="js/core/bridge.js"></script>
   <script src="js/core/view-manager.js"></script>
   <script src="js/core/render-manager.js"></script>
+  <script src="js/core/sync-service.js"></script>
+  <script src="js/core/verse-manager.js"></script>
   <script src="js/data/selection.js"></script>
   <script src="js/modules/chapter-summary.js"></script>
   <script src="js/modules/renderers/base.js"></script>
@@ -485,6 +572,7 @@
   <script src="js/modules/navigation.js"></script>
   <script src="js/modules/color-theme.js"></script>
   <script src="js/modules/settings.js"></script>
+  <script src="js/modules/settings-sync-ui.js"></script>
   <script src="js/modules/search.js"></script>
   <script src="js/modules/bookmarks-ui.js"></script>
   <script src="js/modules/interaction-manager.js"></script>

@@ -75,7 +75,7 @@ window.SpotlightRenderer = class SpotlightRenderer {
 
     const vCurrent = verses[this.currentVerseIndex];
     if (vCurrent && vCurrent.verse !== this.bridge.state.get('currentVerse')) {
-      this.bridge.state.set('currentVerse', vCurrent.verse);
+      window.verseManager.setPassive(vCurrent.verse);
     }
   }
 
@@ -101,7 +101,7 @@ window.SpotlightRenderer = class SpotlightRenderer {
 
     const v = verses[index];
     if (v && v.verse !== state.get('currentVerse')) {
-      state.set('currentVerse', v.verse);
+      window.verseManager.setPassive(v.verse);
     }
     const vm = this.bridge.get('view-manager');
     if (vm) vm.scrollToVerse(v?.verse);

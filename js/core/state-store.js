@@ -8,6 +8,7 @@ window.StateStore = class StateStore {
       'swipeMode', 'spotlightMode', 'speedMode',
       'focusMode', 'speedAutoAdvance', 'tapSwipe',
       'activeBookmarkSet',
+      'activeHighlightColor',
       'fontFamily', 'fontSize', 'margins', 'lineSpacing', 'letterSpacing',
       'redLetter', 'crossRefs',
       'footnotes', 'sectionHeadings',
@@ -34,6 +35,7 @@ window.StateStore = class StateStore {
       tapSwipeMode: true,
       currentTranslation: 'BSB',
       activeBookmarkSet: null,
+      activeHighlightColor: null,
       swipeAnimDir: 'vertical',
       fontFamily: 'inter',
       fontSize: 1.083,
@@ -49,7 +51,185 @@ window.StateStore = class StateStore {
       paragraphMode: false,
       backgroundTexture: true
     };
+    this._isApplyingServerState = false;
+    this._idbReady = false;
+    this.moduleTimestamps = { settings: 0, reading: 0, bookmarks: 0, highlights: 0, notes: 0, plans: 0 };
+    this.bookmarks = [];
+    this.highlights = [];
+    this.notes = [];
+    this.plans = [];
+    this._loadTimestamps();
     this._loadState();
+    this._initPromise = this.initializeDB();
+  }
+
+  async ready() {
+    await this._initPromise;
+  }
+
+  async initializeDB() {
+    try {
+      const stores = { bookmarks: 'bookmarks', highlights: 'highlights', notes: 'notes', plans: 'plans' };
+      for (const [key, store] of Object.entries(stores)) {
+        const items = await window.idb.getAll(store);
+        this[key] = items.filter(item => !item.deleted);
+        if (this[key].length > 0) {
+          this.moduleTimestamps[key] = Math.max(...this[key].map(i => i.updated_at));
+        } else {
+          this.moduleTimestamps[key] = 0;
+        }
+      }
+      this._saveTimestamps();
+    } catch (e) {
+      console.warn('[StateStore] IDB init failed:', e);
+    }
+    this._idbReady = true;
+  }
+
+  _updateTimestamp(key) {
+    if (this._isApplyingServerState) return;
+    if (key === 'currentBook' || key === 'currentChapter' || key === 'currentVerse' || key === 'currentBookName') {
+      this.moduleTimestamps.reading = Date.now();
+    } else {
+      this.moduleTimestamps.settings = Date.now();
+    }
+    this._saveTimestamps();
+  }
+
+  setModuleTimestamp(module) {
+    if (this._isApplyingServerState) return;
+    if (['bookmarks', 'highlights', 'notes', 'plans'].includes(module)) {
+      this.moduleTimestamps[module] = Date.now();
+      this._saveTimestamps();
+    }
+  }
+
+  _saveTimestamps() {
+    try {
+      localStorage.setItem('focused-word:sync-timestamps', JSON.stringify(this.moduleTimestamps));
+    } catch (e) {}
+  }
+
+  _loadTimestamps() {
+    try {
+      const saved = localStorage.getItem('focused-word:sync-timestamps');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.settings === 'number') this.moduleTimestamps.settings = parsed.settings;
+        if (typeof parsed.reading === 'number') this.moduleTimestamps.reading = parsed.reading;
+        if (typeof parsed.bookmarks === 'number') this.moduleTimestamps.bookmarks = parsed.bookmarks;
+        if (typeof parsed.highlights === 'number') this.moduleTimestamps.highlights = parsed.highlights;
+        if (typeof parsed.notes === 'number') this.moduleTimestamps.notes = parsed.notes;
+        if (typeof parsed.plans === 'number') this.moduleTimestamps.plans = parsed.plans;
+      }
+    } catch (e) {}
+  }
+
+  static _uuid() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  }
+
+  async _persistItem(storeName, item) {
+    try { await window.idb.put(storeName, item); } catch (e) { console.warn('[StateStore] idb put failed:', e); }
+  }
+
+  addBookmark(data) {
+    const item = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...data };
+    this.bookmarks.push(item);
+    this.setModuleTimestamp('bookmarks');
+    this._persistItem('bookmarks', item);
+    return item;
+  }
+
+  addHighlight(data) {
+    const item = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...data };
+    this.highlights.push(item);
+    this.setModuleTimestamp('highlights');
+    this._persistItem('highlights', item);
+    return item;
+  }
+
+  addNote(markdownContent) {
+    const note = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), content: markdownContent };
+    this.notes.push(note);
+    this.setModuleTimestamp('notes');
+    this._persistItem('notes', note);
+    return note;
+  }
+
+  addPlan(planData) {
+    const plan = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...planData };
+    this.plans.push(plan);
+    this.setModuleTimestamp('plans');
+    this._persistItem('plans', plan);
+    return plan;
+  }
+
+  _tombstone(storeName, list, id) {
+    const item = list.find(i => i.id === id);
+    if (!item) return;
+    item.deleted = true;
+    item.updated_at = Date.now();
+    this.setModuleTimestamp(storeName);
+    this._persistItem(storeName, item);
+  }
+
+  updateBookmark(id, updates) {
+    const item = this.bookmarks.find(i => i.id === id);
+    if (!item) return;
+    Object.assign(item, updates, { updated_at: Date.now() });
+    this.setModuleTimestamp('bookmarks');
+    this._persistItem('bookmarks', item);
+  }
+
+  updateHighlight(id, updates) {
+    const item = this.highlights.find(i => i.id === id);
+    if (!item) return;
+    Object.assign(item, updates, { updated_at: Date.now() });
+    this.setModuleTimestamp('highlights');
+    this._persistItem('highlights', item);
+  }
+
+  updateNote(id, updates) {
+    const item = this.notes.find(i => i.id === id);
+    if (!item) return;
+    Object.assign(item, updates, { updated_at: Date.now() });
+    this.setModuleTimestamp('notes');
+    this._persistItem('notes', item);
+  }
+
+  updatePlan(id, updates) {
+    const item = this.plans.find(i => i.id === id);
+    if (!item) return;
+    Object.assign(item, updates, { updated_at: Date.now() });
+    this.setModuleTimestamp('plans');
+    this._persistItem('plans', item);
+  }
+
+  deleteBookmark(id) { this._tombstone('bookmarks', this.bookmarks, id); }
+  deleteHighlight(id) { this._tombstone('highlights', this.highlights, id); }
+  deleteNote(id) { this._tombstone('notes', this.notes, id); }
+  deletePlan(id) { this._tombstone('plans', this.plans, id); }
+
+  async mergeArrays(localArray, remoteArray, storeName) {
+    const map = new Map();
+    if (Array.isArray(localArray)) localArray.forEach(item => map.set(item.id, item));
+    if (Array.isArray(remoteArray)) remoteArray.forEach(item => map.set(item.id, item));
+    const merged = Array.from(map.values());
+    if (storeName) {
+      this[storeName] = merged.filter(item => !item.deleted);
+      try { await window.idb.putMultiple(storeName, merged); } catch (e) { console.warn('[StateStore] idb putMultiple failed:', e); }
+      let maxTs = 0;
+      for (const item of merged) {
+        if (item.updated_at && item.updated_at > maxTs) maxTs = item.updated_at;
+      }
+      this.moduleTimestamps[storeName] = maxTs;
+      this._saveTimestamps();
+    }
+    return merged;
   }
 
   get(key) {
@@ -61,6 +241,7 @@ window.StateStore = class StateStore {
     const old = this._data[key];
     this._data[key] = value;
     this._notify(key, value, old);
+    this._updateTimestamp(key);
     if (this._immediateKeys.has(key)) {
       this._persist(key);
     } else {
@@ -79,6 +260,7 @@ window.StateStore = class StateStore {
     }
     for (const c of changed) {
       this._notify(c.key, c.value, c.old);
+      this._updateTimestamp(c.key);
     }
     for (const c of changed) {
       if (this._immediateKeys.has(c.key)) {
@@ -158,6 +340,7 @@ window.StateStore = class StateStore {
         'focused-word:tap-swipe': 'tapSwipeMode',
         'focused-word:current-translation': 'currentTranslation',
         'focused-word:active-bookmark-set': 'activeBookmarkSet',
+        'focused-word:active-highlight-color': 'activeHighlightColor',
         'focused-word:font-family': 'fontFamily',
         'focused-word:font-size': 'fontSize',
         'focused-word:margins': 'margins',

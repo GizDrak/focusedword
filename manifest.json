@@ -1,7 +1,7 @@
 {
   "name": "Focused Word",
   "short_name": "FocusedWord",
-  "description": "Bible study with bionic reading, multiple reading modes, and bookmarks.",
+  "description": "Offline-first Bible study PWA with bionic reading, multi-mode reading, bookmarks, highlights, and cross-device sync.",
   "start_url": "/index.html",
   "display": "standalone",
   "theme_color": "#0A0A0A",

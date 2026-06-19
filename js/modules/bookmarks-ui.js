@@ -7,6 +7,16 @@ window.BookmarksUI = class BookmarksUI {
 
   init() {
     this._initEventListeners();
+    window.addEventListener('sync-module-updated', async (e) => {
+      this.refreshIfOpen();
+      const base = this.bridge.get('base-renderer');
+      if (!base) return;
+      if (e.detail === 'bookmarks') {
+        await base.applyBookmarks();
+      } else if (e.detail === 'highlights') {
+        await base.renderHighlights();
+      }
+    });
   }
 
   _initEventListeners() {
@@ -47,6 +57,7 @@ window.BookmarksUI = class BookmarksUI {
     modal.classList.add('open');
     backdrop.classList.add('open');
     this._activeFilterSet = this.bridge.state.get('activeBookmarkSet');
+    this._activeHighlightColor = this.bridge.state.get('activeHighlightColor');
     this.renderBookmarksTab();
     const base = this.bridge.get('base-renderer');
     if (base) {
@@ -60,6 +71,7 @@ window.BookmarksUI = class BookmarksUI {
     backdrop.classList.add('open');
     panel.classList.add('open');
     this._activeFilterSet = this.bridge.state.get('activeBookmarkSet');
+    this._activeHighlightColor = this.bridge.state.get('activeHighlightColor');
     this.renderBookmarksTab();
   }
 
@@ -341,7 +353,8 @@ window.BookmarksUI = class BookmarksUI {
       if (!confirm(`Delete "${set.name}"? Bookmarks in this set will become unassigned.`)) return;
       await this.bridge.selection.deleteBookmarkSet(set.id);
       if (this._activeFilterSet === set.id) {
-        this._activeFilterSet = null;
+    this._activeFilterSet = null;
+    this._activeHighlightColor = null;
         this.bridge.state.set('activeBookmarkSet', null);
       }
       this.renderBookmarksTab();
@@ -428,6 +441,62 @@ window.BookmarksUI = class BookmarksUI {
     });
   }
 
+  _renderHighlightColorFilter(items) {
+    const COLORS = [
+      { color: '#FFD700', label: 'Yellow' },
+      { color: '#48BB78', label: 'Green' },
+      { color: '#63B3ED', label: 'Blue' },
+      { color: '#ED8936', label: 'Orange' },
+      { color: '#9F7AEA', label: 'Purple' },
+      { color: '#F56565', label: 'Red' }
+    ];
+
+    const counts = {};
+    for (const item of items) {
+      counts[item.color] = (counts[item.color] || 0) + 1;
+    }
+
+    const bar = document.createElement('div');
+    bar.className = 'hl-color-filter';
+
+    const allChip = document.createElement('button');
+    allChip.className = 'hl-color-chip' + (!this._activeHighlightColor ? ' active' : '');
+    allChip.textContent = 'All';
+    const allCount = document.createElement('span');
+    allCount.className = 'hl-color-count';
+    allCount.textContent = ` (${items.length})`;
+    allChip.appendChild(allCount);
+    allChip.addEventListener('click', () => {
+      this._activeHighlightColor = null;
+      this.bridge.state.set('activeHighlightColor', null);
+      this.renderHighlightsTab();
+    });
+    bar.appendChild(allChip);
+
+    for (const c of COLORS) {
+      const count = counts[c.color] || 0;
+      if (!count) continue;
+      const chip = document.createElement('button');
+      chip.className = 'hl-color-chip' + (this._activeHighlightColor === c.color ? ' active' : '');
+      const dot = document.createElement('span');
+      dot.className = 'hl-color-dot';
+      dot.style.background = c.color;
+      chip.appendChild(dot);
+      const countEl = document.createElement('span');
+      countEl.className = 'hl-color-count';
+      countEl.textContent = `${count}`;
+      chip.appendChild(countEl);
+      chip.addEventListener('click', () => {
+        this._activeHighlightColor = c.color;
+        this.bridge.state.set('activeHighlightColor', c.color);
+        this.renderHighlightsTab();
+      });
+      bar.appendChild(chip);
+    }
+
+    return bar;
+  }
+
   async renderHighlightsTab() {
     this._tabHlEl().classList.add('active');
     this._tabBmEl().classList.remove('active');
@@ -438,13 +507,28 @@ window.BookmarksUI = class BookmarksUI {
       body.innerHTML = '<div class="bookmarks-empty">Highlight system unavailable.</div>';
       return;
     }
-    const items = await hm.store.getAll();
-    if (!items.length) {
+    const allItems = await hm.store.getAll();
+    if (!allItems.length) {
       body.innerHTML = '<div class="bookmarks-empty">No highlights yet. Select text or tap a verse to create one.</div>';
       return;
     }
 
     body.innerHTML = '';
+    const filterBar = this._renderHighlightColorFilter(allItems);
+    body.appendChild(filterBar);
+
+    const items = this._activeHighlightColor
+      ? allItems.filter(item => item.color === this._activeHighlightColor)
+      : allItems;
+
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'bookmarks-empty';
+      empty.textContent = 'No highlights with this color.';
+      body.appendChild(empty);
+      return;
+    }
+
     const nav = this.bridge.get('navigation');
     const base = this.bridge.get('base-renderer');
     const booksCache = nav ? nav.booksCache : [];
@@ -489,9 +573,9 @@ window.BookmarksUI = class BookmarksUI {
     const verseTarget = item.verseEnd ? item.verse : verses[0];
     state.batch({
       currentBook: item.bookId,
-      currentChapter: item.chapter,
-      currentVerse: verseTarget
+      currentChapter: item.chapter
     });
+    window.verseManager.setIntentional(verseTarget);
     this.bridge.call('navigation', 'loadChapter', item.bookId, item.chapter);
     this.closeModal();
     this.closeSlideUp();

@@ -31,7 +31,7 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
         if (this._skipTick) { this._skipTick = false; return; }
         const num = parseInt(pos.verseEl.dataset.verse, 10);
         if (num && num !== this._bridge.state.get('currentVerse')) {
-          this._bridge.state.set('currentVerse', num);
+          window.verseManager.setPassive(num);
           const base = this._bridge.get('base-renderer');
           if (base) base.updateFocusedVerse(num);
         }
