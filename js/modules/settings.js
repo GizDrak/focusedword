@@ -144,12 +144,13 @@ window.SettingsModule = class SettingsModule {
       dark: 'gold',
       sepia: 'amber',
       light: 'gold',
-      eclipse: 'slate',
-      parchment: 'gold',
-      pine: 'emerald',
+      'midnight-ink': 'sapphire',
+      'icy-wind': 'icy',
+      'forest-reader': 'emerald',
       nord: 'ice',
-      velvet: 'sapphire',
-      galaxy: 'purple'
+      rosewood: 'rose',
+      galaxy: 'purple',
+      clay: 'slate'
     };
     const defaultAccent = accentMap[name] || 'gold';
     const ct = this.bridge.get('color-theme');

@@ -1,5 +1,18 @@
 # Changelog — Focused Word
 
+## v0.8.3
+
+### Theme Redesign
+- Replaced Eclipse, Parchment, Pine, Velvet with Midnight Ink, Ocean Mist (→ Icy Wind), Forest Reader, Rosewood.
+- Added Clay theme (neutral stone gray) as a new 10th theme.
+- Updated Light theme: clean true white with blue accent (#2563EB).
+- Updated Sepia theme: reduced yellow saturation, soft neutral parchment palette.
+- Converted Ocean Mist from teal to light blue Icy Wind palette.
+- Updated Clay from warm orange to neutral stone gray.
+- Unique accent palettes for every theme (accent-gold, accent-glow, focus, spotlight).
+- Every theme has a distinct accent identity verified with no duplicates.
+- Fixed: bottom-sheet panel box-shadows bleeding through when hidden (changelog, debuglog, library, footnote panels).
+
 ## v0.8.2
 
 ### Sync & Backup

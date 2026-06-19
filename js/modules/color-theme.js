@@ -9,14 +9,14 @@ window.ColorTheme = class ColorTheme {
     { id: 'emerald', label: 'Emerald', color: '#10B981', contrastText: 'light' },
     { id: 'sapphire', label: 'Sapphire', color: '#2563EB', contrastText: 'light' },
     { id: 'rose', label: 'Rose', color: '#E11D48', contrastText: 'light' },
-    { id: 'amber', label: 'Amber', color: '#F59E0B', contrastText: 'dark' },
+    { id: 'amber', label: 'Amber', color: '#E7DDC0', contrastText: 'dark' },
     { id: 'slate', label: 'Slate', color: '#64748B', contrastText: 'light' },
     { id: 'pink', label: 'Pink', color: '#F472B6', contrastText: 'dark' },
     { id: 'mint', label: 'Mint', color: '#34D399', contrastText: 'dark' },
     { id: 'ice', label: 'Ice', color: '#67E8F9', contrastText: 'dark' },
     { id: 'bronze', label: 'Bronze', color: '#B45309', contrastText: 'light' },
     { id: 'teal', label: 'Teal', color: '#0F766E', contrastText: 'light' },
-    { id: 'indigo', label: 'Indigo', color: '#4F46E5', contrastText: 'light' },
+    { id: 'icy', label: 'Icy', color: '#96c5f7', contrastText: 'dark' },
     { id: 'coral', label: 'Coral', color: '#F87171', contrastText: 'light' },
   ];
 
@@ -27,7 +27,7 @@ window.ColorTheme = class ColorTheme {
       { label: 'Emerald', color: '#10B981' },
       { label: 'Sapphire', color: '#2563EB' },
       { label: 'Rose', color: '#E11D48' },
-      { label: 'Amber', color: '#F59E0B' },
+      { label: 'Amber', color: '#E7DDC0' },
       { label: 'Mint', color: '#34D399' },
     ];
   }
