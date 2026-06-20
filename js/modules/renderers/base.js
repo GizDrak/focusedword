@@ -203,6 +203,10 @@ window.BaseRenderer = class BaseRenderer {
     this._updateProgressBar(verseNum);
   }
 
+  updateProgress(verseNum) {
+    this._updateProgressBar(verseNum);
+  }
+
   _updateProgressBar(verseNum) {
     const bar = document.getElementById('verse-progress');
     const label = document.getElementById('verse-progress-label');

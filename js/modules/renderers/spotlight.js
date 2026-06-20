@@ -99,6 +99,8 @@ window.SpotlightRenderer = class SpotlightRenderer {
       }
     }
 
+    this.base.updateProgress(verses[index]?.verse);
+
     const v = verses[index];
     if (v && v.verse !== state.get('currentVerse')) {
       window.verseManager.setPassive(v.verse);
