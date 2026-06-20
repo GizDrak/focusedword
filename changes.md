@@ -1,5 +1,12 @@
 # Changelog — Focused Word
 
+## v0.8.4
+
+### Spotlight Mode Fix
+- Fixed verse progress bar not updating when advancing or going back through verses in spotlight mode. The progress bar now correctly tracks the current verse as you move through the chapter.
+- Added `updateProgress` method to BaseRenderer for unified progress bar updates across all reading modes.
+- Swipe and Speed modes now use the same unified progress bar pathway.
+
 ## v0.8.3
 
 ### Theme Redesign

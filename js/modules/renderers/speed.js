@@ -114,7 +114,7 @@ window.SpeedRenderer = class SpeedRenderer {
     const wordObj = this.wordStream[this.currentWordIndex];
     if (wordObj && wordObj.verseNum !== this.bridge.state.get('currentVerse')) {
       this.bridge.state.set('currentVerse', wordObj.verseNum);
-      this.base._updateProgressBar(wordObj.verseNum);
+      this.base.updateProgress(wordObj.verseNum);
     }
   }
 
@@ -168,7 +168,7 @@ window.SpeedRenderer = class SpeedRenderer {
         this._syncVerse();
         this._renderWord();
         const wordObj = this.wordStream[this.currentWordIndex];
-        if (wordObj) this.base._updateProgressBar(wordObj.verseNum);
+        if (wordObj) this.base.updateProgress(wordObj.verseNum);
         this._scheduleNext();
       } else {
         this._stopTimer();

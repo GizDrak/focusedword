@@ -200,7 +200,7 @@ window.BaseRenderer = class BaseRenderer {
     if (target) {
       target.classList.add('focused');
     }
-    this._updateProgressBar(verseNum);
+    this.updateProgress(verseNum);
   }
 
   updateProgress(verseNum) {

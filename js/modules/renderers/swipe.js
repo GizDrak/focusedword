@@ -248,7 +248,7 @@ window.SwipeRenderer = class SwipeRenderer {
     content.appendChild(deck);
     content.style.height = window.innerHeight + 'px';
     if (card.type === 'verse') {
-      this.base.updateFocusedVerse(card.verse);
+      this.base.updateProgress(card.verse);
     }
   }
 
@@ -328,7 +328,7 @@ window.SwipeRenderer = class SwipeRenderer {
       }
 
       if (card.type === 'verse') {
-        this.base.updateFocusedVerse(card.verse);
+        this.base.updateProgress(card.verse);
       }
 
       if (this.currentCardIndex < this._cards.length - 1) {
@@ -362,7 +362,7 @@ window.SwipeRenderer = class SwipeRenderer {
         if (staleNext) staleNext.remove();
 
         if (card.type === 'verse') {
-          this.base.updateFocusedVerse(card.verse);
+          this.base.updateProgress(card.verse);
         }
 
         setTimeout(() => {
@@ -391,7 +391,7 @@ window.SwipeRenderer = class SwipeRenderer {
         currentCard.classList.add('card--to-peek');
 
         if (card.type === 'verse') {
-          this.base.updateFocusedVerse(card.verse);
+          this.base.updateProgress(card.verse);
         }
 
         setTimeout(() => {
