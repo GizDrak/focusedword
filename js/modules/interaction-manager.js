@@ -175,6 +175,8 @@ window.InteractionManager = class InteractionManager {
     document.getElementById('content').classList.add('verse-selecting');
     this.selectedVerses.add(verseContainer);
     verseContainer.classList.add('temp-selected');
+    // To revert to old sidebar indicator, replace with: this._addOldUnderline(verseContainer);
+    this._addUnderline(verseContainer);
     this._emitVerseSelection();
   }
 
@@ -182,9 +184,13 @@ window.InteractionManager = class InteractionManager {
     if (this.selectedVerses.has(container)) {
       this.selectedVerses.delete(container);
       container.classList.remove('temp-selected');
+      // To revert: this._removeOldUnderline(container);
+      this._removeUnderline(container);
     } else {
       this.selectedVerses.add(container);
       container.classList.add('temp-selected');
+      // To revert: this._addOldUnderline(container);
+      this._addUnderline(container);
     }
     if (this.selectedVerses.size === 0) {
       this.clearSelection();
@@ -214,6 +220,76 @@ window.InteractionManager = class InteractionManager {
     });
   }
 
+  _addUnderline(verseContainer) {
+    var verseText = verseContainer.querySelector('.verse-text');
+    if (!verseText) return;
+    var color = getComputedStyle(verseText).getPropertyValue('--accent-gold').trim() || '#8B5CF6';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 32" preserveAspectRatio="none"><path d="M3,23 C130,16 220,29 330,21 C420,15 500,27 570,20 C582,18 590,19 597,17" stroke="' + color + '" stroke-width="7" fill="none" stroke-linecap="round"/></svg>';
+    var dataUri = 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+    var isInline = getComputedStyle(verseText).display === 'inline';
+    if (isInline) {
+      verseText.style.backgroundImage = dataUri;
+    } else {
+      var tokens = verseText.querySelectorAll('.token-text');
+      if (tokens.length) {
+        for (var i = 0; i < tokens.length; i++) {
+          tokens[i].style.backgroundImage = dataUri;
+        }
+      } else {
+        verseText.style.backgroundImage = dataUri;
+      }
+    }
+  }
+
+  _removeUnderline(verseContainer) {
+    var verseText = verseContainer.querySelector('.verse-text');
+    if (!verseText) return;
+    var isInline = getComputedStyle(verseText).display === 'inline';
+    if (isInline) {
+      verseText.style.backgroundImage = '';
+    } else {
+      var tokens = verseText.querySelectorAll('.token-text');
+      if (tokens.length) {
+        for (var i = 0; i < tokens.length; i++) {
+          tokens[i].style.backgroundImage = '';
+        }
+      } else {
+        verseText.style.backgroundImage = '';
+      }
+    }
+  }
+
+  _removeAllUnderlines() {
+    var self = this;
+    self.selectedVerses.forEach(function (vc) {
+      var vt = vc.querySelector('.verse-text');
+      if (!vt) return;
+      var isInline = getComputedStyle(vt).display === 'inline';
+      if (isInline) {
+        vt.style.backgroundImage = '';
+      } else {
+        var tokens = vt.querySelectorAll('.token-text');
+        if (tokens.length) {
+          for (var i = 0; i < tokens.length; i++) {
+            tokens[i].style.backgroundImage = '';
+          }
+        } else {
+          vt.style.backgroundImage = '';
+        }
+      }
+    });
+  }
+
+  // ======== Old selection style (border-left sidebar indicator) ========
+  // These are preserved as callable alternatives. To switch back
+  // from the SVG underline to the old sidebar indicator:
+  //   1. Swap the calls in _enterSelectionMode, _toggleVerseSelection,
+  //      and clearSelection to point to these methods instead.
+  //   2. Uncomment the old CSS block in styles.css.
+  _addOldUnderline(_verseContainer) {}
+  _removeOldUnderline(_verseContainer) {}
+  _removeAllOldUnderlines() {}
+
   _dismissWordSelection() {
     this._multiVerseRange = null;
     if (this._tempSelection) {
@@ -234,6 +310,8 @@ window.InteractionManager = class InteractionManager {
     document.body.classList.remove('selection-mode');
     const content = document.getElementById('content');
     if (content) content.classList.remove('verse-selecting');
+    // To revert: this._removeAllOldUnderlines();
+    this._removeAllUnderlines();
     this.selectedVerses.forEach(v => v.classList.remove('temp-selected'));
     this.selectedVerses.clear();
     this._dismissWordSelection();

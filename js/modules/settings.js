@@ -126,6 +126,7 @@ window.SettingsModule = class SettingsModule {
         this._cleanupFocus = base.trapFocus(document.getElementById('settings-panel'), document.querySelector('.tab-item[data-tab="bible"]'));
       }
     } else {
+      document.querySelectorAll('.section-header').forEach(h => h.setAttribute('aria-expanded', 'false'));
       if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
     }
   }
@@ -134,6 +135,7 @@ window.SettingsModule = class SettingsModule {
     this.settingsOpen = false;
     document.getElementById('settings-panel').classList.remove('open');
     document.getElementById('settings-overlay').classList.remove('open');
+    document.querySelectorAll('.section-header').forEach(h => h.setAttribute('aria-expanded', 'false'));
     if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
 

@@ -738,7 +738,7 @@ body.scroll-mode.paragraph-mode .verse-container.focused {
 }
 
 body.scroll-mode.paragraph-mode .verse-container.focused .verse-text {
-  background: var(--spotlight-highlight);
+  background-color: var(--spotlight-highlight);
   border-radius: 0.2em;
   padding: 0.1em 0;
 }
@@ -800,12 +800,10 @@ body.paragraph-mode #content.spotlight-mode .verse-container.focused {
   background: none;
   box-shadow: none;
   border: none;
-  border-left: 3px solid var(--accent-gold);
-  padding-left: 0.3em;
 }
 
 body.paragraph-mode #content.spotlight-mode .verse-container.focused .verse-text {
-  background: var(--spotlight-highlight);
+  background-color: var(--spotlight-highlight);
   border-radius: 0.2em;
   padding: 0.1em 0;
 }
@@ -2371,13 +2369,35 @@ input[type="range"]::-moz-range-thumb {
   margin: 0.15rem 0;
 }
 
-/* ========== Verse Selection (Long-press mode) ========== */
+/* ========== Verse Selection Underline (smooth curve) ========== */
+.verse-container.temp-selected .verse-text,
+.verse-container.temp-selected .token-text {
+  background-repeat: no-repeat;
+  background-position: left calc(100% + 2px);
+  background-size: 100% 14px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* ========== OLD: Verse Selection Sidebar Indicator ========== */
+/* Uncomment this block and comment out the rules above to
+   restore the old sidebar border-left indicator. */
+/*
 .verse-container.temp-selected {
   border-left: 3px solid var(--accent-gold);
 }
 .verse-container.temp-selected .verse-text {
   padding-left: 0.5rem;
 }
+body.paragraph-mode .verse-container.temp-selected {
+  border-left: none;
+}
+body.paragraph-mode .verse-container.temp-selected .verse-text {
+  padding-left: 0;
+  background: none;
+}
+*/
+
 
 /* ========== Highlight Spans ========== */
 .hl-span {

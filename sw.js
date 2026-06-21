@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v15';
+const CACHE_NAME = 'focused-word-v16';
 const APP_SHELL = [
   '/',
   '/index.html',

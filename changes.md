@@ -1,5 +1,15 @@
 # Changelog — Focused Word
 
+## v8.4.5
+
+### Selection Underline
+- Replaced the sidebar (border-left) indicator on selected verses with a smooth, curved underline in the accent color.
+- The underline now appears below the text on every wrapped line in paragraph mode, and under each text segment in scroll/spotlight/swipe modes.
+- Focus highlighting no longer interferes with the selection underline.
+
+### Settings UX
+- Settings sections now collapse automatically when the settings panel is closed, so you always start with a clean slate.
+
 ## v0.8.4
 
 ### Spotlight Mode Fix
