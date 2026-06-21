@@ -2371,7 +2371,8 @@ input[type="range"]::-moz-range-thumb {
 
 /* ========== Verse Selection Underline (smooth curve) ========== */
 .verse-container.temp-selected .verse-text,
-.verse-container.temp-selected .token-text {
+.verse-container.temp-selected .token-text,
+.verse-container.temp-selected .token-poetry {
   background-repeat: no-repeat;
   background-position: left calc(100% + 2px);
   background-size: 100% 14px;

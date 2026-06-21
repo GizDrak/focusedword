@@ -230,10 +230,11 @@ window.InteractionManager = class InteractionManager {
     if (isInline) {
       verseText.style.backgroundImage = dataUri;
     } else {
-      var tokens = verseText.querySelectorAll('.token-text');
-      if (tokens.length) {
-        for (var i = 0; i < tokens.length; i++) {
-          tokens[i].style.backgroundImage = dataUri;
+      var el = verseText.querySelector('.token-text, .token-poetry');
+      if (el) {
+        var targets = verseText.querySelectorAll('.token-text, .token-poetry');
+        for (var i = 0; i < targets.length; i++) {
+          targets[i].style.backgroundImage = dataUri;
         }
       } else {
         verseText.style.backgroundImage = dataUri;
@@ -248,10 +249,11 @@ window.InteractionManager = class InteractionManager {
     if (isInline) {
       verseText.style.backgroundImage = '';
     } else {
-      var tokens = verseText.querySelectorAll('.token-text');
-      if (tokens.length) {
-        for (var i = 0; i < tokens.length; i++) {
-          tokens[i].style.backgroundImage = '';
+      var el = verseText.querySelector('.token-text, .token-poetry');
+      if (el) {
+        var targets = verseText.querySelectorAll('.token-text, .token-poetry');
+        for (var i = 0; i < targets.length; i++) {
+          targets[i].style.backgroundImage = '';
         }
       } else {
         verseText.style.backgroundImage = '';
@@ -268,10 +270,11 @@ window.InteractionManager = class InteractionManager {
       if (isInline) {
         vt.style.backgroundImage = '';
       } else {
-        var tokens = vt.querySelectorAll('.token-text');
-        if (tokens.length) {
-          for (var i = 0; i < tokens.length; i++) {
-            tokens[i].style.backgroundImage = '';
+        var el = vt.querySelector('.token-text, .token-poetry');
+        if (el) {
+          var targets = vt.querySelectorAll('.token-text, .token-poetry');
+          for (var i = 0; i < targets.length; i++) {
+            targets[i].style.backgroundImage = '';
           }
         } else {
           vt.style.backgroundImage = '';
