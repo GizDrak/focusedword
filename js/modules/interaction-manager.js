@@ -163,6 +163,8 @@ window.InteractionManager = class InteractionManager {
 
   _isSpotlightEdgeTap(e) {
     if (!this.bridge.state?.get('spotlightMode')) return false;
+    const edgeThreshold = window.innerWidth * 0.15;
+    if (e.clientX < edgeThreshold || e.clientX > window.innerWidth - edgeThreshold) return true;
     const contentRect = document.getElementById('content').getBoundingClientRect();
     const relX = (e.clientX - contentRect.left) / contentRect.width;
     return relX < 0.3 || relX > 0.7;

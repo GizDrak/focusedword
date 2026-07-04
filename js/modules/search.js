@@ -72,7 +72,7 @@ window.SearchModule = class SearchModule {
     });
 
     const cleaned = stripped
-      .replace(/[*^()+\-,:]/g, ' ')
+      .replace(/[*^()+\-,:&|!@"]/g, ' ')
       .replace(/\b(OR|AND|NOT|NEAR)\b/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -92,15 +92,7 @@ window.SearchModule = class SearchModule {
 
   _ensureBookCache() {
     if (this._bookCache) return;
-    this._bookCache = {};
-    for (const b of BookMap.getBooks()) {
-      this._bookCache[b.code] = { id: b.id, name: b.name, code: b.code };
-    }
-  }
-
-  _escapeHtml(str) {
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-    return str.replace(/[&<>"']/g, ch => map[ch]);
+    this._bookCache = BookMap.asCodeMap();
   }
 
   _setupUI() {
@@ -173,14 +165,14 @@ window.SearchModule = class SearchModule {
 
     const frag = document.createDocumentFragment();
     for (const r of hits) {
-      let text = this._escapeHtml(r.cleanText);
+      let text = window.HTMLEscape(r.cleanText);
       if (highlightTerms.length) {
         const escaped = highlightTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
         text = text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
       }
       const btn = document.createElement('button');
       btn.className = 'search-result-item';
-      btn.innerHTML = '<span class="search-result-ref">' + this._escapeHtml(r.bookName) + ' ' + r.chapter + ':' + r.verse + '</span><span class="search-result-text">' + text + '</span>';
+      btn.innerHTML = '<span class="search-result-ref">' + window.HTMLEscape(r.bookName) + ' ' + r.chapter + ':' + r.verse + '</span><span class="search-result-text">' + text + '</span>';
       btn.addEventListener('click', () => {
         hide();
         this.bridge.call('navigation', 'navigateTo', r.bookId, r.chapter, r.verse);

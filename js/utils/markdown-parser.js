@@ -1,6 +1,6 @@
 window.MarkdownParser = {
   _escapeHtml(str) {
-    return BaseRenderer.prototype.escapeHtml.call(null, str);
+    return window.HTMLEscape(str);
   },
 
   parse(text) {

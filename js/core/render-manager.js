@@ -51,13 +51,19 @@ window.RenderManager = class RenderManager {
       this.base.showSpeedControls(!!state.get('speedMode'));
 
       if (!state.get('swipeMode')) {
-        this.vm.scrollToVerse(currentVerse);
+        if (!state.get('spotlightMode') && !state.get('speedMode')) {
+          this.vm.scrollToReadingBand(currentVerse);
+        } else {
+          this.vm.scrollToVerse(currentVerse);
+        }
       }
 
       if (!state.get('swipeMode') && !state.get('spotlightMode') && !state.get('speedMode')) {
         const sr = this.bridge.get('renderer-scroll');
         if (sr) sr.onRenderComplete();
-        this._scrollSwitcher?.start();
+        requestAnimationFrame(() => {
+          this._scrollSwitcher?.start();
+        });
       }
 
       if (!state.get('swipeMode') && !state.get('speedMode')) {
@@ -70,7 +76,7 @@ window.RenderManager = class RenderManager {
   _bind() {
     this.bridge.on('nav:chapter-loaded', () => this.render());
     this.bridge.on('render:refresh', () => this.render());
-    this.bridge.state.onChange('swipeMode spotlightMode speedMode'.split(' '), () => {
+    this.bridge.state.onChange('swipeMode spotlightMode speedMode splitMode splitPortrait'.split(' '), () => {
       this.vm.syncBodyClasses(this._modeFlags());
     });
     this.bridge.state.onChange('paragraphMode', (_, val) => {
@@ -84,7 +90,7 @@ window.RenderManager = class RenderManager {
 
   _modeFlags() {
     const s = this.bridge.state;
-    return { swipe: s.get('swipeMode'), spotlight: s.get('spotlightMode'), speed: s.get('speedMode') };
+    return { swipe: s.get('swipeMode'), spotlight: s.get('spotlightMode'), speed: s.get('speedMode'), split: s.get('splitMode'), splitPortrait: s.get('splitPortrait') };
   }
 
   _syncOnInit() {

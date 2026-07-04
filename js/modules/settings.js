@@ -20,6 +20,9 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-section-headings').checked = state.get('sectionHeadings');
     document.getElementById('settings-poetry').checked = state.get('poetryFormatting');
     document.getElementById('settings-paragraph-mode').checked = state.get('paragraphMode');
+    document.getElementById('settings-swipe-max-verses').value = state.get('swipeMaxVerses');
+    document.getElementById('settings-swipe-max-verses-label').textContent = state.get('swipeMaxVerses');
+    this._syncSwipeMaxVersesVisibility(state.get('paragraphBreaks'));
     this._syncBionicStrengthVisibility(state.get('bionic'));
     document.getElementById('settings-cross-refs').checked = state.get('crossRefs');
     document.getElementById('speed-auto-advance').checked = state.get('speedAutoAdvance');
@@ -35,7 +38,10 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-letter-spacing').value = state.get('letterSpacing');
     document.getElementById('settings-letter-spacing-label').textContent = state.get('letterSpacing').toFixed(3);
     this._renderAccentSwatches();
+    this._renderRedLetterSwatches();
+    this._applyRedLetterColor();
     document.getElementById('settings-background-texture').checked = state.get('backgroundTexture');
+    document.getElementById('settings-portrait-lock').checked = state.get('portraitLock');
     this._applyTextSettings();
   }
 
@@ -61,6 +67,50 @@ window.SettingsModule = class SettingsModule {
     this._renderAccentSwatches();
   }
 
+  static get redLetterShades() {
+    return [
+      { id: 'blush',       label: 'Blush',       color: '#F2A0A0' },
+      { id: 'rose',        label: 'Rose',        color: '#E38080' },
+      { id: 'soft-red',    label: 'Soft Red',    color: '#D06060' },
+      { id: 'firebrick',   label: 'Firebrick',   color: '#B22222' },
+      { id: 'rich-red',    label: 'Rich Red',    color: '#C61414' },
+      { id: 'bright-red',  label: 'Bright Red',  color: '#DA0A0A' },
+      { id: 'vivid-red',   label: 'Vivid Red',   color: '#EE0000' },
+    ];
+  }
+
+  _renderRedLetterSwatches() {
+    const container = document.getElementById('settings-red-letter-swatches');
+    if (!container) return;
+    const enabled = this.bridge.state.get('redLetter');
+    container.style.display = enabled ? 'flex' : 'none';
+    if (container.parentElement) {
+      container.parentElement.style.display = enabled ? '' : 'none';
+    }
+    const current = this.bridge.state.get('redLetterColor') || '#B22222';
+    container.innerHTML = '';
+    for (const s of SettingsModule.redLetterShades) {
+      const btn = document.createElement('button');
+      btn.className = 'accent-swatch' + (s.color === current ? ' active' : '');
+      btn.style.background = s.color;
+      btn.setAttribute('aria-label', s.label);
+      btn.dataset.color = s.color;
+      btn.addEventListener('click', () => this._onRedLetterColorClick(s.color));
+      container.appendChild(btn);
+    }
+  }
+
+  _onRedLetterColorClick(color) {
+    this.bridge.state.set('redLetterColor', color);
+    this._applyRedLetterColor();
+    this._renderRedLetterSwatches();
+  }
+
+  _applyRedLetterColor() {
+    const color = this.bridge.state.get('redLetterColor') || '#B22222';
+    document.documentElement.style.setProperty('--wj-color', color);
+  }
+
   _initEventListeners() {
 
     document.getElementById('settings-close').addEventListener('click', () => this.closeSettings());
@@ -68,14 +118,20 @@ window.SettingsModule = class SettingsModule {
 
     document.getElementById('settings-theme').addEventListener('change', (e) => this.setTheme(e.target.value));
     document.getElementById('settings-background-texture').addEventListener('change', (e) => this._setToggle('backgroundTexture', e.target.checked));
+    document.getElementById('settings-portrait-lock').addEventListener('change', (e) => this._setPortraitLock(e.target.checked));
     document.getElementById('settings-bionic').addEventListener('change', (e) => this._setToggle('bionic', e.target.checked));
-    document.getElementById('settings-red-letter').addEventListener('change', (e) => this._setToggle('redLetter', e.target.checked));
+    document.getElementById('settings-red-letter').addEventListener('change', (e) => {
+      this._setToggle('redLetter', e.target.checked);
+      this._renderRedLetterSwatches();
+      this._applyRedLetterColor();
+    });
     document.getElementById('settings-footnotes').addEventListener('change', (e) => this._setToggle('footnotes', e.target.checked));
     document.getElementById('settings-section-headings').addEventListener('change', (e) => this._setToggle('sectionHeadings', e.target.checked));
     document.getElementById('settings-poetry').addEventListener('change', (e) => this._setToggle('poetryFormatting', e.target.checked));
     document.getElementById('settings-paragraph-mode').addEventListener('change', (e) => {
       this.bridge.state.set('paragraphMode', e.target.checked);
       this.bridge.state.set('paragraphBreaks', e.target.checked);
+      this._syncSwipeMaxVersesVisibility(e.target.checked);
       this.bridge.emit('render:refresh');
     });
     document.getElementById('settings-bionic').addEventListener('change', (e) => this._syncBionicStrengthVisibility(e.target.checked));
@@ -91,6 +147,7 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-margins').addEventListener('input', (e) => this._setMargins(parseFloat(e.target.value)));
     document.getElementById('settings-line-spacing').addEventListener('input', (e) => this._setLineSpacing(parseFloat(e.target.value)));
     document.getElementById('settings-letter-spacing').addEventListener('input', (e) => this._setLetterSpacing(parseFloat(e.target.value)));
+    document.getElementById('settings-swipe-max-verses').addEventListener('input', (e) => this._setSwipeMaxVerses(parseInt(e.target.value, 10)));
 
     document.getElementById('view-changelog').addEventListener('click', (e) => { e.preventDefault(); this._openChangelog(); });
     document.getElementById('view-debug-log').addEventListener('click', () => this._openDebugLog());
@@ -157,7 +214,16 @@ window.SettingsModule = class SettingsModule {
     const defaultAccent = accentMap[name] || 'gold';
     const ct = this.bridge.get('color-theme');
     if (ct) ct.setAccent(defaultAccent);
+    this._syncAppIcon(name);
     this._renderAccentSwatches();
+  }
+
+  _syncAppIcon(theme) {
+    const lightThemes = ['light', 'sepia', 'icy-wind', 'clay'];
+    const src = lightThemes.includes(theme)
+      ? '/assets/icons/icon-light.svg'
+      : '/assets/icons/icon-dark.svg';
+    document.querySelectorAll('.app-icon').forEach(el => el.src = src);
   }
 
   toggleFocusMode() {
@@ -191,6 +257,19 @@ window.SettingsModule = class SettingsModule {
     this.bridge.emit('render:refresh');
   }
 
+  _setPortraitLock(enabled) {
+    this.bridge.state.set('portraitLock', enabled);
+    if (enabled) {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('portrait-primary').catch(() => {});
+      }
+    } else {
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+    }
+  }
+
   async _openChangelog() {
     const body = document.getElementById('changelog-body');
     const panel = document.getElementById('changelog-panel');
@@ -200,7 +279,7 @@ window.SettingsModule = class SettingsModule {
     overlay.classList.add('open');
     panel.classList.add('open');
     try {
-      const resp = await fetch('changes.md');
+      const resp = await fetch('whats_new.md');
       const md = await resp.text();
       const lines = md.split('\n');
       let html = '';
@@ -208,7 +287,7 @@ window.SettingsModule = class SettingsModule {
       const escapeInline = (text) => {
         const parts = text.split(/(`[^`]+`)/g);
         return parts.map(p => {
-          if (p.startsWith('`') && p.endsWith('`')) return '<code>' + p.slice(1, -1) + '</code>';
+          if (p.startsWith('`') && p.endsWith('`')) return '<code>' + window.HTMLEscape(p.slice(1, -1)) + '</code>';
           return MarkdownParser.parse(p);
         }).join('');
       };
@@ -307,6 +386,11 @@ window.SettingsModule = class SettingsModule {
     if (row) row.style.display = enabled ? '' : 'none';
   }
 
+  _syncSwipeMaxVersesVisibility(enabled) {
+    const row = document.getElementById('swipe-max-verses-row');
+    if (row) row.style.display = enabled ? '' : 'none';
+  }
+
   async _setCrossRefs(enabled) {
     this.bridge.state.set('crossRefs', enabled);
     const cr = this.bridge.get('cross-references');
@@ -320,6 +404,12 @@ window.SettingsModule = class SettingsModule {
     } else {
       cr.destroy();
     }
+    this.bridge.emit('render:refresh');
+  }
+
+  _setSwipeMaxVerses(value) {
+    this.bridge.state.set('swipeMaxVerses', value);
+    document.getElementById('settings-swipe-max-verses-label').textContent = value;
     this.bridge.emit('render:refresh');
   }
 
@@ -404,22 +494,25 @@ window.SettingsModule = class SettingsModule {
       focusMode: false,
       swipeAnimDir: 'vertical',
       redLetter: true,
+      redLetterColor: '#B22222',
       footnotes: true,
       sectionHeadings: true,
       poetryFormatting: true,
       paragraphBreaks: false,
       paragraphMode: false,
+      swipeMaxVerses: 4,
       backgroundTexture: true
     });
     const ct = this.bridge.get('color-theme');
     if (ct) ct.apply('gold');
     document.documentElement.dataset.theme = 'dark';
     this._syncUIFromState();
+    this._applyRedLetterColor();
     this.bridge.emit('render:refresh');
   }
 
   resetApp() {
-    if (!confirm('This will reset ALL data including bookmarks, highlights, and reading position. This cannot be undone. Continue?')) return;
+    if (!confirm('This will reset ALL data including notes, categories, bookmarks, highlights, and reading position. This cannot be undone. Continue?')) return;
     this.closeSettings();
     this.bridge.state.set('currentBook', 1);
     this.bridge.state.set('currentChapter', 1);
@@ -438,11 +531,28 @@ window.SettingsModule = class SettingsModule {
     });
     keysToRemove.forEach(k => localStorage.removeItem(k));
     try {
-      indexedDB.deleteDatabase('FocusedWord');
-      const req = indexedDB.deleteDatabase('FocusedSyncDB');
-      req.onsuccess = () => location.reload();
-      req.onerror = () => location.reload();
-      req.onblocked = () => location.reload();
+      if (window.idb && window.idb._db) window.idb._db.close();
+      if (window.syncService && window.syncService._db) window.syncService._db.close();
+    } catch (e) {
+      console.warn('[Settings] Error closing DB connections:', e);
+    }
+    const st = this.bridge.state;
+    st.notes = [];
+    st.plans = [];
+    st.noteCategories = [];
+    st.bookmarks = [];
+    st.highlights = [];
+    st.bookmarkSets = [];
+    try {
+      const dbs = ['focused_word_db', 'FocusedSyncDB'];
+      let pending = dbs.length;
+      for (const name of dbs) {
+        const req = indexedDB.deleteDatabase(name);
+        const cb = () => { if (--pending === 0) location.reload(); };
+        req.onsuccess = cb;
+        req.onerror = cb;
+        req.onblocked = cb;
+      }
     } catch (e) {
       location.reload();
     }
@@ -453,9 +563,9 @@ window.SettingsModule = class SettingsModule {
     const speed = this.bridge.get('renderer-speed');
 
     if (state.get(mode)) {
-      state.batch({ swipeMode: false, spotlightMode: false, speedMode: false });
+      state.batch({ swipeMode: false, spotlightMode: false, speedMode: false, splitMode: false });
     } else {
-      const modes = { swipeMode: false, spotlightMode: false, speedMode: false };
+      const modes = { swipeMode: false, spotlightMode: false, speedMode: false, splitMode: false };
       modes[mode] = true;
       state.batch(modes);
       if (mode === 'speedMode' && speed) speed.stop();

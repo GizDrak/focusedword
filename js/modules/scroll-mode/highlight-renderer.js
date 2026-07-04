@@ -1,6 +1,6 @@
 window.HighlightRenderer = class HighlightRenderer {
   constructor() {
-    this._supportsCustomHighlight = 'highlights' in CSS;
+    this._supportsCustomHighlight = typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight !== 'undefined';
     this._lastRange = null;
     this._highlightStyleInjected = false;
 
@@ -53,10 +53,10 @@ window.HighlightRenderer = class HighlightRenderer {
       } catch (e) {
         return;
       }
+      const container = range.startContainer.parentElement;
+      if (!container || !document.contains(container)) return;
       const rects = range.getClientRects();
       if (!rects.length) return;
-      const container = range.startContainer.parentElement;
-      if (!container) return;
 
       const parentRect = container.getBoundingClientRect();
       for (let i = 0; i < rects.length; i++) {

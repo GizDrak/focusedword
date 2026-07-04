@@ -98,6 +98,21 @@ window.BookMap = {
     return this._entries.map(e => ({ id: e.id, name: e.name }));
   },
 
+  asCodeMap() {
+    this._build();
+    const map = {};
+    for (const e of this._entries) {
+      map[e.code] = { id: e.id, name: e.name, code: e.code };
+    }
+    return map;
+  },
+
+  getName(id) {
+    this._build();
+    const entry = this._entries.find(e => e.id === id);
+    return entry ? entry.name : '';
+  },
+
   getIds() {
     this._build();
     return Object.keys(this._idToCode).map(Number);

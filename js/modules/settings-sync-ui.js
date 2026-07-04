@@ -260,6 +260,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
                 <li>Layout settings</li>
                 <li>Bookmarks</li>
                 <li>Highlights</li>
+                <li>Notes</li>
                 <li>Hashed sync key</li>
               </ul>
             </div>
@@ -277,11 +278,14 @@ window.SyncSettingsUI = class SyncSettingsUI {
             <button class="btn-secondary" id="sync-onboarding-restore">I Have a Key</button>
             <button class="btn-primary" id="sync-onboarding-generate">Generate New Key</button>
           </div>
+          </div>
+          <div class="sync-onboarding-footer" style="margin-top:14px;text-align:center">
+            <button id="sync-onboarding-server-url" style="background:none;border:none;color:var(--text-muted,#888);cursor:pointer;font-size:0.78rem;text-decoration:underline;padding:4px 8px">Change Server</button>
+          </div>
         </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
+      `;
+ 
+     document.body.appendChild(overlay);
 
     requestAnimationFrame(() => overlay.classList.add('open'));
 
@@ -299,7 +303,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
         <div class="sync-key-reveal">
           <p class="sync-key-reveal-intro">Your sync key has been generated. <strong>Write it down or save it somewhere safe</strong> — you'll need it to sync your other devices.</p>
           <div class="sync-key-box">
-            <code class="sync-key-text">${this._escapeHtml(key)}</code>
+            <code class="sync-key-text">${window.HTMLEscape(key)}</code>
             <button class="sync-key-copy-btn" id="sync-key-copy-btn" aria-label="Copy key">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -345,19 +349,19 @@ window.SyncSettingsUI = class SyncSettingsUI {
       if (this._els.restoreKey) this._els.restoreKey.click();
     });
 
+    document.getElementById('sync-onboarding-server-url')?.addEventListener('click', () => {
+      const url = prompt('Enter server URL:', syncService.serverUrl);
+      if (url) {
+        syncService.setServerUrl(url);
+      }
+    });
+
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         this._closeSyncOnboarding();
         this._els.enable.checked = false;
       }
     });
-  }
-
-  _escapeHtml(str) {
-    if (!str) return '';
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
   }
 
   _closeSyncOnboarding() {
@@ -374,6 +378,10 @@ window.SyncSettingsUI = class SyncSettingsUI {
     syncService.setEnabled(this._els.enable.checked);
     const body = document.getElementById('sync-settings-body');
     if (body) body.style.display = this._els.enable.checked ? '' : 'none';
+    const revokeBtn = document.getElementById('sync-revoke');
+    if (revokeBtn) revokeBtn.style.display = this._els.enable.checked ? '' : 'none';
+    const resetBtn = document.getElementById('sync-reset');
+    if (resetBtn) resetBtn.style.display = localStorage.getItem('sync-key') ? '' : 'none';
     this._refreshLastLabel();
     const autoOn = localStorage.getItem('sync-auto') === 'true';
     this._els.auto.checked = autoOn;
@@ -397,11 +405,10 @@ window.SyncSettingsUI = class SyncSettingsUI {
 
     const bookmarksTs = Math.max(_maxTs(bookmarks), state.moduleTimestamps.bookmarks);
     const highlightsTs = Math.max(_maxTs(highlights), state.moduleTimestamps.highlights);
-
-    console.log('[Sync] _collectState payload:', {
-      bookmarks: { count: bookmarks.length, deleted: bookmarks.filter(i => i.deleted).length, ts: bookmarksTs, sample: bookmarks[0] ? { id: bookmarks[0].id, deleted: bookmarks[0].deleted, updated_at: bookmarks[0].updated_at, bookId: bookmarks[0].bookId, chapter: bookmarks[0].chapter } : null },
-      highlights: { count: highlights.length, deleted: highlights.filter(i => i.deleted).length, ts: highlightsTs, sample: highlights[0] ? { id: highlights[0].id, deleted: highlights[0].deleted, updated_at: highlights[0].updated_at, bookId: highlights[0].bookId, chapter: highlights[0].chapter } : null }
-    });
+    const notesTs = Math.max(_maxTs(state.notes || []), state.moduleTimestamps.notes);
+    const plansTs = Math.max(_maxTs(state.plans || []), state.moduleTimestamps.plans);
+    const noteCategoriesTs = Math.max(_maxTs(state.noteCategories || []), state.moduleTimestamps.noteCategories);
+    const bookmarkSetsTs = Math.max(_maxTs(state.bookmarkSets || []), state.moduleTimestamps.bookmarkSets);
 
     return {
       settings: {
@@ -417,6 +424,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
         bionicStrength: state.get('bionicStrength'),
         paragraphMode: state.get('paragraphMode'),
         redLetter: state.get('redLetter'),
+        redLetterColor: state.get('redLetterColor'),
         footnotes: state.get('footnotes'),
         sectionHeadings: state.get('sectionHeadings'),
         poetryFormatting: state.get('poetryFormatting'),
@@ -444,11 +452,19 @@ window.SyncSettingsUI = class SyncSettingsUI {
       },
       notes: {
         data: state.notes || [],
-        updated_at: state.moduleTimestamps.notes
+        updated_at: notesTs
       },
       plans: {
         data: state.plans || [],
-        updated_at: state.moduleTimestamps.plans
+        updated_at: plansTs
+      },
+      noteCategories: {
+        data: state.noteCategories || [],
+        updated_at: noteCategoriesTs
+      },
+      bookmarkSets: {
+        data: state.bookmarkSets || [],
+        updated_at: bookmarkSetsTs
       }
     };
   }
@@ -474,6 +490,10 @@ window.SyncSettingsUI = class SyncSettingsUI {
         if (settings.bionicStrength) this.bridge.state.set('bionicStrength', settings.bionicStrength);
         if (settings.paragraphMode !== undefined) this.bridge.state.set('paragraphMode', settings.paragraphMode);
         if (settings.redLetter !== undefined) this.bridge.state.set('redLetter', settings.redLetter);
+        if (settings.redLetterColor !== undefined) {
+          this.bridge.state.set('redLetterColor', settings.redLetterColor);
+          document.documentElement.style.setProperty('--wj-color', settings.redLetterColor);
+        }
         if (settings.footnotes !== undefined) this.bridge.state.set('footnotes', settings.footnotes);
         if (settings.sectionHeadings !== undefined) this.bridge.state.set('sectionHeadings', settings.sectionHeadings);
         if (settings.poetryFormatting !== undefined) this.bridge.state.set('poetryFormatting', settings.poetryFormatting);
@@ -516,7 +536,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
       if (modules.bookmarks && Array.isArray(modules.bookmarks.data)) {
         await this._mergeAndReplaceBookmarks(modules.bookmarks.data);
         if (modules.bookmarks.updated_at) {
-          this.bridge.state.moduleTimestamps.bookmarks = modules.bookmarks.updated_at;
+          this.bridge.state.moduleTimestamps.bookmarks = Math.max(this.bridge.state.moduleTimestamps.bookmarks, modules.bookmarks.updated_at);
           this.bridge.state._saveTimestamps();
         }
         window.dispatchEvent(new CustomEvent('sync-module-updated', { detail: 'bookmarks' }));
@@ -524,7 +544,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
       if (modules.highlights && Array.isArray(modules.highlights.data)) {
         await this._mergeAndReplaceHighlights(modules.highlights.data);
         if (modules.highlights.updated_at) {
-          this.bridge.state.moduleTimestamps.highlights = modules.highlights.updated_at;
+          this.bridge.state.moduleTimestamps.highlights = Math.max(this.bridge.state.moduleTimestamps.highlights, modules.highlights.updated_at);
           this.bridge.state._saveTimestamps();
         }
         window.dispatchEvent(new CustomEvent('sync-module-updated', { detail: 'highlights' }));
@@ -532,7 +552,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
       if (modules.notes && Array.isArray(modules.notes.data)) {
         await this.bridge.state.mergeArrays(this.bridge.state.notes, modules.notes.data, 'notes');
         if (modules.notes.updated_at) {
-          this.bridge.state.moduleTimestamps.notes = modules.notes.updated_at;
+          this.bridge.state.moduleTimestamps.notes = Math.max(this.bridge.state.moduleTimestamps.notes, modules.notes.updated_at);
           this.bridge.state._saveTimestamps();
         }
         window.dispatchEvent(new CustomEvent('sync-module-updated', { detail: 'notes' }));
@@ -540,10 +560,30 @@ window.SyncSettingsUI = class SyncSettingsUI {
       if (modules.plans && Array.isArray(modules.plans.data)) {
         await this.bridge.state.mergeArrays(this.bridge.state.plans, modules.plans.data, 'plans');
         if (modules.plans.updated_at) {
-          this.bridge.state.moduleTimestamps.plans = modules.plans.updated_at;
+          this.bridge.state.moduleTimestamps.plans = Math.max(this.bridge.state.moduleTimestamps.plans, modules.plans.updated_at);
           this.bridge.state._saveTimestamps();
         }
         window.dispatchEvent(new CustomEvent('sync-module-updated', { detail: 'plans' }));
+      }
+      if (modules.noteCategories && Array.isArray(modules.noteCategories.data)) {
+        await this.bridge.state.mergeArrays(
+          this.bridge.state.noteCategories, modules.noteCategories.data, 'noteCategories'
+        );
+        if (modules.noteCategories.updated_at) {
+          this.bridge.state.moduleTimestamps.noteCategories = Math.max(this.bridge.state.moduleTimestamps.noteCategories, modules.noteCategories.updated_at);
+          this.bridge.state._saveTimestamps();
+        }
+        window.dispatchEvent(new CustomEvent('sync-module-updated', { detail: 'noteCategories' }));
+      }
+      if (modules.bookmarkSets && Array.isArray(modules.bookmarkSets.data)) {
+        await this.bridge.state.mergeArrays(
+          this.bridge.state.bookmarkSets, modules.bookmarkSets.data, 'bookmarkSets'
+        );
+        if (modules.bookmarkSets.updated_at) {
+          this.bridge.state.moduleTimestamps.bookmarkSets = Math.max(this.bridge.state.moduleTimestamps.bookmarkSets, modules.bookmarkSets.updated_at);
+          this.bridge.state._saveTimestamps();
+        }
+        window.dispatchEvent(new CustomEvent('sync-module-updated', { detail: 'bookmarkSets' }));
       }
     } finally {
       this.bridge.state._isApplyingServerState = false;
@@ -553,44 +593,14 @@ window.SyncSettingsUI = class SyncSettingsUI {
   async _mergeAndReplaceBookmarks(remoteItems) {
     const selection = this.bridge.selection;
     const localItems = await selection.getAllBookmarksIncludingTombstones();
-    console.log('[Sync] Merge bookmarks:', {
-      localCount: localItems.length, localDeleted: localItems.filter(i => i.deleted).length,
-      remoteCount: remoteItems.length, remoteDeleted: remoteItems.filter(i => i.deleted).length
-    });
     const merged = await this.bridge.state.mergeArrays(localItems, remoteItems, 'bookmarks');
-    console.log('[Sync] Merge result:', { mergedCount: merged.length, mergedDeleted: merged.filter(i => i.deleted).length, mergedActive: merged.filter(i => !i.deleted).length });
-    return new Promise((resolve, reject) => {
-      const tx = selection._db.transaction('bookmarks', 'readwrite');
-      const store = tx.objectStore('bookmarks');
-      store.clear();
-      for (const item of merged) {
-        store.put(item);
-      }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
   }
 
   async _mergeAndReplaceHighlights(remoteItems) {
     const hm = this.bridge.get('highlight-manager');
     if (!hm) return;
     const localItems = await hm.store.getAllIncludingTombstones();
-    console.log('[Sync] Merge highlights:', {
-      localCount: localItems.length, localDeleted: localItems.filter(i => i.deleted).length,
-      remoteCount: remoteItems.length, remoteDeleted: remoteItems.filter(i => i.deleted).length
-    });
     const merged = await this.bridge.state.mergeArrays(localItems, remoteItems, 'highlights');
-    console.log('[Sync] Merge result:', { mergedCount: merged.length, mergedDeleted: merged.filter(i => i.deleted).length, mergedActive: merged.filter(i => !i.deleted).length });
-    return new Promise((resolve, reject) => {
-      const tx = hm.store._db.transaction('highlights', 'readwrite');
-      const store = tx.objectStore('highlights');
-      store.clear();
-      for (const item of merged) {
-        store.put(item);
-      }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
   }
 
   _refreshLastLabel() {

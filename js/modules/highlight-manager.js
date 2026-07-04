@@ -36,6 +36,11 @@ window.HighlightManager = class HighlightManager {
       e.stopPropagation();
       this._copyText();
     });
+
+    document.getElementById('btn-note').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._addNote();
+    });
   }
 
   _onSelectionActive(payload) {
@@ -562,6 +567,65 @@ window.HighlightManager = class HighlightManager {
     this._activeContainers = null;
     this._activeText = '';
     this._toolbar.classList.add('hidden');
+  }
+
+  _addNote() {
+    const state = this.bridge.state;
+    const bookName = state.get('currentBookName') || '';
+    const chapter = state.get('currentChapter') || '';
+    const interaction = this.bridge.get('interaction-manager');
+    let ref = '';
+    let text = '';
+
+    if (interaction && interaction.selectedVerses && interaction.selectedVerses.size) {
+      const containers = Array.from(interaction.selectedVerses);
+      const verseNums = [];
+      const cleanTexts = [];
+      for (const c of containers) {
+        const vn = c.querySelector('.verse-num');
+        const vt = c.querySelector('.verse-text');
+        if (!vn || !vt) continue;
+        const num = parseInt(vn.textContent);
+        if (isNaN(num)) continue;
+        verseNums.push(num);
+        const clone = vt.cloneNode(true);
+        clone.querySelectorAll('.footnote-caller, .crossref-indicator').forEach(el => el.remove());
+        let clean = clone.textContent.trim();
+        clean = clean.replace(/^(\d+)/, '\x00SUP\x00$1\x00/SUP\x00 ');
+        cleanTexts.push(clean);
+      }
+      if (verseNums.length) {
+        verseNums.sort((a, b) => a - b);
+        if (verseNums.length === 1) {
+          ref = `[${bookName} ${chapter}:${verseNums[0]}]`;
+        } else {
+          const cons = verseNums.every((n, i) => i === 0 || n === verseNums[i - 1] + 1);
+          ref = cons
+            ? `[${bookName} ${chapter}:${verseNums[0]}-${verseNums[verseNums.length - 1]}]`
+            : `[${bookName} ${chapter}:${verseNums[0]}]`;
+        }
+        text = cleanTexts.join(' ').slice(0, 500);
+      }
+    }
+
+    if (!text) text = (this._activeText || '').slice(0, 500);
+
+    let content = '';
+    if (ref || text) {
+      content = (ref || '') + (text ? '\n> ' + text : '');
+    }
+
+    if (interaction) interaction.clearSelection();
+    this._tempSelection = null;
+    this._multiVerseRange = null;
+    this._activeContainers = null;
+    this._activeText = '';
+    this._toolbar.classList.add('hidden');
+
+    const notesUI = this.bridge.get('notes-ui');
+    if (notesUI) {
+      notesUI.newNote({ content });
+    }
   }
 
   async _applyFullHighlight(container, verseNum, color) {

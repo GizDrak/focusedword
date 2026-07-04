@@ -28,7 +28,7 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
       scrollTarget: this._scrollTarget,
       onPosition: (pos) => {
         if (!this._bridge || !pos || !pos.verseEl) return;
-        if (this._skipTick) { this._skipTick = false; return; }
+        if (this._skipTick > 0) { this._skipTick--; return; }
         const num = parseInt(pos.verseEl.dataset.verse, 10);
         if (num && num !== this._bridge.state.get('currentVerse')) {
           window.verseManager.setPassive(num);
@@ -37,9 +37,15 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
         }
       }
     });
-    this._skipTick = true;
+    this._skipTick = 3;
     this._reader.start();
-    this._skipTick = false;
+    const dec = () => {
+      if (this._skipTick > 0) {
+        this._skipTick--;
+        requestAnimationFrame(dec);
+      }
+    };
+    requestAnimationFrame(dec);
   }
 
   updateFirstBlockHint(isSingleLine) {

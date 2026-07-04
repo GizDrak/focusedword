@@ -1,132 +1,7 @@
 window.HighlightStore = class HighlightStore {
-  constructor() {
-    this._db = null;
-    this._ready = this._openDB().then(() => this._migrateUUIDs());
-  }
-
-  static _uuid() {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = Math.random() * 16 | 0;
-      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
-  }
-
-  async _migrateUUIDs() {
-    const items = await this._getAll();
-    const needsMigration = items.filter(item => typeof item.id !== 'string');
-    if (!needsMigration.length) return;
-    for (const item of needsMigration) {
-      const oldId = item.id;
-      item.id = HighlightStore._uuid();
-      const tx = this._db.transaction('highlights', 'readwrite');
-      const store = tx.objectStore('highlights');
-      await new Promise((resolve, reject) => {
-        const delReq = store.delete(oldId);
-        delReq.onsuccess = () => {
-          const addReq = store.add(item);
-          addReq.onsuccess = () => resolve();
-          addReq.onerror = () => reject(addReq.error);
-        };
-        delReq.onerror = () => reject(delReq.error);
-      });
-    }
-  }
-
-  _openDB() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open('FocusedWord', 6);
-      req.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        const tx = e.target.transaction;
-        if (e.oldVersion < 1) {
-          if (!db.objectStoreNames.contains('bookmarks')) db.createObjectStore('bookmarks', { keyPath: 'id', autoIncrement: true });
-          if (!db.objectStoreNames.contains('highlights')) db.createObjectStore('highlights', { keyPath: 'id' });
-        }
-        if (e.oldVersion < 2) {
-          if (db.objectStoreNames.contains('highlights')) db.deleteObjectStore('highlights');
-          if (!db.objectStoreNames.contains('highlights')) db.createObjectStore('highlights', { keyPath: 'id' });
-        }
-        if (e.oldVersion < 3) {
-          if (!db.objectStoreNames.contains('bookmark_sets')) db.createObjectStore('bookmark_sets', { keyPath: 'id', autoIncrement: true });
-        }
-        if (e.oldVersion < 4) {
-          if (tx.objectStoreNames.contains('highlights')) {
-            const store = tx.objectStore('highlights');
-            if (!store.indexNames.contains('byChapter')) {
-              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
-            }
-          }
-          if (tx.objectStoreNames.contains('bookmarks')) {
-            const store = tx.objectStore('bookmarks');
-            if (!store.indexNames.contains('byChapter')) {
-              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
-            }
-          }
-        }
-        if (e.oldVersion < 5) {
-          if (tx.objectStoreNames.contains('highlights')) {
-            const store = tx.objectStore('highlights');
-            if (!store.indexNames.contains('byChapter')) {
-              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
-            }
-          }
-          if (tx.objectStoreNames.contains('bookmarks')) {
-            const store = tx.objectStore('bookmarks');
-            if (!store.indexNames.contains('byChapter')) {
-              store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
-            }
-          }
-        }
-        if (e.oldVersion < 6) {
-          if (tx.objectStoreNames.contains('highlights')) {
-            const store = tx.objectStore('highlights');
-            const cursorReq = store.openCursor();
-            cursorReq.onsuccess = (ev) => {
-              const cursor = ev.target.result;
-              if (cursor) {
-                const item = cursor.value;
-                let needsUpdate = false;
-                if (!item.createdAt) { item.createdAt = Date.now(); needsUpdate = true; }
-                if (!item.updated_at) { item.updated_at = Date.now(); needsUpdate = true; }
-                if (needsUpdate) cursor.update(item);
-                cursor.continue();
-              }
-            };
-          }
-          if (tx.objectStoreNames.contains('bookmarks')) {
-            const store = tx.objectStore('bookmarks');
-            const cursorReq = store.openCursor();
-            cursorReq.onsuccess = (ev) => {
-              const cursor = ev.target.result;
-              if (cursor) {
-                const item = cursor.value;
-                if (!item.updated_at && item.createdAt) {
-                  item.updated_at = item.createdAt;
-                  cursor.update(item);
-                }
-                cursor.continue();
-              }
-            };
-          }
-        }
-      };
-      req.onsuccess = (e) => { this._db = e.target.result; resolve(); };
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async _ensureOpen() {
-    if (this._db) return;
-    await this._ready;
-  }
-
   async save(data) {
-    await this._ensureOpen();
     const hl = {
-      id: data.id || HighlightStore._uuid(),
+      id: data.id || window.UUID.generate(),
       bookId: data.bookId,
       chapter: data.chapter,
       verse: data.verse,
@@ -136,55 +11,35 @@ window.HighlightStore = class HighlightStore {
       endOffset: data.type === 'partial' ? data.endOffset : null,
       color: data.color,
       text: data.text || '',
+      deleted: false,
       createdAt: data.createdAt || Date.now(),
       updated_at: Date.now()
     };
-    return new Promise((resolve, reject) => {
-      const tx = this._db.transaction('highlights', 'readwrite');
-      const req = tx.objectStore('highlights').put(hl);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
+    await window.idb.put('highlights', hl);
+  }
+
+  async updateTags(id, tags) {
+    const item = await window.idb.get('highlights', id);
+    if (!item) return;
+    item.tags = tags;
+    item.updated_at = Date.now();
+    await window.idb.put('highlights', item);
   }
 
   async delete(id) {
-    await this._ensureOpen();
-    const tx = this._db.transaction('highlights', 'readwrite');
-    const store = tx.objectStore('highlights');
-    const getReq = store.get(id);
-    return new Promise((resolve, reject) => {
-      getReq.onsuccess = () => {
-        const item = getReq.result;
-        if (!item) { resolve(); return; }
-        item.deleted = true;
-        item.updated_at = Date.now();
-        const putReq = store.put(item);
-        putReq.onsuccess = () => resolve();
-        putReq.onerror = () => reject(putReq.error);
-      };
-      getReq.onerror = () => reject(getReq.error);
-    });
+    const item = await window.idb.get('highlights', id);
+    if (!item) return;
+    item.deleted = true;
+    item.updated_at = Date.now();
+    await window.idb.put('highlights', item);
   }
 
   async getForChapter(bookId, chapter) {
-    await this._ensureOpen();
     try {
-      return await new Promise((resolve, reject) => {
-        const tx = this._db.transaction('highlights', 'readonly');
-        const store = tx.objectStore('highlights');
-        if (!store.indexNames.contains('byChapter')) {
-          const allReq = store.getAll();
-          allReq.onsuccess = () => resolve((allReq.result || []).filter(h => h.bookId === bookId && h.chapter === chapter && !h.deleted));
-          allReq.onerror = () => reject(allReq.error);
-          return;
-        }
-        const range = IDBKeyRange.only([bookId, chapter]);
-        const req = store.index('byChapter').getAll(range);
-        req.onsuccess = () => resolve((req.result || []).filter(h => !h.deleted));
-        req.onerror = () => reject(req.error);
-      });
+      const items = await window.idb.getAllFromIndex('highlights', 'byChapter', IDBKeyRange.only([bookId, chapter]));
+      return items.filter(h => !h.deleted);
     } catch (e) {
-      const all = await this._getAll();
+      const all = await window.idb.getAll('highlights');
       return all.filter(h => h.bookId === bookId && h.chapter === chapter && !h.deleted);
     }
   }
@@ -199,28 +54,17 @@ window.HighlightStore = class HighlightStore {
   }
 
   async getAll() {
-    await this._ensureOpen();
-    const items = await this._getAll();
+    const items = await window.idb.getAll('highlights');
     return items.filter(item => !item.deleted);
   }
 
   async getAllIncludingTombstones() {
-    await this._ensureOpen();
-    return this._getAll();
+    return window.idb.getAll('highlights');
   }
 
   async deleteForChapter(bookId, chapter) {
     const chapterHl = await this.getForChapter(bookId, chapter);
     await Promise.all(chapterHl.map(h => this.delete(h.id)));
-  }
-
-  _getAll() {
-    return new Promise((resolve, reject) => {
-      const tx = this._db.transaction('highlights', 'readonly');
-      const req = tx.objectStore('highlights').getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
   }
 
   static colorToClass(color) {

@@ -191,8 +191,7 @@ window.CrossReferences = class CrossReferences {
   }
 
   _bookNameToId(name) {
-    const books = window.BibleDB._BOOKS;
-    const found = books.find(b => b.name === name);
+    const found = BookMap.getBooks().find(b => b.name === name);
     return found ? found.id : null;
   }
 };

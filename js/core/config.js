@@ -1,7 +1,6 @@
 window.AppConfig = {
   SQLITE_WASM_URL: '/js/vendor/sqlite-wasm/index.mjs',
   DEFAULT_PORT: 3000,
-  SW_CACHE_VERSION: 'v10',
   MAX_CHAPTER_NAV_LOCK: 800,
   MIN_CHAPTER_NAV_LOCK: 600,
   POINTER_TAP_THRESHOLD: 150,

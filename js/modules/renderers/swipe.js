@@ -14,9 +14,19 @@ window.SwipeRenderer = class SwipeRenderer {
     return verse.tokens.every(t => t.type === 'section_heading');
   }
 
+  _getCardVerse(card) {
+    if (card.type === 'verse') return card.verse;
+    if (card.type === 'paragraph') return card.verses[0].verse;
+    return null;
+  }
+
   _buildCardSequence(verses) {
+    const state = this.bridge.state;
+    const showHeadings = state.get('sectionHeadings');
+    if (state.get('paragraphBreaks')) {
+      return this._buildParagraphSequence(verses, showHeadings);
+    }
     const cards = [];
-    const showHeadings = this.bridge.state.get('sectionHeadings');
     for (const v of verses) {
       if (!v.tokens) {
         cards.push({ type: 'verse', verse: v.verse, tokens: null, raw: v });
@@ -58,6 +68,74 @@ window.SwipeRenderer = class SwipeRenderer {
     return cards;
   }
 
+  _buildParagraphSequence(verses, showHeadings) {
+    const cards = [];
+    let currentGroup = null;
+
+    const flushGroup = () => {
+      if (!currentGroup) return;
+      if (currentGroup.length === 1) {
+        const v = currentGroup[0];
+        cards.push({ type: 'verse', verse: v.verse, tokens: v.tokens, raw: v.raw });
+      } else {
+        cards.push({ type: 'paragraph', verses: currentGroup.map(item => ({ verse: item.verse, tokens: item.tokens, raw: item.raw })) });
+      }
+      currentGroup = null;
+    };
+
+    for (const v of verses) {
+      if (!v.tokens) {
+        flushGroup();
+        cards.push({ type: 'verse', verse: v.verse, tokens: null, raw: v });
+        continue;
+      }
+      if (showHeadings && this._isHeadingOnly(v)) continue;
+
+      const headingGroups = [];
+      const textTokens = [];
+      let currentHeading = null;
+
+      for (const t of v.tokens) {
+        if (t.type === 'section_heading' && showHeadings) {
+          if (currentHeading !== null) headingGroups.push(currentHeading);
+          currentHeading = [t];
+        } else if (t.type === 'cross_ref' && currentHeading !== null) {
+          currentHeading.push(t);
+        } else {
+          if (currentHeading !== null) {
+            headingGroups.push(currentHeading);
+            currentHeading = null;
+          }
+          textTokens.push(t);
+        }
+      }
+      if (currentHeading !== null) headingGroups.push(currentHeading);
+
+      for (const group of headingGroups) {
+        flushGroup();
+        cards.push({ type: 'heading', verse: v.verse, tokens: group, raw: v });
+      }
+
+      if (textTokens.length > 0) {
+        if (!currentGroup || textTokens[0].type === 'paragraph_start') {
+          flushGroup();
+          currentGroup = [{ verse: v.verse, tokens: textTokens, raw: v }];
+        } else {
+          const maxVerses = this.bridge.state.get('swipeMaxVerses') || 4;
+          if (currentGroup.length >= maxVerses) {
+            flushGroup();
+            currentGroup = [{ verse: v.verse, tokens: textTokens, raw: v }];
+          } else {
+            currentGroup.push({ verse: v.verse, tokens: textTokens, raw: v });
+          }
+        }
+      }
+    }
+
+    flushGroup();
+    return cards;
+  }
+
   render(verses) {
     this._cleanupAnimation();
 
@@ -81,9 +159,9 @@ window.SwipeRenderer = class SwipeRenderer {
 
     const currentVerse = state.get('currentVerse');
     this._cards = this._buildCardSequence(verses);
-    const cardIdx = this._cards.findIndex(c => c.type === 'verse' && c.verse === currentVerse);
+    const cardIdx = this._cards.findIndex(c => (c.type === 'verse' && c.verse === currentVerse) || (c.type === 'paragraph' && c.verses.some(v => v.verse === currentVerse)));
     this.currentCardIndex = cardIdx >= 0 ? cardIdx : 0;
-    this._showHeader = verses.findIndex(v => v.verse === currentVerse) <= 0;
+    this._showHeader = false;
 
     this._renderCurrent(bionic, strength);
   }
@@ -131,6 +209,35 @@ window.SwipeRenderer = class SwipeRenderer {
       return el;
     }
 
+    if (card.type === 'paragraph') {
+      const el = document.createElement('div');
+      el.className = 'verse-container paragraph-card';
+      el.dataset.verse = card.verses[0].verse;
+      for (const vData of card.verses) {
+        if (vData.tokens) {
+          const verseEl = new window.TokenRenderer()._renderVerseTokens(vData.verse, vData.tokens, bionic, strength, settings || this.base._getSettings());
+          if (verseEl) {
+            while (verseEl.firstChild) {
+              el.appendChild(verseEl.firstChild);
+            }
+          }
+        } else {
+          const verseNum = document.createElement('sup');
+          verseNum.className = 'verse-num';
+          verseNum.textContent = vData.verse;
+          const verseText = document.createElement('span');
+          verseText.className = 'verse-text';
+          verseText.textContent = vData.raw && vData.raw.clean_text || '';
+          verseText.prepend(verseNum);
+          el.appendChild(verseText);
+        }
+      }
+      if (this.bridge.state.get('crossRefs') && this._bulkRefs && this._bulkRefs[card.verses[0].verse] && this._bulkRefs[card.verses[0].verse].length) {
+        this.base._addCrossRefIndicator(el, card.verses[0].verse);
+      }
+      return el;
+    }
+
     let el;
     if (card.tokens) {
       el = new window.TokenRenderer()._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings());
@@ -166,8 +273,8 @@ window.SwipeRenderer = class SwipeRenderer {
       return this._maxHeightCache.value;
     }
 
-    const verseCards = this._cards.filter(c => c.type === 'verse');
-    if (!verseCards.length) {
+    const measureCards = this._cards.filter(c => c.type === 'verse' || c.type === 'paragraph');
+    if (!measureCards.length) {
       const result = Math.round(window.innerHeight * 0.5);
       this._maxHeightCache = { key: cacheKey, value: result };
       return result;
@@ -185,10 +292,10 @@ window.SwipeRenderer = class SwipeRenderer {
     document.body.appendChild(meas);
 
     let max = 0;
-    const len = Math.min(verseCards.length, AppConfig.SWIPE_MAX_VERSE_MEASURE);
+    const len = Math.min(measureCards.length, AppConfig.SWIPE_MAX_VERSE_MEASURE);
     const step = len > 100 ? 5 : 1;
     for (let i = 0; i < len; i += step) {
-      const container = this._createContainer(verseCards[i], bionic, strength, null, settings);
+      const container = this._createContainer(measureCards[i], bionic, strength, null, settings);
       deck.appendChild(container);
       const h = container.offsetHeight;
       if (h > max) max = h;
@@ -196,7 +303,9 @@ window.SwipeRenderer = class SwipeRenderer {
     }
 
     document.body.removeChild(meas);
-    const result = Math.min(max, Math.round(window.innerHeight * 0.8));
+    const hasParagraphCards = this._cards.some(c => c.type === 'paragraph');
+    const cap = hasParagraphCards ? 0.95 : 0.8;
+    const result = Math.min(max, Math.round(window.innerHeight * cap));
     this._maxHeightCache = { key: cacheKey, value: result };
     return result;
   }
@@ -223,8 +332,8 @@ window.SwipeRenderer = class SwipeRenderer {
 
     const card = this._cards[this.currentCardIndex];
     if (!card) return;
-    if (card.type === 'verse' && card.verse !== this.bridge.state.get('currentVerse')) {
-      window.verseManager.setPassive(card.verse);
+    if ((card.type === 'verse' || card.type === 'paragraph') && this._getCardVerse(card) !== this.bridge.state.get('currentVerse')) {
+      window.verseManager.setPassive(this._getCardVerse(card));
     }
 
     const maxHeight = this._computeMaxHeight(bionic, strength);
@@ -246,9 +355,8 @@ window.SwipeRenderer = class SwipeRenderer {
     }
 
     content.appendChild(deck);
-    content.style.height = window.innerHeight + 'px';
-    if (card.type === 'verse') {
-      this.base.updateProgress(card.verse);
+    if (card.type === 'verse' || card.type === 'paragraph') {
+      this.base.updateProgress(this._getCardVerse(card));
     }
   }
 
@@ -301,8 +409,8 @@ window.SwipeRenderer = class SwipeRenderer {
     const card = this._cards[this.currentCardIndex];
     if (!card) { this._animating = false; return; }
 
-    if (card.type === 'verse') {
-      window.verseManager.setPassive(card.verse);
+    if (card.type === 'verse' || card.type === 'paragraph') {
+      window.verseManager.setPassive(this._getCardVerse(card));
     }
 
     if (direction === 'next') {
@@ -327,8 +435,8 @@ window.SwipeRenderer = class SwipeRenderer {
         }
       }
 
-      if (card.type === 'verse') {
-        this.base.updateProgress(card.verse);
+      if (card.type === 'verse' || card.type === 'paragraph') {
+        this.base.updateProgress(this._getCardVerse(card));
       }
 
       if (this.currentCardIndex < this._cards.length - 1) {
@@ -361,8 +469,8 @@ window.SwipeRenderer = class SwipeRenderer {
         const staleNext = deck.querySelector('.card--next');
         if (staleNext) staleNext.remove();
 
-        if (card.type === 'verse') {
-          this.base.updateProgress(card.verse);
+        if (card.type === 'verse' || card.type === 'paragraph') {
+          this.base.updateProgress(this._getCardVerse(card));
         }
 
         setTimeout(() => {
@@ -390,8 +498,8 @@ window.SwipeRenderer = class SwipeRenderer {
 
         currentCard.classList.add('card--to-peek');
 
-        if (card.type === 'verse') {
-          this.base.updateProgress(card.verse);
+        if (card.type === 'verse' || card.type === 'paragraph') {
+          this.base.updateProgress(this._getCardVerse(card));
         }
 
         setTimeout(() => {

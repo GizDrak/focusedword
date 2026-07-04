@@ -499,8 +499,6 @@ window.BaseRenderer = class BaseRenderer {
   }
 
   escapeHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+    return window.HTMLEscape(str);
   }
 };

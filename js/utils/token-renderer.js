@@ -35,173 +35,181 @@ window.TokenRenderer = class TokenRenderer {
     verseText.className = 'verse-text';
     verseText.setAttribute('dir', 'auto');
 
-    let currentBlock = null;
-    let verseNumInserted = false;
-    const styleStack = [];
-    let lastHeadingEl = null;
-
-    const closeBlock = () => {
-      if (!currentBlock) return;
-      if (currentBlock.tagName === 'SPAN' && !currentBlock.hasChildNodes()) {
-        currentBlock.remove();
-      }
-      currentBlock = null;
-    };
-
-    const _applyBionic = (html) => {
-      if (!bionic || !strength) return html;
-      return html.replace(/(^|>)([^<]+)(?=<|$)/g, (_, before, text) => {
-        return before + text.replace(/[^\s]+/g, w => {
-          const n = Math.max(1, Math.ceil(w.length * strength));
-          return '<b>' + w.slice(0, n) + '</b>' + w.slice(n);
+    const ctx = {
+      container,
+      verseText,
+      verseNumEl,
+      settings,
+      currentBlock: null,
+      verseNumInserted: false,
+      styleStack: [],
+      lastHeadingEl: null,
+      closeBlock() {
+        if (!ctx.currentBlock) return;
+        if (ctx.currentBlock.tagName === 'SPAN' && !ctx.currentBlock.hasChildNodes()) {
+          ctx.currentBlock.remove();
+        }
+        ctx.currentBlock = null;
+      },
+      applyBionic(html) {
+        if (!bionic || !strength) return html;
+        return html.replace(/(^|>)([^<]+)(?=<|$)/g, (_, before, text) => {
+          return before + text.replace(/[^\s]+/g, w => {
+            const n = Math.max(1, Math.ceil(w.length * strength));
+            return '<b>' + w.slice(0, n) + '</b>' + w.slice(n);
+          });
         });
-      });
+      }
     };
 
     for (const token of tokens) {
       switch (token.type) {
-        case 'paragraph_start': {
-          closeBlock();
-          lastHeadingEl = null;
-          if (settings.paragraphBreaks) {
-            if (settings.paragraphMode) {
-              if (verseText.hasChildNodes()) {
-                verseText.appendChild(document.createElement('br'));
-              }
-              const el = document.createElement('span');
-              el.className = 'token-paragraph-break';
-              verseText.appendChild(el);
-            } else {
-              const el = document.createElement('div');
-              el.className = 'token-paragraph';
-              verseText.appendChild(el);
-              currentBlock = el;
-            }
-          }
-          break;
-        }
-
-        case 'poetry_start': {
-          closeBlock();
-          lastHeadingEl = null;
-          const usePoetry = settings.poetryFormatting && !settings.paragraphMode;
-          const el = document.createElement('div');
-          el.className = usePoetry ? 'token-poetry ' + (token.style || 'q1') : 'token-poetry--disabled';
-          verseText.appendChild(el);
-          currentBlock = el;
-          break;
-        }
-
-        case 'line_break': {
-          lastHeadingEl = null;
-          if (settings.paragraphMode) {
-            const space = document.createTextNode('\u00A0');
-            if (currentBlock) {
-              currentBlock.appendChild(space);
-            } else {
-              verseText.appendChild(space);
-            }
-          } else {
-            const br = document.createElement('br');
-            if (currentBlock) {
-              currentBlock.appendChild(br);
-            } else {
-              verseText.appendChild(br);
-            }
-          }
-          break;
-        }
-
-        case 'section_heading': {
-          const headingText = (token.text || '').trim();
-          if (!headingText || /^[\s\(\\)\[\]\{\}.,;:!?\-]+$/.test(headingText)) break;
-          closeBlock();
-          lastHeadingEl = null;
-          if (!settings.sectionHeadings) break;
-          const el = document.createElement('div');
-          el.className = 'token-section-heading';
-          el.textContent = headingText;
-          container.appendChild(el);
-          lastHeadingEl = el;
-          break;
-        }
-
-        case 'text': {
-          lastHeadingEl = null;
-          if (!currentBlock) {
-            const el = document.createElement('span');
-            el.className = 'token-text';
-            verseText.appendChild(el);
-            currentBlock = el;
-          }
-          if (!verseNumInserted) {
-            currentBlock.insertAdjacentElement('afterbegin', verseNumEl);
-            verseNumInserted = true;
-          }
-          currentBlock.insertAdjacentHTML(
-            'beforeend',
-            _applyBionic(MarkdownParser.parse(token.text || ''))
-          );
-          break;
-        }
-
-        case 'style_start': {
-          if (!settings.redLetter && token.style === 'wj') {
-            styleStack.push({ el: null, parent: currentBlock, skip: true });
-            break;
-          }
-          const el = document.createElement('span');
-          el.className = token.style || '';
-          const parent = currentBlock || verseText;
-          parent.appendChild(el);
-          styleStack.push({ el, parent: currentBlock });
-          currentBlock = el;
-          break;
-        }
-
-        case 'style_end': {
-          if (styleStack.length) {
-            const entry = styleStack.pop();
-            if (entry.skip) { currentBlock = entry.parent; break; }
-            currentBlock = entry.parent;
-            if (entry.el && !entry.el.hasChildNodes()) entry.el.remove();
-          }
-          break;
-        }
-
-        case 'footnote': {
-          if (!settings.footnotes) { lastHeadingEl = null; break; }
-          lastHeadingEl = null;
-          const el = document.createElement('span');
-          el.className = 'footnote-caller';
-          el.textContent = token.marker || '*';
-          el.dataset.footnoteText = token.text || '';
-          (currentBlock || verseText).appendChild(el);
-          break;
-        }
-
-        case 'cross_ref': {
-          if (lastHeadingEl) {
-            const el = document.createElement('span');
-            el.className = 'token-section-heading-ref';
-            el.textContent = token.text || '';
-            const refs = this._parseCrossRefRefs(token.text);
-            if (refs.length) {
-              el.dataset.refs = JSON.stringify(refs);
-            }
-            lastHeadingEl.appendChild(el);
-          }
-          break;
-        }
+        case 'paragraph_start': this._renderParagraphStart(token, ctx); break;
+        case 'poetry_start':    this._renderPoetryStart(token, ctx); break;
+        case 'line_break':      this._renderLineBreak(token, ctx); break;
+        case 'section_heading': this._renderSectionHeading(token, ctx); break;
+        case 'text':            this._renderText(token, ctx); break;
+        case 'style_start':     this._renderStyleStart(token, ctx); break;
+        case 'style_end':       this._renderStyleEnd(token, ctx); break;
+        case 'footnote':        this._renderFootnote(token, ctx); break;
+        case 'cross_ref':       this._renderCrossRef(token, ctx); break;
       }
     }
 
-    closeBlock();
-    if (!verseNumInserted) {
-      verseText.appendChild(verseNumEl);
+    ctx.closeBlock();
+    if (!ctx.verseNumInserted) {
+      ctx.verseText.appendChild(ctx.verseNumEl);
     }
-    container.appendChild(verseText);
-    return container;
+    ctx.container.appendChild(ctx.verseText);
+    return ctx.container;
+  }
+
+  _renderParagraphStart(token, ctx) {
+    ctx.closeBlock();
+    ctx.lastHeadingEl = null;
+    if (!ctx.settings.paragraphBreaks) return;
+    if (ctx.settings.paragraphMode) {
+      if (ctx.verseText.hasChildNodes()) {
+        ctx.verseText.appendChild(document.createElement('br'));
+      }
+      const el = document.createElement('span');
+      el.className = 'token-paragraph-break';
+      ctx.verseText.appendChild(el);
+    } else {
+      const el = document.createElement('div');
+      el.className = 'token-paragraph';
+      ctx.verseText.appendChild(el);
+      ctx.currentBlock = el;
+    }
+  }
+
+  _renderPoetryStart(token, ctx) {
+    ctx.closeBlock();
+    ctx.lastHeadingEl = null;
+    const usePoetry = ctx.settings.poetryFormatting && !ctx.settings.paragraphMode;
+    const el = document.createElement('div');
+    el.className = usePoetry ? 'token-poetry ' + (token.style || 'q1') : 'token-poetry--disabled';
+    ctx.verseText.appendChild(el);
+    ctx.currentBlock = el;
+  }
+
+  _renderLineBreak(token, ctx) {
+    ctx.lastHeadingEl = null;
+    if (ctx.settings.paragraphMode) {
+      const space = document.createTextNode('\u00A0');
+      if (ctx.currentBlock) {
+        ctx.currentBlock.appendChild(space);
+      } else {
+        ctx.verseText.appendChild(space);
+      }
+    } else {
+      const br = document.createElement('br');
+      if (ctx.currentBlock) {
+        ctx.currentBlock.appendChild(br);
+      } else {
+        ctx.verseText.appendChild(br);
+      }
+    }
+  }
+
+  _renderSectionHeading(token, ctx) {
+    const headingText = (token.text || '').trim();
+    if (!headingText || /^[\s\(\\)\[\]\{\}.,;:!?\-]+$/.test(headingText)) return;
+    ctx.closeBlock();
+    ctx.lastHeadingEl = null;
+    if (!ctx.settings.sectionHeadings) return;
+    const el = document.createElement('div');
+    el.className = 'token-section-heading';
+    el.textContent = headingText;
+    ctx.container.appendChild(el);
+    ctx.lastHeadingEl = el;
+  }
+
+  _renderText(token, ctx) {
+    ctx.lastHeadingEl = null;
+    if (!ctx.currentBlock) {
+      const el = document.createElement('span');
+      el.className = 'token-text';
+      ctx.verseText.appendChild(el);
+      ctx.currentBlock = el;
+    }
+    if (!ctx.verseNumInserted) {
+      ctx.currentBlock.insertAdjacentElement('afterbegin', ctx.verseNumEl);
+      ctx.verseNumInserted = true;
+    }
+    ctx.currentBlock.insertAdjacentHTML(
+      'beforeend',
+      ctx.applyBionic(MarkdownParser.parse(token.text || ''))
+    );
+  }
+
+  _renderStyleStart(token, ctx) {
+    if (!ctx.settings.redLetter && token.style === 'wj') {
+      ctx.styleStack.push({ el: null, parent: ctx.currentBlock, skip: true });
+      return;
+    }
+    const el = document.createElement('span');
+    el.className = token.style || '';
+    const parent = ctx.currentBlock || ctx.verseText;
+    parent.appendChild(el);
+    ctx.styleStack.push({ el, parent: ctx.currentBlock });
+    ctx.currentBlock = el;
+  }
+
+  _renderStyleEnd(token, ctx) {
+    if (!ctx.styleStack.length) return;
+    const entry = ctx.styleStack.pop();
+    if (entry.skip) {
+      ctx.currentBlock = entry.parent;
+      return;
+    }
+    ctx.currentBlock = entry.parent;
+    if (entry.el && !entry.el.hasChildNodes()) entry.el.remove();
+  }
+
+  _renderFootnote(token, ctx) {
+    if (!ctx.settings.footnotes) {
+      ctx.lastHeadingEl = null;
+      return;
+    }
+    ctx.lastHeadingEl = null;
+    const el = document.createElement('span');
+    el.className = 'footnote-caller';
+    el.textContent = token.marker || '*';
+    el.dataset.footnoteText = token.text || '';
+    (ctx.currentBlock || ctx.verseText).appendChild(el);
+  }
+
+  _renderCrossRef(token, ctx) {
+    if (!ctx.lastHeadingEl) return;
+    const el = document.createElement('span');
+    el.className = 'token-section-heading-ref';
+    el.textContent = token.text || '';
+    const refs = this._parseCrossRefRefs(token.text);
+    if (refs.length) {
+      el.dataset.refs = JSON.stringify(refs);
+    }
+    ctx.lastHeadingEl.appendChild(el);
   }
 
   _parseCrossRefRefs(text) {

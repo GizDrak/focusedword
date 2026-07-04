@@ -36,6 +36,14 @@ window.ScrollRenderer = class ScrollRenderer {
     const frag = this.base.renderTokenChapter(verses, bionic, strength, settings);
     this.base._addCrossRefIndicators(frag, bulkRefs);
     content.appendChild(frag);
+
+    await new Promise(r => requestAnimationFrame(r));
+    if (content.scrollHeight > content.clientHeight + 5) {
+      const spacer = document.createElement('div');
+      spacer.className = 'scroll-bottom-spacer';
+      spacer.style.height = '25svh';
+      content.appendChild(spacer);
+    }
   }
 
   _setupScrollTracking() {

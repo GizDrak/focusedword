@@ -3,7 +3,6 @@ window.App = class App {
     const debug = new window.Debug();
     debug.clearLogs();
     const bridge = new window.Bridge(debug);
-    bridge.debug = debug;
     window.__debug = debug;
     this._bridgeRef = bridge;
 
@@ -12,8 +11,16 @@ window.App = class App {
     bridge.db = new window.BibleDB();
     bridge.bionic = window.BionicParser;
 
-    document.documentElement.dataset.theme = bridge.state.get('theme');
+    const initialTheme = bridge.state.get('theme');
+    document.documentElement.dataset.theme = initialTheme;
     document.documentElement.dataset.accent = bridge.state.get('accent') || 'gold';
+    {
+      const lightThemes = ['light', 'sepia', 'icy-wind', 'clay'];
+      const src = lightThemes.includes(initialTheme)
+        ? '/assets/icons/icon-light.svg'
+        : '/assets/icons/icon-dark.svg';
+      document.querySelectorAll('.app-icon').forEach(el => el.src = src);
+    }
 
     const splashEl = document.getElementById('splash-screen');
 
@@ -66,6 +73,17 @@ window.App = class App {
     await navigation.init();
     settings.init();
     settings._applyTextSettings();
+
+    if (window.NoteStore) {
+      const noteStore = new window.NoteStore(bridge);
+      bridge.register('note-store', noteStore);
+    }
+    if (window.NotesUI) {
+      const notesUI = new window.NotesUI(bridge);
+      bridge.register('notes-ui', notesUI);
+      notesUI.init();
+    }
+
     if (window.SyncSettingsUI) {
       const syncUI = new window.SyncSettingsUI(bridge);
       bridge.register('sync-ui', syncUI);
@@ -144,6 +162,12 @@ window.App = class App {
       scrollModeSwitcher.start();
     }
 
+    if (window.SplitMode) {
+      const sm = new window.SplitMode(bridge);
+      bridge.register('split-mode', sm);
+      sm.init();
+    }
+
     document.getElementById('content').style.display = '';
     splashEl.classList.add('splash-hidden');
     setTimeout(() => splashEl.remove(), 500);
@@ -157,6 +181,8 @@ window.App = class App {
         bridge.translationManifest = manifest;
         const nav = bridge.get('navigation');
         if (nav) nav.renderTranslationView();
+        const sm = bridge.get('split-mode');
+        if (sm) sm.repopulateSelectors();
       })
       .catch(() => { bridge.translationManifest = []; });
   }
@@ -168,10 +194,12 @@ window.App = class App {
 
     const setModeActive = () => {
       const inOtherMode = bridge.state.get('swipeMode') || bridge.state.get('spotlightMode') || bridge.state.get('speedMode');
+      const inSplit = bridge.state.get('splitMode');
       modePopup.querySelectorAll('.mode-item').forEach(el => {
         const action = el.dataset.action;
         let isActive = false;
-        if (action === 'scroll') isActive = !inOtherMode;
+        if (action === 'scroll') isActive = !inOtherMode && !inSplit;
+        else if (action === 'split') isActive = inSplit;
         else if (action === 'spotlight') isActive = bridge.state.get('spotlightMode');
         else if (action === 'swipe') isActive = bridge.state.get('swipeMode');
         else if (action === 'speed') isActive = bridge.state.get('speedMode');
@@ -211,8 +239,10 @@ window.App = class App {
       const action = item.dataset.action;
 
       if (action === 'scroll') {
-        bridge.state.batch({ swipeMode: false, spotlightMode: false, speedMode: false });
+        bridge.state.batch({ swipeMode: false, spotlightMode: false, speedMode: false, splitMode: false });
         requestAnimationFrame(() => bridge.emit('render:refresh'));
+      } else if (action === 'split') {
+        bridge.state.set('splitMode', !bridge.state.get('splitMode'));
       } else if (['spotlight', 'swipe', 'speed'].includes(action)) {
         document.body.classList.remove('scroll-mode');
         bridge.call('settings', 'toggleMode', action + 'Mode');
@@ -221,7 +251,7 @@ window.App = class App {
       closeModePopup();
     });
 
-    bridge.state.onChange('spotlightMode swipeMode speedMode'.split(' '), () => {
+    bridge.state.onChange('spotlightMode swipeMode speedMode splitMode'.split(' '), () => {
       if (modePopup.classList.contains('open')) setModeActive();
     });
   }
@@ -264,6 +294,9 @@ window.App = class App {
         if (!s) return;
         if (item.dataset.action === 'settings') {
           s.openSettings();
+        } else if (item.dataset.action === 'notes') {
+          const notesUI = bridge.get('notes-ui');
+          if (notesUI) notesUI.open();
         }
       }, 100);
     });
@@ -296,8 +329,16 @@ window.App = class App {
   }
 
   _setupGlobalEvents(bridge) {
+    this._setupPointerEvents(bridge);
+    this._setupClickEvents(bridge);
+    this._setupWheelEvents(bridge);
+    this._setupKeyboardEvents(bridge);
+  }
+
+  _setupPointerEvents(bridge) {
     const content = document.getElementById('content');
     let _ptrStart = null;
+    this._edgeGesture = null;
 
     content.addEventListener('pointerdown', (e) => {
       _ptrStart = { x: e.clientX, y: e.clientY };
@@ -305,9 +346,53 @@ window.App = class App {
       if (swipe && bridge.state.get('swipeMode')) {
         e.preventDefault();
       }
+
+      if (bridge.state.get('spotlightMode')) {
+        this._ptrHoldDir = e.clientX - e.currentTarget.getBoundingClientRect().left < e.currentTarget.getBoundingClientRect().width / 2 ? 'prev' : 'next';
+        this._ptrHeld = false;
+        clearTimeout(this._ptrHoldTimer);
+        this._ptrHoldTimer = setTimeout(() => {
+          this._ptrHoldTimer = null;
+          this._ptrHeld = true;
+          content.style.webkitUserSelect = 'none';
+          content.style.userSelect = 'none';
+          const nav = bridge.get('navigation');
+          if (!nav || !nav.currentVerses.length) return;
+          const spot = bridge.get('renderer-spotlight');
+          if (!spot) return;
+          const vm = bridge.get('view-manager');
+          if (vm) vm._instantScroll = true;
+          spot.advance(nav.currentVerses, this._ptrHoldDir);
+          const scheduleNext = () => {
+            if (!this._ptrHeld) return;
+            this._ptrHoldTimeout = setTimeout(() => {
+              const n2 = bridge.get('navigation');
+              if (!n2 || !n2.currentVerses.length) return;
+              const s2 = bridge.get('renderer-spotlight');
+              if (!s2) return;
+              const vm2 = bridge.get('view-manager');
+              if (vm2) vm2._instantScroll = true;
+              s2.advance(n2.currentVerses, this._ptrHoldDir);
+              scheduleNext();
+            }, 300);
+          };
+          scheduleNext();
+        }, 400);
+      }
     });
 
     content.addEventListener('pointerup', (e) => {
+      if (this._ptrHeld) {
+        this._ptrHoldJustEnded = true;
+      }
+      if (this._ptrHoldTimer) { clearTimeout(this._ptrHoldTimer); this._ptrHoldTimer = null; }
+      if (this._ptrHoldTimeout) { clearTimeout(this._ptrHoldTimeout); this._ptrHoldTimeout = null; }
+      content.style.webkitUserSelect = '';
+      content.style.userSelect = '';
+      this._ptrHeld = false;
+      const upvm = bridge.get('view-manager');
+      if (upvm) upvm._instantScroll = false;
+
       if (!_ptrStart) return;
       const dx = e.clientX - _ptrStart.x;
       const dy = e.clientY - _ptrStart.y;
@@ -366,6 +451,117 @@ window.App = class App {
       }
     });
 
+    content.addEventListener('pointercancel', () => {
+      if (this._ptrHoldTimer) { clearTimeout(this._ptrHoldTimer); this._ptrHoldTimer = null; }
+      if (this._ptrHoldTimeout) { clearTimeout(this._ptrHoldTimeout); this._ptrHoldTimeout = null; }
+      content.style.webkitUserSelect = '';
+      content.style.userSelect = '';
+      this._ptrHeld = false;
+      this._ptrHoldJustEnded = false;
+      const cvm = bridge.get('view-manager');
+      if (cvm) cvm._instantScroll = false;
+    });
+
+    content.addEventListener('pointerleave', () => {
+      if (this._ptrHeld || this._ptrHoldTimer || this._ptrHoldTimeout) {
+        if (this._ptrHoldTimer) { clearTimeout(this._ptrHoldTimer); this._ptrHoldTimer = null; }
+        if (this._ptrHoldTimeout) { clearTimeout(this._ptrHoldTimeout); this._ptrHoldTimeout = null; }
+        content.style.webkitUserSelect = '';
+        content.style.userSelect = '';
+        this._ptrHeld = false;
+        this._ptrHoldJustEnded = false;
+        const lvm = bridge.get('view-manager');
+        if (lvm) lvm._instantScroll = false;
+      }
+    });
+
+    document.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#settings-panel, #settings-overlay, #nav-sheet, #nav-backdrop, #bottom-nav, #crossref-panel, #crossref-overlay, #crossref-bar, #footnote-popup, #footnote-overlay, #discover-panel, #discover-backdrop, #highlight-toolbar, #bookmark-set-picker, #verse-progress, #tag-results-bar, #library-panel, #library-backdrop, #bookmarks-modal, #bookmarks-backdrop, #changelog-panel, #changelog-overlay, #debuglog-panel, #debuglog-overlay, #notes-panel, #focus-exit-btn, #mode-popup, #more-popup, #speed-controls, .new-set-overlay, .tag-context-menu, .bm-set-menu, .bm-set-manage-popover, .undo-toast, .nc-color-overlay, .crossref-indicator, .footnote-caller, .token-section-heading-ref')) return;
+
+      if (e.target.closest('#content')) {
+        if (e.clientX > window.innerWidth * 0.15 && e.clientX < window.innerWidth * 0.85) return;
+      }
+      if (bridge.state.get('speedMode')) return;
+
+      const edgeThreshold = window.innerWidth * 0.15;
+      if (e.clientX < edgeThreshold || e.clientX > window.innerWidth - edgeThreshold) {
+        if (bridge.state.get('swipeMode') || bridge.state.get('spotlightMode')) {
+          e.preventDefault();
+        }
+        this._edgeGesture = {
+          startX: e.clientX,
+          startY: e.clientY,
+          side: e.clientX < edgeThreshold ? 'left' : 'right'
+        };
+      }
+    });
+
+    document.addEventListener('pointerup', (e) => {
+      if (!this._edgeGesture) return;
+
+      const nav = bridge.get('navigation');
+      if (!nav) { this._edgeGesture = null; return; }
+      const verses = nav.currentVerses;
+      const direction = this._edgeGesture.side === 'right' ? 'next' : 'prev';
+
+      if (bridge.state.get('spotlightMode')) {
+        const spot = bridge.get('renderer-spotlight');
+        if (spot) spot.advance(verses, direction);
+      } else if (bridge.state.get('swipeMode')) {
+        const swipe = bridge.get('renderer-swipe');
+        if (swipe) swipe.advance(verses, direction);
+      } else {
+        const dx = e.clientX - this._edgeGesture.startX;
+        const dy = e.clientY - this._edgeGesture.startY;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          this._edgeGesture = null;
+          return;
+        }
+        if (bridge._chapterNavLock) { this._edgeGesture = null; return; }
+        bridge._chapterNavLock = true;
+        setTimeout(() => { bridge._chapterNavLock = false; }, 800);
+        const el = document.getElementById('content');
+        const dir = direction === 'next' ? 'left' : 'right';
+        el.classList.add('chapter-slide', 'slide-out-' + dir);
+        let done = false;
+        const onEnd = () => {
+          if (done) return;
+          done = true;
+          el.classList.remove('chapter-slide', 'slide-out-' + dir);
+          bridge._chapterNavLock = true;
+          setTimeout(() => { bridge._chapterNavLock = false; }, 600);
+          if (dir === 'left') nav.loadNextChapter();
+          else nav.loadPrevChapter();
+        };
+        el.addEventListener('transitionend', onEnd, { once: true });
+        setTimeout(onEnd, 350);
+      }
+
+      this._edgeGesture = null;
+    });
+
+    document.addEventListener('pointercancel', () => {
+      if (!this._edgeGesture) return;
+      const nav = bridge.get('navigation');
+      if (!nav) { this._edgeGesture = null; return; }
+
+      if (bridge.state.get('spotlightMode') || bridge.state.get('swipeMode')) {
+        const verses = nav.currentVerses;
+        const direction = this._edgeGesture.side === 'right' ? 'next' : 'prev';
+        if (bridge.state.get('spotlightMode')) {
+          const spot = bridge.get('renderer-spotlight');
+          if (spot) spot.advance(verses, direction);
+        } else {
+          const swipe = bridge.get('renderer-swipe');
+          if (swipe) swipe.advance(verses, direction);
+        }
+      }
+      this._edgeGesture = null;
+    });
+  }
+
+  _setupClickEvents(bridge) {
+    const content = document.getElementById('content');
     let clickTimer = null;
 
     content.addEventListener('click', (e) => {
@@ -395,6 +591,11 @@ window.App = class App {
       }
 
       if (bridge.state.get('spotlightMode')) {
+        if (this._ptrHoldJustEnded) {
+          this._ptrHoldJustEnded = false;
+          return;
+        }
+
         const hlToolbar = document.getElementById('highlight-toolbar');
         if (hlToolbar && !hlToolbar.classList.contains('hidden')) return;
 
@@ -414,8 +615,12 @@ window.App = class App {
         }, 200);
       }
     });
+  }
 
+  _setupWheelEvents(bridge) {
+    const content = document.getElementById('content');
     let wheelCooldown = null;
+
     content.addEventListener('wheel', (e) => {
       if (bridge.state.get('speedMode')) return;
       if (!bridge.state.get('spotlightMode') && !bridge.state.get('swipeMode')) return;
@@ -433,7 +638,9 @@ window.App = class App {
 
       wheelCooldown = setTimeout(() => { wheelCooldown = null; }, 300);
     }, { passive: false });
+  }
 
+  _setupKeyboardEvents(bridge) {
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
 
@@ -502,9 +709,18 @@ window.App = class App {
     bridge.state.onChange('focusMode', (_, val) => {
       document.body.classList.toggle('focus-mode', val);
     });
+
+    if (bridge.state.get('portraitLock')) {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('portrait-primary').catch(() => {});
+      }
+    }
   }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
   new App().init();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
 });

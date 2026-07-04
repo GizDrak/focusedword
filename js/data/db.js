@@ -14,11 +14,17 @@ window.BibleDB = class BibleDB {
   static get _sqliteWasmPromise() {
     if (!this.__wasmPromise) {
       this.__wasmPromise = (async () => {
-        const mod = await import(AppConfig.SQLITE_WASM_URL);
-        const base = AppConfig.SQLITE_WASM_URL.substring(0, AppConfig.SQLITE_WASM_URL.lastIndexOf('/') + 1);
-        return await mod.default({
-          locateFile: (path) => base + path
-        });
+        try {
+          const mod = await import(AppConfig.SQLITE_WASM_URL);
+          const base = AppConfig.SQLITE_WASM_URL.substring(0, AppConfig.SQLITE_WASM_URL.lastIndexOf('/') + 1);
+          return await mod.default({
+            locateFile: (path) => base + path
+          });
+        } catch (e) {
+          console.error('[db] SQLite WASM failed to load:', e);
+          this.__wasmPromise = null;
+          throw e;
+        }
       })();
     }
     return this.__wasmPromise;
@@ -52,12 +58,17 @@ static async createDbFromBytes(dbPath) {
 
     const bytes = new Uint8Array(buf);
 
-    // SAFETY CHECK: Ensure the file isn't a corrupted HTML 404 page
+    if (!bytes.length) {
+      console.error('[db] Empty buffer — cannot load database.');
+      return null;
+    }
+
     const header = new TextDecoder().decode(bytes.slice(0, 15));
     if (header !== "SQLite format 3") {
       console.error(`[db] Invalid format! Expected database but got HTML.`);
-      // If the cache accidentally saved a bad file, delete it so it redownloads next time
-      caches.open('bible-database-cache').then(c => c.delete(dbPath));
+      if (typeof caches !== 'undefined') {
+        caches.open('bible-database-cache').then(c => c.delete(dbPath));
+      }
       return null;
     }
 

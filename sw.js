@@ -1,17 +1,25 @@
-const CACHE_NAME = 'focused-word-v16';
+const CACHE_NAME = 'focused-word-v19';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/css/styles.css',
   '/js/app.js',
   '/js/core/config.js',
+  '/js/utils/uuid.js',
+  '/js/utils/html.js',
+  '/js/utils/idb-migration.js',
   '/js/utils/bionic.js',
   '/js/utils/markdown-parser.js',
+  '/js/utils/tag-cache-utils.js',
+  '/js/utils/legacy-migration.js',
+  '/js/utils/tag-search.js',
   '/js/utils/token-renderer.js',
+  '/js/utils/simple-editor.js',
   '/js/data/book-map.js',
   '/js/data/db.js',
   '/js/data/cross-references.js',
   '/js/data/highlight-store.js',
+  '/js/data/note-store.js',
   '/js/data/selection.js',
   '/js/core/debug.js',
   '/js/core/idb-service.js',
@@ -30,6 +38,7 @@ const APP_SHELL = [
   '/js/modules/bookmarks-ui.js',
   '/js/modules/interaction-manager.js',
   '/js/modules/highlight-manager.js',
+  '/js/modules/notes-ui.js',
   '/js/modules/cross-refs-ui.js',
   '/js/modules/footnotes-ui.js',
   '/js/modules/renderers/base.js',
@@ -47,11 +56,13 @@ const APP_SHELL = [
   '/js/vendor/sqlite-wasm/index.mjs',
   '/js/vendor/sqlite-wasm/sqlite3.wasm',
   '/manifest.json',
-  '/changes.md',
   '/assets/icons/android/launchericon-192x192.png',
   '/assets/icons/android/launchericon-512x512.png',
   '/assets/icons/ios/1024.png',
-  '/assets/icons/ios/180.png'
+  '/assets/icons/ios/180.png',
+  '/assets/icons/icon-dark.svg',
+  '/assets/icons/icon-light.svg',
+  '/whats_new.md'
 ];
 
 const CACHE_FIRST_PATTERNS = [
@@ -87,6 +98,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   const path = url.pathname;
+
+  if (url.origin !== self.location.origin) return;
 
   if (CACHE_FIRST_PATTERNS.some(pattern => pattern.test(url.href) || pattern.test(path))) {
     event.respondWith(

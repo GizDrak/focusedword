@@ -55,6 +55,14 @@ window.NavigationModule = class NavigationModule {
     document.getElementById('nav-close').addEventListener('click', () => this.closeSheet());
     document.getElementById('nav-backdrop').addEventListener('click', () => this.closeSheet());
 
+    document.getElementById('nav-testament-tabs').addEventListener('click', (e) => {
+      const tab = e.target.closest('.nav-testament-tab');
+      if (!tab) return;
+      document.querySelectorAll('.nav-testament-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      this.renderBookList(tab.dataset.testament);
+    });
+
     this.bridge.on('nav:advance-chapter', (payload) => {
       if (payload.direction === 'next') this.loadNextChapter(payload.autoAdvance);
       else this.loadPrevChapter();
@@ -141,33 +149,23 @@ window.NavigationModule = class NavigationModule {
     await this.loadChapter(bookId, chapter);
   }
 
-  renderBookList() {
+  renderBookList(testament) {
     const list = document.getElementById('nav-book-list');
     list.innerHTML = '';
-    const otBooks = this.booksCache.filter(b => b.id <= 39);
-    const ntBooks = this.booksCache.filter(b => b.id >= 40);
     const currentBookId = this.bridge.state.get('currentBook');
 
-    const renderColumn = (books, label) => {
-      const col = document.createElement('div');
-      col.className = 'nav-testament';
-      const header = document.createElement('div');
-      header.className = 'nav-testament-header';
-      header.textContent = label;
-      col.appendChild(header);
-      for (const book of books) {
-        const btn = document.createElement('button');
-        btn.className = 'nav-book-item';
-        if (book.id === currentBookId) btn.classList.add('current');
-        btn.textContent = book.name;
-        btn.addEventListener('click', () => this.openSheet('chapters', book.id));
-        col.appendChild(btn);
-      }
-      return col;
-    };
+    const books = this.booksCache.filter(b =>
+      testament === 'ot' ? b.id <= 39 : b.id >= 40
+    );
 
-    list.appendChild(renderColumn(otBooks, 'Old Testament'));
-    list.appendChild(renderColumn(ntBooks, 'New Testament'));
+    for (const book of books) {
+      const btn = document.createElement('button');
+      btn.className = 'nav-book-item';
+      if (book.id === currentBookId) btn.classList.add('current');
+      btn.textContent = book.name;
+      btn.addEventListener('click', () => this.openSheet('chapters', book.id));
+      list.appendChild(btn);
+    }
   }
 
   async renderChapterGrid(bookId) {
@@ -236,7 +234,8 @@ window.NavigationModule = class NavigationModule {
           return;
         }
         await this.switchTranslation();
-        this.renderBookList();
+        const activeTestament = document.querySelector('.nav-testament-tab.active')?.dataset.testament || 'ot';
+        this.renderBookList(activeTestament);
       } catch (e) {
         console.error('Translation switch failed:', e);
       }
@@ -244,30 +243,49 @@ window.NavigationModule = class NavigationModule {
   }
 
   openSheet(view, bookId, chapter) {
-    document.getElementById('nav-backdrop').classList.add('open');
-    document.getElementById('nav-sheet').classList.add('open');
+    const backdrop = document.getElementById('nav-backdrop');
+    const sheet = document.getElementById('nav-sheet');
+    backdrop.classList.add('open');
+    sheet.classList.add('open');
 
     document.getElementById('nav-view-books').classList.add('hidden');
     document.getElementById('nav-view-chapters').classList.add('hidden');
     document.getElementById('nav-view-verses').classList.add('hidden');
 
-    const titleEl = document.getElementById('nav-sheet-title');
-    titleEl.onclick = null;
+    const testamentTabs = document.getElementById('nav-testament-tabs');
+    const breadcrumb = document.getElementById('nav-breadcrumb');
 
     if (view === 'translation' || view === 'books') {
-      titleEl.textContent = 'Books';
-      document.getElementById('nav-view-books').classList.remove('hidden');
+      testamentTabs.classList.remove('hidden');
+      breadcrumb.innerHTML = '';
+      breadcrumb.classList.add('hidden');
       if (view === 'translation') this.renderTranslationView();
-      this.renderBookList();
+      const activeTestament = document.querySelector('.nav-testament-tab.active')?.dataset.testament || 'ot';
+      this.renderBookList(activeTestament);
+      document.getElementById('nav-view-books').classList.remove('hidden');
     } else if (view === 'chapters') {
-      titleEl.textContent = this.booksCache.find(b => b.id === bookId)?.name || 'Chapters';
-      titleEl.onclick = () => this.openSheet('books');
+      testamentTabs.classList.add('hidden');
+      const book = this.booksCache.find(b => b.id === bookId);
+      breadcrumb.innerHTML =
+        `<button class="nav-crumb" data-view="books">Books</button>` +
+        `<span class="nav-crumb">${book?.name || ''}</span>` +
+        `<span class="nav-crumb-current">Chapter</span>`;
+      breadcrumb.classList.remove('hidden');
+      breadcrumb.querySelector('[data-view="books"]').addEventListener('click', () => this.openSheet('books'));
       document.getElementById('nav-view-chapters').classList.remove('hidden');
       this.renderChapterGrid(bookId);
     } else if (view === 'verses') {
-      const bookName = this.booksCache.find(b => b.id === bookId)?.name || '';
-      titleEl.textContent = `${bookName} ${chapter}`;
-      titleEl.onclick = () => this.openSheet('chapters', bookId);
+      const book = this.booksCache.find(b => b.id === bookId);
+      breadcrumb.innerHTML =
+        `<button class="nav-crumb" data-view="books">Books</button>` +
+        `<button class="nav-crumb" data-view="chapters" data-book-id="${bookId}">${book?.name || ''}</button>` +
+        `<span class="nav-crumb">Chapter ${chapter}</span>` +
+        `<span class="nav-crumb-current">Verse</span>`;
+      breadcrumb.classList.remove('hidden');
+      const booksBtn = breadcrumb.querySelector('[data-view="books"]');
+      if (booksBtn) booksBtn.addEventListener('click', () => this.openSheet('books'));
+      const chaptersBtn = breadcrumb.querySelector('[data-view="chapters"]');
+      if (chaptersBtn) chaptersBtn.addEventListener('click', () => this.openSheet('chapters', bookId));
       document.getElementById('nav-view-verses').classList.remove('hidden');
       this.renderVerseGrid(bookId, chapter);
     }

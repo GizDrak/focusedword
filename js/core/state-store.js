@@ -5,15 +5,16 @@ window.StateStore = class StateStore {
     this._throttleDelay = 800;
     this._immediateKeys = new Set([
       'theme', 'accent', 'bionic', 'bionicStrength',
-      'swipeMode', 'spotlightMode', 'speedMode',
+      'swipeMode', 'spotlightMode', 'speedMode', 'splitMode', 'splitPortrait',
       'focusMode', 'speedAutoAdvance', 'tapSwipe',
+      'portraitLock',
       'activeBookmarkSet',
       'activeHighlightColor',
       'fontFamily', 'fontSize', 'margins', 'lineSpacing', 'letterSpacing',
-      'redLetter', 'crossRefs',
+      'redLetter', 'redLetterColor', 'crossRefs',
       'footnotes', 'sectionHeadings',
       'poetryFormatting', 'paragraphBreaks',
-      'paragraphMode', 'backgroundTexture',
+      'paragraphMode', 'swipeMaxVerses', 'backgroundTexture',
       'currentTranslation',
       'currentBook', 'currentChapter', 'currentVerse', 'currentBookName'
     ]);
@@ -29,6 +30,8 @@ window.StateStore = class StateStore {
       swipeMode: false,
       spotlightMode: false,
       speedMode: false,
+      splitMode: false,
+      splitPortrait: false,
       wpm: 250,
       focusMode: false,
       speedAutoAdvance: false,
@@ -43,21 +46,27 @@ window.StateStore = class StateStore {
       lineSpacing: 1.8,
       letterSpacing: 0.005,
       redLetter: true,
+      redLetterColor: '#B22222',
       crossRefs: false,
       footnotes: true,
       sectionHeadings: true,
       poetryFormatting: true,
       paragraphBreaks: false,
       paragraphMode: false,
-      backgroundTexture: true
+      swipeMaxVerses: 4,
+      backgroundTexture: true,
+      portraitLock: false
     };
     this._isApplyingServerState = false;
     this._idbReady = false;
-    this.moduleTimestamps = { settings: 0, reading: 0, bookmarks: 0, highlights: 0, notes: 0, plans: 0 };
+    this.moduleTimestamps = { settings: 0, reading: 0, bookmarks: 0, highlights: 0, notes: 0, plans: 0, noteCategories: 0, bookmarkSets: 0 };
+    this._tagCountCache = null;
     this.bookmarks = [];
     this.highlights = [];
     this.notes = [];
     this.plans = [];
+    this.noteCategories = [];
+    this.bookmarkSets = [];
     this._loadTimestamps();
     this._loadState();
     this._initPromise = this.initializeDB();
@@ -69,9 +78,11 @@ window.StateStore = class StateStore {
 
   async initializeDB() {
     try {
-      const stores = { bookmarks: 'bookmarks', highlights: 'highlights', notes: 'notes', plans: 'plans' };
-      for (const [key, store] of Object.entries(stores)) {
-        const items = await window.idb.getAll(store);
+      await this._migrateFocusedWordIfNeeded();
+
+      const stores = { bookmarks: 'bookmarks', highlights: 'highlights', notes: 'notes', plans: 'plans', noteCategories: 'note_categories', bookmarkSets: 'bookmark_sets' };
+      for (const [key, storeName] of Object.entries(stores)) {
+        const items = await window.idb.getAll(storeName);
         this[key] = items.filter(item => !item.deleted);
         if (this[key].length > 0) {
           this.moduleTimestamps[key] = Math.max(...this[key].map(i => i.updated_at));
@@ -79,11 +90,60 @@ window.StateStore = class StateStore {
           this.moduleTimestamps[key] = 0;
         }
       }
+      this._ensureTagsOnItems();
       this._saveTimestamps();
+      const meta = await window.idb.get('metadata', 'tagCounts');
+      this._tagCountCache = meta?.value || null;
+      if (!this._tagCountCache) {
+        this.rebuildTagCountCache();
+      }
     } catch (e) {
       console.warn('[StateStore] IDB init failed:', e);
     }
     this._idbReady = true;
+  }
+
+  _countTags(cache, items) {
+    for (const item of items) {
+      if (item.tags && !item.deleted) {
+        for (const tag of item.tags) {
+          cache[tag] = (cache[tag] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  async _migrateFocusedWordIfNeeded() {
+    try {
+      await window.LegacyMigration.run();
+    } catch (e) {
+      console.warn('[StateStore] FocusedWord migration failed:', e);
+    }
+  }
+
+  async rebuildTagCountCache() {
+    const cache = {};
+    this._countTags(cache, this.notes);
+    this._countTags(cache, this.bookmarks);
+    this._countTags(cache, this.highlights);
+    this._tagCountCache = cache;
+    try {
+      await window.idb.put('metadata', { key: 'tagCounts', value: cache });
+    } catch (e) {
+      console.warn('[StateStore] failed to persist tag count cache:', e);
+    }
+  }
+
+  _ensureTagsOnItems() {
+    for (const item of this.highlights) {
+      if (!item.tags) item.tags = [];
+    }
+    for (const item of this.bookmarks) {
+      if (!item.tags) item.tags = [];
+    }
+    for (const item of this.notes) {
+      if (!item.tags) item.tags = [];
+    }
   }
 
   _updateTimestamp(key) {
@@ -98,7 +158,7 @@ window.StateStore = class StateStore {
 
   setModuleTimestamp(module) {
     if (this._isApplyingServerState) return;
-    if (['bookmarks', 'highlights', 'notes', 'plans'].includes(module)) {
+    if (['bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'bookmarkSets'].includes(module)) {
       this.moduleTimestamps[module] = Date.now();
       this._saveTimestamps();
     }
@@ -121,39 +181,44 @@ window.StateStore = class StateStore {
         if (typeof parsed.highlights === 'number') this.moduleTimestamps.highlights = parsed.highlights;
         if (typeof parsed.notes === 'number') this.moduleTimestamps.notes = parsed.notes;
         if (typeof parsed.plans === 'number') this.moduleTimestamps.plans = parsed.plans;
+        if (typeof parsed.noteCategories === 'number') this.moduleTimestamps.noteCategories = parsed.noteCategories;
+        if (typeof parsed.bookmarkSets === 'number') this.moduleTimestamps.bookmarkSets = parsed.bookmarkSets;
       }
     } catch (e) {}
   }
 
-  static _uuid() {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    return Date.now().toString(36) + Math.random().toString(36).substring(2);
-  }
-
   async _persistItem(storeName, item) {
-    try { await window.idb.put(storeName, item); } catch (e) { console.warn('[StateStore] idb put failed:', e); }
+    try { await window.idb.put(this._idbStoreName(storeName), item); } catch (e) { console.warn('[StateStore] idb put failed:', e); }
   }
 
   addBookmark(data) {
-    const item = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...data };
+    const item = { id: window.UUID.generate(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), tags: [], ...data };
     this.bookmarks.push(item);
     this.setModuleTimestamp('bookmarks');
     this._persistItem('bookmarks', item);
+    if (item.tags?.length && this._tagCountCache) {
+      for (const tag of item.tags) {
+        this._tagCountCache[tag] = (this._tagCountCache[tag] || 0) + 1;
+      }
+    }
     return item;
   }
 
   addHighlight(data) {
-    const item = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...data };
+    const item = { id: window.UUID.generate(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), tags: [], ...data };
     this.highlights.push(item);
     this.setModuleTimestamp('highlights');
     this._persistItem('highlights', item);
+    if (item.tags?.length && this._tagCountCache) {
+      for (const tag of item.tags) {
+        this._tagCountCache[tag] = (this._tagCountCache[tag] || 0) + 1;
+      }
+    }
     return item;
   }
 
   addNote(markdownContent) {
-    const note = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), content: markdownContent };
+    const note = { id: window.UUID.generate(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), content: markdownContent };
     this.notes.push(note);
     this.setModuleTimestamp('notes');
     this._persistItem('notes', note);
@@ -161,11 +226,20 @@ window.StateStore = class StateStore {
   }
 
   addPlan(planData) {
-    const plan = { id: StateStore._uuid(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...planData };
+    const plan = { id: window.UUID.generate(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...planData };
     this.plans.push(plan);
     this.setModuleTimestamp('plans');
     this._persistItem('plans', plan);
     return plan;
+  }
+
+  _handleTagDeletion(item) {
+    if (!item.tags?.length || !this._tagCountCache) return;
+    for (const tag of item.tags) {
+      if (this._tagCountCache[tag] !== undefined) this._tagCountCache[tag]--;
+      if (this._tagCountCache[tag] <= 0) delete this._tagCountCache[tag];
+    }
+    window.TagCacheUtils.persistCache(this._tagCountCache).catch(() => {});
   }
 
   _tombstone(storeName, list, id) {
@@ -175,22 +249,35 @@ window.StateStore = class StateStore {
     item.updated_at = Date.now();
     this.setModuleTimestamp(storeName);
     this._persistItem(storeName, item);
+    if (storeName === 'bookmarks' || storeName === 'highlights') {
+      this._handleTagDeletion(item);
+    }
   }
 
   updateBookmark(id, updates) {
     const item = this.bookmarks.find(i => i.id === id);
     if (!item) return;
+    const oldTags = item.tags || [];
     Object.assign(item, updates, { updated_at: Date.now() });
     this.setModuleTimestamp('bookmarks');
     this._persistItem('bookmarks', item);
+    if (updates.tags && this._tagCountCache) {
+      window.TagCacheUtils.applyDiff(this._tagCountCache, oldTags, updates.tags);
+      window.TagCacheUtils.persistCache(this._tagCountCache).catch(() => {});
+    }
   }
 
   updateHighlight(id, updates) {
     const item = this.highlights.find(i => i.id === id);
     if (!item) return;
+    const oldTags = item.tags || [];
     Object.assign(item, updates, { updated_at: Date.now() });
     this.setModuleTimestamp('highlights');
     this._persistItem('highlights', item);
+    if (updates.tags && this._tagCountCache) {
+      window.TagCacheUtils.applyDiff(this._tagCountCache, oldTags, updates.tags);
+      window.TagCacheUtils.persistCache(this._tagCountCache).catch(() => {});
+    }
   }
 
   updateNote(id, updates) {
@@ -214,14 +301,72 @@ window.StateStore = class StateStore {
   deleteNote(id) { this._tombstone('notes', this.notes, id); }
   deletePlan(id) { this._tombstone('plans', this.plans, id); }
 
+  addBookmarkSet(data) {
+    const item = { id: window.UUID.generate(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...data };
+    this.bookmarkSets.push(item);
+    this.setModuleTimestamp('bookmarkSets');
+    this._persistItem('bookmarkSets', item);
+    return item;
+  }
+
+  updateBookmarkSet(id, updates) {
+    const item = this.bookmarkSets.find(i => i.id === id);
+    if (!item) return;
+    Object.assign(item, updates, { updated_at: Date.now() });
+    this.setModuleTimestamp('bookmarkSets');
+    this._persistItem('bookmarkSets', item);
+  }
+
+  deleteBookmarkSet(id) {
+    const item = this.bookmarkSets.find(i => i.id === id);
+    if (!item) return;
+    item.deleted = true;
+    item.updated_at = Date.now();
+    this.setModuleTimestamp('bookmarkSets');
+    this._persistItem('bookmarkSets', item);
+  }
+
+  addNoteCategory(data) {
+    const item = { id: window.UUID.generate(), deleted: false, updated_at: Date.now(), createdAt: Date.now(), ...data };
+    this.noteCategories.push(item);
+    this.setModuleTimestamp('noteCategories');
+    this._persistItem('noteCategories', item);
+    return item;
+  }
+
+  updateNoteCategory(id, updates) {
+    const item = this.noteCategories.find(i => i.id === id);
+    if (!item) return;
+    Object.assign(item, updates, { updated_at: Date.now() });
+    this.setModuleTimestamp('noteCategories');
+    this._persistItem('noteCategories', item);
+  }
+
+  deleteNoteCategory(id) {
+    const item = this.noteCategories.find(i => i.id === id);
+    if (!item) return;
+    item.deleted = true;
+    item.updated_at = Date.now();
+    this.setModuleTimestamp('noteCategories');
+    this._persistItem('noteCategories', item);
+  }
+
   async mergeArrays(localArray, remoteArray, storeName) {
     const map = new Map();
     if (Array.isArray(localArray)) localArray.forEach(item => map.set(item.id, item));
-    if (Array.isArray(remoteArray)) remoteArray.forEach(item => map.set(item.id, item));
+    if (Array.isArray(remoteArray)) {
+      for (const item of remoteArray) {
+        const existing = map.get(item.id);
+        if (!existing || (item.updated_at || 0) > (existing.updated_at || 0)) {
+          map.set(item.id, item);
+        }
+      }
+    }
     const merged = Array.from(map.values());
     if (storeName) {
+      const idbStore = this._idbStoreName(storeName);
       this[storeName] = merged.filter(item => !item.deleted);
-      try { await window.idb.putMultiple(storeName, merged); } catch (e) { console.warn('[StateStore] idb putMultiple failed:', e); }
+      try { await window.idb.putMultiple(idbStore, merged); } catch (e) { console.warn('[StateStore] idb putMultiple failed:', e); }
       let maxTs = 0;
       for (const item of merged) {
         if (item.updated_at && item.updated_at > maxTs) maxTs = item.updated_at;
@@ -229,7 +374,16 @@ window.StateStore = class StateStore {
       this.moduleTimestamps[storeName] = maxTs;
       this._saveTimestamps();
     }
+    if (storeName === 'notes' || storeName === 'highlights' || storeName === 'bookmarks') {
+      this._tagCountCache = null;
+      this.rebuildTagCountCache();
+    }
     return merged;
+  }
+
+  _idbStoreName(key) {
+    const map = { noteCategories: 'note_categories', bookmarkSets: 'bookmark_sets', bookmarks: 'bookmarks', highlights: 'highlights', notes: 'notes', plans: 'plans' };
+    return map[key] || key;
   }
 
   get(key) {
@@ -347,13 +501,16 @@ window.StateStore = class StateStore {
         'focused-word:line-spacing': 'lineSpacing',
         'focused-word:letter-spacing': 'letterSpacing',
         'focused-word:red-letter': 'redLetter',
+        'focused-word:red-letter-color': 'redLetterColor',
         'focused-word:cross-refs': 'crossRefs',
         'focused-word:footnotes': 'footnotes',
         'focused-word:section-headings': 'sectionHeadings',
         'focused-word:poetry-formatting': 'poetryFormatting',
         'focused-word:paragraph-breaks': 'paragraphBreaks',
         'focused-word:paragraph-mode': 'paragraphMode',
-        'focused-word:background-texture': 'backgroundTexture'
+        'focused-word:swipe-max-verses': 'swipeMaxVerses',
+        'focused-word:background-texture': 'backgroundTexture',
+        'focused-word:portrait-lock': 'portraitLock'
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);

@@ -3,6 +3,7 @@ window.BookmarksUI = class BookmarksUI {
     this.bridge = bridge;
     this._cleanupFocus = null;
     this._activeFilterSet = null;
+    this._notesCategoryFilter = '';
   }
 
   init() {
@@ -25,12 +26,16 @@ window.BookmarksUI = class BookmarksUI {
 
     document.getElementById('bookmarks-tab-bm').addEventListener('click', () => this.renderBookmarksTab());
     document.getElementById('bookmarks-tab-hl').addEventListener('click', () => this.renderHighlightsTab());
+    const bmNotesTab = document.getElementById('bookmarks-tab-notes');
+    if (bmNotesTab) bmNotesTab.addEventListener('click', () => this.renderNotesTab());
 
     document.getElementById('library-close').addEventListener('click', () => this.closeSlideUp());
     document.getElementById('library-backdrop').addEventListener('click', () => this.closeSlideUp());
 
     document.getElementById('library-tab-bm').addEventListener('click', () => this.renderBookmarksTab());
     document.getElementById('library-tab-hl').addEventListener('click', () => this.renderHighlightsTab());
+    const libNotesTab = document.getElementById('library-tab-notes');
+    if (libNotesTab) libNotesTab.addEventListener('click', () => this.renderNotesTab());
   }
 
   _bodyEl() {
@@ -49,6 +54,12 @@ window.BookmarksUI = class BookmarksUI {
     const panel = document.getElementById('library-panel');
     if (panel.classList.contains('open')) return document.getElementById('library-tab-hl');
     return document.getElementById('bookmarks-tab-hl');
+  }
+
+  _tabNotesEl() {
+    const panel = document.getElementById('library-panel');
+    if (panel.classList.contains('open')) return document.getElementById('library-tab-notes');
+    return document.getElementById('bookmarks-tab-notes');
   }
 
   open() {
@@ -96,8 +107,11 @@ window.BookmarksUI = class BookmarksUI {
     const isOpen = modal.classList.contains('open') || panel.classList.contains('open');
     if (!isOpen) return;
     const tabBm = this._tabBmEl();
+    const tabNotes = this._tabNotesEl();
     if (tabBm.classList.contains('active')) {
       this.renderBookmarksTab();
+    } else if (tabNotes && tabNotes.classList.contains('active')) {
+      this.renderNotesTab();
     } else {
       this.renderHighlightsTab();
     }
@@ -106,6 +120,7 @@ window.BookmarksUI = class BookmarksUI {
   async renderBookmarksTab() {
     this._tabBmEl().classList.add('active');
     this._tabHlEl().classList.remove('active');
+    this._tabNotesEl()?.classList.remove('active');
     const body = this._bodyEl();
 
     const [items, sets] = await Promise.all([
@@ -167,10 +182,14 @@ window.BookmarksUI = class BookmarksUI {
         <div class="bm-content">
           <div class="bm-ref">${name}</div>
         </div>
+        ${this._renderTagRow(item)}
         <button class="bm-delete" data-id="${item.id}">✕</button>`;
       el.querySelector('.bm-content').addEventListener('click', () => this._navigateToItem(item));
+      const tagRow = el.querySelector('.bm-tag-row');
+      if (tagRow) this._wireTagRow(tagRow, item, (id, tags) => this.bridge.selection.updateBookmarkTags(id, tags));
       el.querySelector('.bm-delete').addEventListener('click', async (e) => {
         e.stopPropagation();
+        this._updateTagCache(item.tags || [], []);
         await this.bridge.selection.deleteItem(item.id);
         this.renderBookmarksTab();
         const curBook = this.bridge.state.get('currentBook');
@@ -186,68 +205,48 @@ window.BookmarksUI = class BookmarksUI {
 
   _renderSetFilter(sets, setMap) {
     const bar = document.createElement('div');
-    bar.className = 'bm-set-filter';
+    bar.className = 'library-select-filter';
 
-    const allChip = document.createElement('button');
-    allChip.className = 'bm-set-chip' + (!this._activeFilterSet ? ' active' : '');
-    allChip.textContent = 'All';
-    allChip.addEventListener('click', () => {
-      this._activeFilterSet = null;
-      this.bridge.state.set('activeBookmarkSet', null);
-      this.renderBookmarksTab();
-    });
-    bar.appendChild(allChip);
+    const select = document.createElement('select');
+    const allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = 'All';
+    if (!this._activeFilterSet) allOpt.selected = true;
+    select.appendChild(allOpt);
 
     for (const s of sets) {
-      const chip = document.createElement('button');
-      chip.className = 'bm-set-chip' + (this._activeFilterSet === s.id ? ' active' : '');
-      const dot = document.createElement('span');
-      dot.className = 'bm-set-dot';
-      dot.style.background = s.color || '#8B5CF6';
-      chip.appendChild(dot);
-
-      const label = document.createElement('span');
-      label.className = 'bm-set-label';
-      label.textContent = s.name;
-      chip.appendChild(label);
-
-      let longPressTimer = null;
-      const startLongPress = (e) => {
-        longPressTimer = setTimeout(() => {
-          longPressTimer = null;
-          this._showSetMenu(s, chip);
-        }, 500);
-      };
-      const cancelLongPress = () => {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-      };
-
-      chip.addEventListener('pointerdown', startLongPress);
-      chip.addEventListener('pointerup', cancelLongPress);
-      chip.addEventListener('pointercancel', cancelLongPress);
-      chip.addEventListener('pointermove', cancelLongPress);
-
-      chip.addEventListener('click', () => {
-        this._activeFilterSet = s.id;
-        this.bridge.state.set('activeBookmarkSet', s.id);
-        this.renderBookmarksTab();
-      });
-
-      chip.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this._showSetMenu(s, chip);
-      });
-
-      bar.appendChild(chip);
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      if (this._activeFilterSet === s.id) opt.selected = true;
+      select.appendChild(opt);
     }
 
+    select.addEventListener('change', () => {
+      this._activeFilterSet = select.value || null;
+      this.bridge.state.set('activeBookmarkSet', this._activeFilterSet);
+      this.renderBookmarksTab();
+    });
+    bar.appendChild(select);
+
     const addBtn = document.createElement('button');
-    addBtn.className = 'bm-set-chip bm-set-add';
+    addBtn.className = 'filter-icon-btn';
     addBtn.textContent = '+';
     addBtn.title = 'New set';
     addBtn.addEventListener('click', () => this._showNewSetForm());
     bar.appendChild(addBtn);
+
+    if (sets.length) {
+      const manageBtn = document.createElement('button');
+      manageBtn.className = 'filter-icon-btn';
+      manageBtn.textContent = '⋮';
+      manageBtn.title = 'Manage sets';
+      manageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._showSetManagePopover(manageBtn, sets, setMap);
+      });
+      bar.appendChild(manageBtn);
+    }
 
     return bar;
   }
@@ -301,7 +300,7 @@ window.BookmarksUI = class BookmarksUI {
     form.appendChild(row);
     form.appendChild(colorRow);
 
-    const prevFilter = body.querySelector('.bm-set-filter');
+    const prevFilter = body.querySelector('.library-select-filter');
     if (prevFilter) prevFilter.after(form);
     else body.prepend(form);
     input.focus();
@@ -371,9 +370,70 @@ window.BookmarksUI = class BookmarksUI {
     setTimeout(() => document.addEventListener('click', hide), 10);
   }
 
+  _showSetManagePopover(anchorEl, sets, setMap) {
+    const existing = document.querySelector('.bm-set-manage-popover');
+    if (existing) existing.remove();
+
+    const popover = document.createElement('div');
+    popover.className = 'bm-set-manage-popover';
+    const rect = anchorEl.getBoundingClientRect();
+    popover.style.left = Math.min(rect.left, window.innerWidth - 220) + 'px';
+    popover.style.top = rect.bottom + 4 + 'px';
+
+    for (const s of sets) {
+      const row = document.createElement('div');
+      row.className = 'bm-set-manage-item';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'name';
+      nameSpan.textContent = s.name;
+      row.appendChild(nameSpan);
+
+      const renameBtn = document.createElement('button');
+      renameBtn.textContent = '✏️';
+      renameBtn.title = 'Rename';
+      renameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.remove();
+        this._renameSet(s);
+      });
+      row.appendChild(renameBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'danger';
+      delBtn.textContent = '🗑';
+      delBtn.title = 'Delete';
+      delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        popover.remove();
+        if (!confirm(`Delete "${s.name}"? Bookmarks in this set will become unassigned.`)) return;
+        await this.bridge.selection.deleteBookmarkSet(s.id);
+        if (this._activeFilterSet === s.id) {
+          this._activeFilterSet = null;
+          this._activeHighlightColor = null;
+          this.bridge.state.set('activeBookmarkSet', null);
+        }
+        this.renderBookmarksTab();
+      });
+      row.appendChild(delBtn);
+
+      popover.appendChild(row);
+    }
+
+    document.body.appendChild(popover);
+
+    const hide = (e) => {
+      if (!popover.contains(e.target) && e.target !== anchorEl) {
+        popover.remove();
+        document.removeEventListener('click', hide);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', hide), 10);
+  }
+
   _renameSet(set) {
     const body = this._bodyEl();
-    const filterBar = body.querySelector('.bm-set-filter');
+    const filterBar = body.querySelector('.library-select-filter');
     const form = document.createElement('div');
     form.className = 'bm-set-form';
 
@@ -500,6 +560,7 @@ window.BookmarksUI = class BookmarksUI {
   async renderHighlightsTab() {
     this._tabHlEl().classList.add('active');
     this._tabBmEl().classList.remove('active');
+    this._tabNotesEl()?.classList.remove('active');
     const body = this._bodyEl();
 
     const hm = this.bridge.get('highlight-manager');
@@ -552,10 +613,14 @@ window.BookmarksUI = class BookmarksUI {
         <div class="bm-content">
           <div class="bm-ref">${name}</div>
         </div>
+        ${this._renderTagRow(item)}
         <button class="bm-delete" data-id="${item.id}">✕</button>`;
       el.querySelector('.bm-content').addEventListener('click', () => this._navigateToItem(item));
+      const tagRow = el.querySelector('.bm-tag-row');
+      if (tagRow) this._wireTagRow(tagRow, item, (id, tags) => hm.store.updateTags(id, tags));
       el.querySelector('.bm-delete').addEventListener('click', async (e) => {
         e.stopPropagation();
+        this._updateTagCache(item.tags || [], []);
         await hm.store.delete(item.id);
         this.renderHighlightsTab();
         if (item.bookId === state.get('currentBook') && item.chapter === state.get('currentChapter')) {
@@ -565,6 +630,265 @@ window.BookmarksUI = class BookmarksUI {
       });
       body.appendChild(el);
     }
+  }
+
+  async renderNotesTab() {
+    const tabNotes = this._tabNotesEl();
+    if (tabNotes) tabNotes.classList.add('active');
+    this._tabBmEl().classList.remove('active');
+    this._tabHlEl().classList.remove('active');
+
+    const body = this._bodyEl();
+    body.innerHTML = '';
+    const notesUI = this.bridge.get('notes-ui');
+    const noteStore = this.bridge.get('note-store');
+    if (!noteStore) {
+      body.innerHTML = '<div class="bookmarks-empty">Notes system unavailable.</div>';
+      return;
+    }
+
+    const cats = noteStore.getAllCategories().filter(c => !c.deleted);
+    if (this._notesCategoryFilter && !cats.some(c => c.id === this._notesCategoryFilter)) {
+      this._notesCategoryFilter = '';
+    }
+
+    const filterBar = document.createElement('div');
+    filterBar.className = 'library-select-filter';
+
+    const select = document.createElement('select');
+    const allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = 'All Categories';
+    if (!this._notesCategoryFilter) allOpt.selected = true;
+    select.appendChild(allOpt);
+
+    for (const cat of cats) {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      if (this._notesCategoryFilter === cat.id) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    select.addEventListener('change', () => {
+      this._notesCategoryFilter = select.value;
+      this.renderNotesTab();
+    });
+    filterBar.appendChild(select);
+    body.appendChild(filterBar);
+
+    let notes = noteStore.getAllNotes();
+    if (this._notesCategoryFilter) {
+      notes = notes.filter(n => n.categoryId === this._notesCategoryFilter);
+    }
+    if (!notes.length) {
+      const empty = document.createElement('div');
+      empty.className = 'bookmarks-empty';
+      empty.textContent = this._notesCategoryFilter
+        ? 'No notes in this category.'
+        : 'No notes yet. Select a verse and tap 📝 to create one.';
+      body.appendChild(empty);
+      return;
+    }
+    notes.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
+
+    const base = this.bridge.get('base-renderer');
+
+    for (const note of notes) {
+      const el = document.createElement('div');
+      el.className = 'bookmark-item';
+
+      let catColor = 'var(--accent-gold)';
+      if (note.categoryId) {
+        const ncat = cats.find(c => c.id === note.categoryId);
+        if (ncat && ncat.color) catColor = ncat.color;
+      }
+
+      const title = note.title || 'Untitled';
+      const excerpt = note.excerpt || '';
+      const date = new Date(note.updated_at || note.createdAt || Date.now());
+      const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      const tags = (note.tags || []).map(t => `<span class="note-tag-chip" data-tag="${t}">#${t}</span>`).join('');
+      let catLabel = '';
+      if (!this._notesCategoryFilter && note.categoryId) {
+        const ncat = cats.find(c => c.id === note.categoryId);
+        if (ncat) catLabel = `<span class="bm-cat-label">${ncat.name}</span>`;
+      }
+      el.innerHTML = `
+        <div class="bm-color" style="background:${catColor}"></div>
+        <div class="bm-content">
+          <div class="bm-ref">${base ? base.escapeHtml(title) : title}</div>
+          ${excerpt ? '<div class="bm-excerpt">' + (base ? base.escapeHtml(excerpt) : excerpt) + '</div>' : ''}
+          <div class="bm-meta">
+            <span class="bm-date">${dateStr}</span>
+            ${catLabel}
+            ${tags ? '<span class="bm-tags">' + tags + '</span>' : ''}
+          </div>
+        </div>
+        <button class="bm-delete" data-id="${note.id}">✕</button>`;
+
+      el.addEventListener('click', (e) => {
+        const chip = e.target.closest('.note-tag-chip');
+        if (chip) {
+          e.stopPropagation();
+          const tag = chip.dataset.tag;
+          if (tag && notesUI) notesUI._openTagSearch(tag.toLowerCase());
+          return;
+        }
+        if (e.target.closest('.bm-delete')) return;
+        this.closeSlideUp();
+        this.closeModal();
+        if (notesUI) notesUI.loadNote(note);
+      });
+
+      el.querySelector('.bm-delete').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const ns = this.bridge.get('note-store');
+        if (!ns) return;
+        ns.deleteNote(note.id);
+        if (notesUI) {
+          notesUI._showUndoToast('Deleted "' + title + '"', () => {
+            ns.updateNote(note.id, { deleted: false });
+            this.renderNotesTab();
+          });
+        }
+        this.renderNotesTab();
+      });
+
+      body.appendChild(el);
+    }
+  }
+
+  _renderTagRow(item) {
+    const tags = item.tags || [];
+    const chips = tags.map(t => `<span class="note-tag-chip bm-tag-chip" data-tag="${t}">#${t}</span>`).join('');
+    return `<div class="bm-tag-row" data-id="${item.id}">${chips}<input type="text" class="bm-tag-input" placeholder="+#tag" maxlength="30"></div>`;
+  }
+
+  _updateTagCache(oldTags, newTags) {
+    const cache = this.bridge.state._tagCountCache;
+    if (cache) {
+      window.TagCacheUtils.applyDiff(cache, oldTags, newTags);
+      window.TagCacheUtils.persistCache(cache);
+    }
+  }
+
+  _wireTagRow(rowEl, item, persistFn) {
+    if (!rowEl) return;
+    const input = rowEl.querySelector('.bm-tag-input');
+    if (!input) return;
+    const id = rowEl.dataset.id;
+    if (!id) return;
+
+    const rebuildRow = () => {
+      const tags = item.tags || [];
+      const chips = tags.map(t => `<span class="note-tag-chip bm-tag-chip" data-tag="${t}">#${t}</span>`).join('');
+      rowEl.innerHTML = chips + `<input type="text" class="bm-tag-input" placeholder="+#tag" maxlength="30">`;
+      this._wireTagRow(rowEl, item, persistFn);
+    };
+
+    const updateTags = (newTags) => {
+      const oldTags = [...(item.tags || [])];
+      item.tags = newTags;
+      persistFn(id, newTags);
+      this._updateTagCache(oldTags, newTags);
+      rebuildRow();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const val = input.value.trim().replace(/^#/, '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+        if (!val) return;
+        input.value = '';
+        const tags = [...(item.tags || [])];
+        if (tags.includes(val)) return;
+        tags.push(val);
+        updateTags(tags);
+      }
+    });
+
+    rowEl.addEventListener('click', (e) => {
+      const chip = e.target.closest('.bm-tag-chip');
+      if (!chip) return;
+      e.stopPropagation();
+      const tag = chip.dataset.tag;
+      if (!tag) return;
+      const nu = this.bridge.get('notes-ui');
+      if (nu) nu._openTagSearch(tag.toLowerCase());
+    });
+
+    let longPressTimer = null;
+    rowEl.addEventListener('touchstart', (e) => {
+      const chip = e.target.closest('.bm-tag-chip');
+      if (!chip) return;
+      const tag = chip.dataset.tag;
+      if (!tag) return;
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        e.preventDefault();
+        const t = e.changedTouches[0] || e.touches[0];
+        this._showTagChipMenu(chip, tag, item, updateTags, t.clientX, t.clientY);
+      }, 500);
+    }, { passive: false });
+
+    rowEl.addEventListener('touchmove', () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    }, { passive: true });
+
+    rowEl.addEventListener('touchend', () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    }, { passive: true });
+
+    rowEl.addEventListener('contextmenu', (e) => {
+      const chip = e.target.closest('.bm-tag-chip');
+      if (!chip) return;
+      e.preventDefault();
+      const tag = chip.dataset.tag;
+      if (!tag) return;
+      this._showTagChipMenu(chip, tag, item, updateTags, e.clientX, e.clientY);
+    });
+  }
+
+  _showTagChipMenu(chipEl, tag, item, updateTags, x, y) {
+    const existing = document.querySelector('.tag-context-menu');
+    if (existing) existing.remove();
+
+    const menu = document.createElement('div');
+    menu.className = 'tag-context-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'tag-context-remove';
+    removeBtn.textContent = 'Remove';
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tags = (item.tags || []).filter(t => t !== tag);
+      updateTags(tags);
+      menu.remove();
+    });
+    menu.appendChild(removeBtn);
+
+    document.body.appendChild(menu);
+
+    let closeHandler = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeHandler);
+        document.removeEventListener('touchstart', closeHandler);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', closeHandler);
+      document.addEventListener('touchstart', closeHandler);
+    }, 0);
   }
 
   _navigateToItem(item) {
