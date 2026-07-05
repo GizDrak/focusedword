@@ -1,6 +1,6 @@
 # What's New in Focused Word
 
-## v8.5 — Major Update
+## v0.8.5 — Major Update
 
 Welcome to the biggest update yet! This release brings notes, split-screen reading, smarter sync, and a whole lot more.
 

@@ -95,7 +95,7 @@
 - **Set management** — manage button (⋮) opens a popover listing all sets with ✏️ rename and 🗑 delete actions per set, replacing the old long-press context menu on chips.
 - **CSS consolidation** — removed duplicated `.hl-color-*` / `.bm-set-*` classes; unified chip styling (tag chips share the same subtle border + hover tint); added `.library-select-filter` shared dropdown bar, `.filter-icon-btn`, and `.bm-set-manage-popover` styles.
 
-## v8.5 (Major Version)
+## v0.8.5 (Major Version)
 
 ### Sync Rewrite
 - Rewrote sync client for the new server API — faster, more reliable conflict resolution with per-module `updated_at` tracking.
