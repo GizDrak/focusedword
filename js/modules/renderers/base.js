@@ -97,11 +97,17 @@ window.BaseRenderer = class BaseRenderer {
       emblemEl.innerHTML = this._getEmblemSvg(bookId);
     }
 
+    const showTitle = state.get('chapterTitle');
     const titleEl = document.getElementById('chapter-title');
     if (titleEl) {
-      const cs = this.bridge.get('chapter-summary');
-      const summary = cs ? cs.getSummary(bookId, chapter) : ChapterSummary.getSummary(bookId, chapter);
-      titleEl.textContent = summary || this._extractChapterTitle(verses[0]?.clean_text || verses[0]?.text || '');
+      if (showTitle) {
+        const cs = this.bridge.get('chapter-summary');
+        const summary = cs ? cs.getSummary(bookId, chapter) : ChapterSummary.getSummary(bookId, chapter);
+        titleEl.textContent = summary || this._extractChapterTitle(verses[0]?.clean_text || verses[0]?.text || '');
+        titleEl.style.display = '';
+      } else {
+        titleEl.style.display = 'none';
+      }
     }
 
     const subtitleEl = document.getElementById('chapter-subtitle');
@@ -126,7 +132,7 @@ window.BaseRenderer = class BaseRenderer {
 
   renderTokenChapter(verses, bionic, strength, settings) {
     if (!this._tokenRenderer) {
-      this._tokenRenderer = new window.TokenRenderer();
+      this._tokenRenderer = new window.TokenRenderer(this.bridge);
     }
     const frag = this._tokenRenderer.renderChapter(verses, bionic, strength, settings || this._getSettings());
     frag.querySelectorAll('.token-section-heading-ref[data-refs]').forEach(el => {
@@ -149,7 +155,7 @@ window.BaseRenderer = class BaseRenderer {
 
   renderTokenVerse(verseTokens, verseNum) {
     if (!this._tokenRenderer) {
-      this._tokenRenderer = new window.TokenRenderer();
+      this._tokenRenderer = new window.TokenRenderer(this.bridge);
     }
     return this._tokenRenderer._renderVerseTokens(verseNum, verseTokens, false, 0, this._getSettings());
   }

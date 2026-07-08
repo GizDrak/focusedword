@@ -1,8 +1,10 @@
-const CACHE_NAME = 'focused-word-v19';
+const CACHE_NAME = 'focused-word-v22';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/css/styles.css',
+  '/js/core/scripture-repository-service.js',
+  '/js/modules/scripture-repos-ui.js',
   '/js/app.js',
   '/js/core/config.js',
   '/js/utils/uuid.js',
@@ -62,6 +64,8 @@ const APP_SHELL = [
   '/assets/icons/ios/180.png',
   '/assets/icons/icon-dark.svg',
   '/assets/icons/icon-light.svg',
+  '/assets/icons/ui/closed-bible-icon.svg',
+  '/assets/icons/ui/open-bible-icon.svg',
   '/whats_new.md'
 ];
 

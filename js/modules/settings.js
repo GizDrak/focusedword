@@ -17,6 +17,7 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-bionic').checked = state.get('bionic');
     document.getElementById('settings-red-letter').checked = state.get('redLetter');
     document.getElementById('settings-footnotes').checked = state.get('footnotes');
+    document.getElementById('settings-chapter-title').checked = state.get('chapterTitle');
     document.getElementById('settings-section-headings').checked = state.get('sectionHeadings');
     document.getElementById('settings-poetry').checked = state.get('poetryFormatting');
     document.getElementById('settings-paragraph-mode').checked = state.get('paragraphMode');
@@ -41,7 +42,6 @@ window.SettingsModule = class SettingsModule {
     this._renderRedLetterSwatches();
     this._applyRedLetterColor();
     document.getElementById('settings-background-texture').checked = state.get('backgroundTexture');
-    document.getElementById('settings-portrait-lock').checked = state.get('portraitLock');
     this._applyTextSettings();
   }
 
@@ -118,7 +118,6 @@ window.SettingsModule = class SettingsModule {
 
     document.getElementById('settings-theme').addEventListener('change', (e) => this.setTheme(e.target.value));
     document.getElementById('settings-background-texture').addEventListener('change', (e) => this._setToggle('backgroundTexture', e.target.checked));
-    document.getElementById('settings-portrait-lock').addEventListener('change', (e) => this._setPortraitLock(e.target.checked));
     document.getElementById('settings-bionic').addEventListener('change', (e) => this._setToggle('bionic', e.target.checked));
     document.getElementById('settings-red-letter').addEventListener('change', (e) => {
       this._setToggle('redLetter', e.target.checked);
@@ -126,6 +125,7 @@ window.SettingsModule = class SettingsModule {
       this._applyRedLetterColor();
     });
     document.getElementById('settings-footnotes').addEventListener('change', (e) => this._setToggle('footnotes', e.target.checked));
+    document.getElementById('settings-chapter-title').addEventListener('change', (e) => this._setToggle('chapterTitle', e.target.checked));
     document.getElementById('settings-section-headings').addEventListener('change', (e) => this._setToggle('sectionHeadings', e.target.checked));
     document.getElementById('settings-poetry').addEventListener('change', (e) => this._setToggle('poetryFormatting', e.target.checked));
     document.getElementById('settings-paragraph-mode').addEventListener('change', (e) => {
@@ -255,19 +255,6 @@ window.SettingsModule = class SettingsModule {
   _setToggle(stateKey, enabled) {
     this.bridge.state.set(stateKey, enabled);
     this.bridge.emit('render:refresh');
-  }
-
-  _setPortraitLock(enabled) {
-    this.bridge.state.set('portraitLock', enabled);
-    if (enabled) {
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('portrait-primary').catch(() => {});
-      }
-    } else {
-      if (screen.orientation && screen.orientation.unlock) {
-        screen.orientation.unlock();
-      }
-    }
   }
 
   async _openChangelog() {
@@ -450,26 +437,7 @@ window.SettingsModule = class SettingsModule {
   }
 
   _applyTextSettings() {
-    const state = this.bridge.state;
-    const root = document.documentElement;
-    const FONT_MAP = {
-      inter: "'Inter', system-ui, -apple-system, sans-serif",
-      roboto: "'Roboto', system-ui, -apple-system, sans-serif",
-      atkinson: "'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif",
-      merriweather: "'Merriweather', Georgia, 'Times New Roman', serif",
-      lora: "'Lora', Georgia, 'Times New Roman', serif",
-      'crimson-pro': "'Crimson Pro', Georgia, 'Times New Roman', serif",
-      'ibm-plex-mono': "'IBM Plex Mono', 'Courier New', monospace",
-      caveat: "'Caveat', 'Comic Sans MS', cursive",
-      lexend: "'Lexend', system-ui, -apple-system, sans-serif",
-      'comic-neue': "'Comic Neue', 'Comic Sans MS', cursive"
-    };
-    const fontKey = state.get('fontFamily');
-    root.style.setProperty('--verse-font-family', FONT_MAP[fontKey] || FONT_MAP.inter);
-    root.style.setProperty('--verse-font-size', state.get('fontSize') + 'rem');
-    root.style.setProperty('--verse-line-height', String(state.get('lineSpacing')));
-    root.style.setProperty('--verse-letter-spacing', state.get('letterSpacing') + 'em');
-    root.style.setProperty('--verse-padding-x', state.get('margins') + 'rem');
+    this.bridge.get('typography')?.applyVisualSettings();
   }
 
   _toggleSection(header) {
@@ -496,6 +464,7 @@ window.SettingsModule = class SettingsModule {
       redLetter: true,
       redLetterColor: '#B22222',
       footnotes: true,
+      chapterTitle: true,
       sectionHeadings: true,
       poetryFormatting: true,
       paragraphBreaks: false,

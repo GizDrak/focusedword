@@ -232,9 +232,9 @@ window.InteractionManager = class InteractionManager {
     if (isInline) {
       verseText.style.backgroundImage = dataUri;
     } else {
-      var el = verseText.querySelector('.token-text, .token-poetry');
+      var el = verseText.querySelector('.token-text, .poetry-line');
       if (el) {
-        var targets = verseText.querySelectorAll('.token-text, .token-poetry');
+        var targets = verseText.querySelectorAll('.token-text, .poetry-line');
         for (var i = 0; i < targets.length; i++) {
           targets[i].style.backgroundImage = dataUri;
         }
@@ -251,9 +251,9 @@ window.InteractionManager = class InteractionManager {
     if (isInline) {
       verseText.style.backgroundImage = '';
     } else {
-      var el = verseText.querySelector('.token-text, .token-poetry');
+      var el = verseText.querySelector('.token-text, .poetry-line');
       if (el) {
-        var targets = verseText.querySelectorAll('.token-text, .token-poetry');
+        var targets = verseText.querySelectorAll('.token-text, .poetry-line');
         for (var i = 0; i < targets.length; i++) {
           targets[i].style.backgroundImage = '';
         }
@@ -272,9 +272,9 @@ window.InteractionManager = class InteractionManager {
       if (isInline) {
         vt.style.backgroundImage = '';
       } else {
-        var el = vt.querySelector('.token-text, .token-poetry');
+        var el = vt.querySelector('.token-text, .poetry-line');
         if (el) {
-          var targets = vt.querySelectorAll('.token-text, .token-poetry');
+          var targets = vt.querySelectorAll('.token-text, .poetry-line');
           for (var i = 0; i < targets.length; i++) {
             targets[i].style.backgroundImage = '';
           }

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "ASV",
+    "name": "ASV: American Standard Version",
+    "shortname": "ASV",
+    "lang": "en",
+    "format": "split",
+    "components": ["verses", "blocks", "chapters", "notes"],
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "BSB",
+    "name": "BSB: Berean Standard Bible",
+    "shortname": "BSB",
+    "lang": "en",
+    "format": "split",
+    "components": ["verses", "blocks", "chapters", "notes"],
+    "copyright": "Creative Commons CC0"
+  },
+  {
+    "id": "KJV",
+    "name": "KJV: King James Version",
+    "shortname": "KJV",
+    "lang": "en",
+    "format": "split",
+    "components": ["verses", "blocks", "chapters", "notes"],
+    "copyright": "Public Domain"
+  },
+  {
+    "id": "NET",
+    "name": "NET: New English Translation",
+    "shortname": "NET",
+    "lang": "en",
+    "format": "split",
+    "components": ["verses", "blocks", "chapters", "notes"],
+    "copyright": "NET Bible® copyright ©1996-2016 by Biblical Studies Press, L.L.C. — used by permission"
+  },
+  {
+    "id": "WEB",
+    "name": "WEB: World English Bible",
+    "shortname": "WEB",
+    "lang": "en",
+    "format": "split",
+    "components": ["verses", "blocks", "chapters", "notes"],
+    "copyright": "Public Domain"
+  }
+]

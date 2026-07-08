@@ -203,43 +203,67 @@ window.NavigationModule = class NavigationModule {
   }
 
   renderTranslationView() {
-    const select = document.getElementById('nav-translation');
-    if (!select || select.options.length > 0) return;
+    const btn = document.getElementById('nav-translation-btn');
+    const menu = document.getElementById('nav-translation-menu');
+    if (!btn || !menu) return;
 
     const manifest = this.bridge.translationManifest;
     if (!manifest || !manifest.length) return;
 
     const currentId = this.bridge.state.get('currentTranslation');
-    let selectedIndex = 0;
+
+    const current = manifest.find(t => t.id === currentId);
+    btn.textContent = current ? current.name : 'Select Bible';
+
+    menu.innerHTML = '';
     for (let i = 0; i < manifest.length; i++) {
-      const opt = document.createElement('option');
-      opt.value = manifest[i].id;
-      opt.textContent = manifest[i].name;
-      select.appendChild(opt);
-      if (manifest[i].id === currentId) selectedIndex = i;
-    }
-    select.selectedIndex = selectedIndex;
+      const t = manifest[i];
+      const item = document.createElement('button');
+      item.className = 'nav-translation-menu-item';
+      item.dataset.id = t.id;
+      item.textContent = t.name;
+      if (t.id === currentId) item.classList.add('active');
 
-    select.addEventListener('change', async () => {
-      const id = select.value;
-      if (id === this.bridge.state.get('currentTranslation')) return;
-
-      this.bridge.state.set('currentTranslation', id);
-
-      try {
-        const ok = await this.bridge.db.init(id);
-        if (!ok) {
-          this.bridge.state.set('currentTranslation', 'BSB');
-          select.value = 'BSB';
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = item.dataset.id;
+        if (id === this.bridge.state.get('currentTranslation')) {
+          menu.classList.remove('open');
           return;
         }
-        await this.switchTranslation();
-        const activeTestament = document.querySelector('.nav-testament-tab.active')?.dataset.testament || 'ot';
-        this.renderBookList(activeTestament);
-      } catch (e) {
-        console.error('Translation switch failed:', e);
-      }
-    });
+        this.bridge.state.set('currentTranslation', id);
+        try {
+          const ok = await this.bridge.db.init(id);
+          if (!ok) {
+            this.bridge.state.set('currentTranslation', 'BSB');
+            return;
+          }
+          await this.switchTranslation();
+          const activeTestament = document.querySelector('.nav-testament-tab.active')?.dataset.testament || 'ot';
+          this.renderBookList(activeTestament);
+          this.renderTranslationView();
+        } catch (e) {
+          console.error('Translation switch failed:', e);
+        }
+        menu.classList.remove('open');
+      });
+      menu.appendChild(item);
+    }
+
+    if (!this._menuBound) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.classList.toggle('open');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target) && e.target !== btn) {
+          menu.classList.remove('open');
+        }
+      });
+
+      this._menuBound = true;
+    }
   }
 
   openSheet(view, bookId, chapter) {
@@ -299,6 +323,8 @@ window.NavigationModule = class NavigationModule {
   closeSheet() {
     document.getElementById('nav-backdrop').classList.remove('open');
     document.getElementById('nav-sheet').classList.remove('open');
+    const menu = document.getElementById('nav-translation-menu');
+    if (menu) menu.classList.remove('open');
     if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
 

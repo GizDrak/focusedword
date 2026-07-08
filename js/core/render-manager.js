@@ -86,6 +86,9 @@ window.RenderManager = class RenderManager {
     this.bridge.state.onChange('backgroundTexture', (_, val) => {
       document.body.classList.toggle('background-texture', val);
     });
+    this.bridge.state.onChange('currentTranslation', (_, val) => {
+      document.body.dataset.translation = (val || 'BSB').toLowerCase();
+    });
   }
 
   _modeFlags() {
@@ -95,6 +98,7 @@ window.RenderManager = class RenderManager {
 
   _syncOnInit() {
     this.vm.syncBodyClasses(this._modeFlags());
+    document.body.dataset.translation = (this.bridge.state.get('currentTranslation') || 'BSB').toLowerCase();
     if (this.bridge.state.get('paragraphMode')) {
       document.body.classList.add('paragraph-mode');
       this.bridge.state.set('paragraphBreaks', true);

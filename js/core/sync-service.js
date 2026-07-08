@@ -191,6 +191,7 @@ window.SyncService = class SyncService {
     addModule('notes');
     addModule('plans');
     addModule('noteCategories');
+    addModule('repositories');
     try {
       const resp = await this.apiRequest('sync', {
         method: 'POST',
@@ -251,6 +252,7 @@ window.SyncService = class SyncService {
           addMod('notes');
           addMod('plans');
           addMod('noteCategories');
+          addMod('repositories');
           const retryResp = await this.apiRequest('sync', {
             method: 'POST',
             body: JSON.stringify(retryBody)

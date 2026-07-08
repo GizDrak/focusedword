@@ -37,6 +37,8 @@ window.ScrollRenderer = class ScrollRenderer {
     this.base._addCrossRefIndicators(frag, bulkRefs);
     content.appendChild(frag);
 
+    this._appendBottomNav(content);
+
     await new Promise(r => requestAnimationFrame(r));
     if (content.scrollHeight > content.clientHeight + 5) {
       const spacer = document.createElement('div');
@@ -77,6 +79,53 @@ window.ScrollRenderer = class ScrollRenderer {
 
   onRenderComplete() {
     setTimeout(() => { this._pendingRender = false; }, 400);
+  }
+
+  async _appendBottomNav(content) {
+    const existing = content.querySelector('.chapter-bottom-nav');
+    if (existing) existing.remove();
+
+    const state = this.bridge.state;
+    const nav = this.bridge.get('navigation');
+    if (!nav) return;
+
+    const bookId = state.get('currentBook');
+    const chapter = state.get('currentChapter');
+    const book = nav.booksCache.find(b => b.id === bookId);
+    const bookIndex = nav.booksCache.indexOf(book);
+    const totalChapters = await this.bridge.db.getChapterCount(bookId);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'chapter-bottom-nav';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'chapter-bottom-arrow';
+    prevBtn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>';
+    prevBtn.setAttribute('aria-label', 'Previous chapter');
+    if (bookIndex === 0 && chapter <= 1) prevBtn.disabled = true;
+    prevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      nav.loadPrevChapter();
+    });
+
+    const label = document.createElement('span');
+    label.className = 'chapter-bottom-label';
+    label.textContent = (book ? book.name : '') + ' ' + chapter;
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'chapter-bottom-arrow';
+    nextBtn.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>';
+    nextBtn.setAttribute('aria-label', 'Next chapter');
+    if (bookIndex === nav.booksCache.length - 1 && chapter >= totalChapters) nextBtn.disabled = true;
+    nextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      nav.loadNextChapter();
+    });
+
+    wrap.appendChild(prevBtn);
+    wrap.appendChild(label);
+    wrap.appendChild(nextBtn);
+    content.appendChild(wrap);
   }
 
   _syncVerseFromScroll() {

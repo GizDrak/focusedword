@@ -7,7 +7,6 @@ window.StateStore = class StateStore {
       'theme', 'accent', 'bionic', 'bionicStrength',
       'swipeMode', 'spotlightMode', 'speedMode', 'splitMode', 'splitPortrait',
       'focusMode', 'speedAutoAdvance', 'tapSwipe',
-      'portraitLock',
       'activeBookmarkSet',
       'activeHighlightColor',
       'fontFamily', 'fontSize', 'margins', 'lineSpacing', 'letterSpacing',
@@ -49,17 +48,17 @@ window.StateStore = class StateStore {
       redLetterColor: '#B22222',
       crossRefs: false,
       footnotes: true,
+      chapterTitle: true,
       sectionHeadings: true,
       poetryFormatting: true,
       paragraphBreaks: false,
       paragraphMode: false,
       swipeMaxVerses: 4,
-      backgroundTexture: true,
-      portraitLock: false
+      backgroundTexture: true
     };
     this._isApplyingServerState = false;
     this._idbReady = false;
-    this.moduleTimestamps = { settings: 0, reading: 0, bookmarks: 0, highlights: 0, notes: 0, plans: 0, noteCategories: 0, bookmarkSets: 0 };
+    this.moduleTimestamps = { settings: 0, reading: 0, bookmarks: 0, highlights: 0, notes: 0, plans: 0, noteCategories: 0, bookmarkSets: 0, repositories: 0 };
     this._tagCountCache = null;
     this.bookmarks = [];
     this.highlights = [];
@@ -158,7 +157,7 @@ window.StateStore = class StateStore {
 
   setModuleTimestamp(module) {
     if (this._isApplyingServerState) return;
-    if (['bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'bookmarkSets'].includes(module)) {
+    if (['bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'bookmarkSets', 'repositories'].includes(module)) {
       this.moduleTimestamps[module] = Date.now();
       this._saveTimestamps();
     }
@@ -183,6 +182,7 @@ window.StateStore = class StateStore {
         if (typeof parsed.plans === 'number') this.moduleTimestamps.plans = parsed.plans;
         if (typeof parsed.noteCategories === 'number') this.moduleTimestamps.noteCategories = parsed.noteCategories;
         if (typeof parsed.bookmarkSets === 'number') this.moduleTimestamps.bookmarkSets = parsed.bookmarkSets;
+        if (typeof parsed.repositories === 'number') this.moduleTimestamps.repositories = parsed.repositories;
       }
     } catch (e) {}
   }
@@ -504,13 +504,13 @@ window.StateStore = class StateStore {
         'focused-word:red-letter-color': 'redLetterColor',
         'focused-word:cross-refs': 'crossRefs',
         'focused-word:footnotes': 'footnotes',
+        'focused-word:chapter-title': 'chapterTitle',
         'focused-word:section-headings': 'sectionHeadings',
         'focused-word:poetry-formatting': 'poetryFormatting',
         'focused-word:paragraph-breaks': 'paragraphBreaks',
         'focused-word:paragraph-mode': 'paragraphMode',
         'focused-word:swipe-max-verses': 'swipeMaxVerses',
-        'focused-word:background-texture': 'backgroundTexture',
-        'focused-word:portrait-lock': 'portraitLock'
+        'focused-word:background-texture': 'backgroundTexture'
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);

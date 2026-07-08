@@ -24,6 +24,13 @@ window.App = class App {
 
     const splashEl = document.getElementById('splash-screen');
 
+    await window.repoService.ready;
+    await window.repoService.bootstrapBSB();
+    // Promote any IDB-installed repo databases to OPFS (background)
+    window.repoService.migrateInstalledToOpfs().catch(e =>
+      console.warn('[app] OPFS migration error:', e)
+    );
+
     let translationId = bridge.state.get('currentTranslation');
     let ok = await bridge.db.init(translationId);
     if (!ok) {
@@ -58,6 +65,9 @@ window.App = class App {
     const colorTheme = new window.ColorTheme(bridge);
     bridge.register('color-theme', colorTheme);
     colorTheme.init();
+    const typography = new window.TypographyModule(bridge);
+    bridge.register('typography', typography);
+    typography.initialize();
     const bookmarks = new window.BookmarksUI(bridge);
     bridge.register('bookmarks-ui', bookmarks);
 
@@ -89,6 +99,11 @@ window.App = class App {
       bridge.register('sync-ui', syncUI);
       syncUI.init();
     }
+    if (window.ScriptureReposUI) {
+      const dlUI = new window.ScriptureReposUI(bridge);
+      bridge.register('scripture-repos-ui', dlUI);
+      dlUI.init();
+    }
     bookmarks.init();
 
     const searchModule = new window.SearchModule(bridge);
@@ -108,7 +123,7 @@ window.App = class App {
       }
     }
 
-    this._fetchTranslationManifest(bridge);
+    this._buildTranslationManifest(bridge);
     this._setupModeButton(bridge);
     this._setupMoreButton(bridge);
     this._setupLibraryButton(bridge);
@@ -173,18 +188,19 @@ window.App = class App {
     setTimeout(() => splashEl.remove(), 500);
   }
 
-  _fetchTranslationManifest(bridge) {
-    fetch('/scripture/en/translation-manifest.json')
-      .then(r => r.json())
-      .then(manifest => {
-        manifest.sort((a, b) => a.name.localeCompare(b.name));
-        bridge.translationManifest = manifest;
-        const nav = bridge.get('navigation');
-        if (nav) nav.renderTranslationView();
-        const sm = bridge.get('split-mode');
-        if (sm) sm.repopulateSelectors();
-      })
-      .catch(() => { bridge.translationManifest = []; });
+  async _buildTranslationManifest(bridge) {
+    try {
+      const manifest = await window.repoService.buildManifest();
+      manifest.sort((a, b) => a.name.localeCompare(b.name));
+      bridge.translationManifest = manifest;
+    } catch (e) {
+      console.warn('[app] Failed to build manifest:', e);
+      bridge.translationManifest = [];
+    }
+    const nav = bridge.get('navigation');
+    if (nav) nav.renderTranslationView();
+    const sm = bridge.get('split-mode');
+    if (sm) sm.repopulateSelectors();
   }
 
   _setupModeButton(bridge) {
@@ -338,7 +354,6 @@ window.App = class App {
   _setupPointerEvents(bridge) {
     const content = document.getElementById('content');
     let _ptrStart = null;
-    this._edgeGesture = null;
 
     content.addEventListener('pointerdown', (e) => {
       _ptrStart = { x: e.clientX, y: e.clientY };
@@ -475,89 +490,7 @@ window.App = class App {
       }
     });
 
-    document.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#settings-panel, #settings-overlay, #nav-sheet, #nav-backdrop, #bottom-nav, #crossref-panel, #crossref-overlay, #crossref-bar, #footnote-popup, #footnote-overlay, #discover-panel, #discover-backdrop, #highlight-toolbar, #bookmark-set-picker, #verse-progress, #tag-results-bar, #library-panel, #library-backdrop, #bookmarks-modal, #bookmarks-backdrop, #changelog-panel, #changelog-overlay, #debuglog-panel, #debuglog-overlay, #notes-panel, #focus-exit-btn, #mode-popup, #more-popup, #speed-controls, .new-set-overlay, .tag-context-menu, .bm-set-menu, .bm-set-manage-popover, .undo-toast, .nc-color-overlay, .crossref-indicator, .footnote-caller, .token-section-heading-ref')) return;
-
-      if (e.target.closest('#content')) {
-        if (e.clientX > window.innerWidth * 0.15 && e.clientX < window.innerWidth * 0.85) return;
-      }
-      if (bridge.state.get('speedMode')) return;
-
-      const edgeThreshold = window.innerWidth * 0.15;
-      if (e.clientX < edgeThreshold || e.clientX > window.innerWidth - edgeThreshold) {
-        if (bridge.state.get('swipeMode') || bridge.state.get('spotlightMode')) {
-          e.preventDefault();
-        }
-        this._edgeGesture = {
-          startX: e.clientX,
-          startY: e.clientY,
-          side: e.clientX < edgeThreshold ? 'left' : 'right'
-        };
-      }
-    });
-
-    document.addEventListener('pointerup', (e) => {
-      if (!this._edgeGesture) return;
-
-      const nav = bridge.get('navigation');
-      if (!nav) { this._edgeGesture = null; return; }
-      const verses = nav.currentVerses;
-      const direction = this._edgeGesture.side === 'right' ? 'next' : 'prev';
-
-      if (bridge.state.get('spotlightMode')) {
-        const spot = bridge.get('renderer-spotlight');
-        if (spot) spot.advance(verses, direction);
-      } else if (bridge.state.get('swipeMode')) {
-        const swipe = bridge.get('renderer-swipe');
-        if (swipe) swipe.advance(verses, direction);
-      } else {
-        const dx = e.clientX - this._edgeGesture.startX;
-        const dy = e.clientY - this._edgeGesture.startY;
-        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-          this._edgeGesture = null;
-          return;
-        }
-        if (bridge._chapterNavLock) { this._edgeGesture = null; return; }
-        bridge._chapterNavLock = true;
-        setTimeout(() => { bridge._chapterNavLock = false; }, 800);
-        const el = document.getElementById('content');
-        const dir = direction === 'next' ? 'left' : 'right';
-        el.classList.add('chapter-slide', 'slide-out-' + dir);
-        let done = false;
-        const onEnd = () => {
-          if (done) return;
-          done = true;
-          el.classList.remove('chapter-slide', 'slide-out-' + dir);
-          bridge._chapterNavLock = true;
-          setTimeout(() => { bridge._chapterNavLock = false; }, 600);
-          if (dir === 'left') nav.loadNextChapter();
-          else nav.loadPrevChapter();
-        };
-        el.addEventListener('transitionend', onEnd, { once: true });
-        setTimeout(onEnd, 350);
-      }
-
-      this._edgeGesture = null;
-    });
-
-    document.addEventListener('pointercancel', () => {
-      if (!this._edgeGesture) return;
-      const nav = bridge.get('navigation');
-      if (!nav) { this._edgeGesture = null; return; }
-
-      if (bridge.state.get('spotlightMode') || bridge.state.get('swipeMode')) {
-        const verses = nav.currentVerses;
-        const direction = this._edgeGesture.side === 'right' ? 'next' : 'prev';
-        if (bridge.state.get('spotlightMode')) {
-          const spot = bridge.get('renderer-spotlight');
-          if (spot) spot.advance(verses, direction);
-        } else {
-          const swipe = bridge.get('renderer-swipe');
-          if (swipe) swipe.advance(verses, direction);
-        }
-      }
-      this._edgeGesture = null;
-    });
+    // Edge-tap chapter navigation removed — only horizontal swipe changes chapters
   }
 
   _setupClickEvents(bridge) {
@@ -710,11 +643,6 @@ window.App = class App {
       document.body.classList.toggle('focus-mode', val);
     });
 
-    if (bridge.state.get('portraitLock')) {
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock('portrait-primary').catch(() => {});
-      }
-    }
   }
 };
 

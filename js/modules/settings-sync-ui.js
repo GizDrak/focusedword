@@ -254,13 +254,14 @@ window.SyncSettingsUI = class SyncSettingsUI {
           <p>Keep your reading progress, bookmarks, and application settings seamlessly synced across all your devices. Focused Sync is a completely opt-in service built around your privacy.</p>
           <div class="sync-onboarding-lists">
             <div class="sync-onboarding-list">
-              <h4>What is shared with the server:</h4>
+               <h4>What is shared with the server:</h4>
               <ul>
                 <li>Reading position</li>
                 <li>Layout settings</li>
                 <li>Bookmarks</li>
                 <li>Highlights</li>
                 <li>Notes</li>
+                <li>Repository URLs</li>
                 <li>Hashed sync key</li>
               </ul>
             </div>
@@ -270,6 +271,8 @@ window.SyncSettingsUI = class SyncSettingsUI {
                 <li>Identity</li>
                 <li>Emails</li>
                 <li>Analytics</li>
+                <li>Private repository keys</li>
+                <li>Downloaded Bible databases</li>
               </ul>
             </div>
           </div>
@@ -426,10 +429,12 @@ window.SyncSettingsUI = class SyncSettingsUI {
         redLetter: state.get('redLetter'),
         redLetterColor: state.get('redLetterColor'),
         footnotes: state.get('footnotes'),
+        chapterTitle: state.get('chapterTitle'),
         sectionHeadings: state.get('sectionHeadings'),
         poetryFormatting: state.get('poetryFormatting'),
         crossRefs: state.get('crossRefs'),
-        backgroundTexture: state.get('backgroundTexture')
+        backgroundTexture: state.get('backgroundTexture'),
+        currentTranslation: state.get('currentTranslation')
         },
         updated_at: state.moduleTimestamps.settings
       },
@@ -465,6 +470,18 @@ window.SyncSettingsUI = class SyncSettingsUI {
       bookmarkSets: {
         data: state.bookmarkSets || [],
         updated_at: bookmarkSetsTs
+      },
+      repositories: {
+        data: (window.repoService?.repositories || []).map(r => ({
+          id: r.id,
+          url: r.url,
+          name: r.name,
+          repo_name: r.repo_name || null,
+          checked_at: r.checked_at || null,
+          created_at: r.created_at,
+          updated_at: r.updated_at || null
+        })),
+        updated_at: Math.max(state.moduleTimestamps.repositories || 0, ...(window.repoService?.repositories || []).map(r => r.checked_at || r.created_at || 0))
       }
     };
   }
@@ -495,10 +512,12 @@ window.SyncSettingsUI = class SyncSettingsUI {
           document.documentElement.style.setProperty('--wj-color', settings.redLetterColor);
         }
         if (settings.footnotes !== undefined) this.bridge.state.set('footnotes', settings.footnotes);
+        if (settings.chapterTitle !== undefined) this.bridge.state.set('chapterTitle', settings.chapterTitle);
         if (settings.sectionHeadings !== undefined) this.bridge.state.set('sectionHeadings', settings.sectionHeadings);
         if (settings.poetryFormatting !== undefined) this.bridge.state.set('poetryFormatting', settings.poetryFormatting);
         if (settings.crossRefs !== undefined) this.bridge.state.set('crossRefs', settings.crossRefs);
         if (settings.backgroundTexture !== undefined) this.bridge.state.set('backgroundTexture', settings.backgroundTexture);
+        if (settings.currentTranslation) this.bridge.state.set('currentTranslation', settings.currentTranslation);
         const settingsMod = this.bridge.get('settings');
         if (settingsMod) {
           settingsMod._applyTextSettings();
@@ -574,6 +593,31 @@ window.SyncSettingsUI = class SyncSettingsUI {
           this.bridge.state._saveTimestamps();
         }
         window.dispatchEvent(new CustomEvent('sync-module-updated', { detail: 'noteCategories' }));
+      }
+      if (modules.repositories && Array.isArray(modules.repositories.data)) {
+        const rs = window.repoService;
+        if (rs) {
+          for (const remote of modules.repositories.data) {
+            const local = rs.repositories.find(r => r.url === remote.url);
+            if (!local) {
+              const repo = await rs.registerRepository(remote.url, remote.name || remote.url);
+              if (remote.repo_name) repo.repo_name = remote.repo_name;
+              if (remote.checked_at) repo.checked_at = remote.checked_at;
+              if (remote.updated_at) repo.updated_at = remote.updated_at;
+              await window.idb.putRepository(repo);
+            }
+          }
+          rs._repositories = await window.idb.getAllRepositories();
+          const reposUi = this.bridge.get('scripture-repos-ui');
+          if (reposUi) {
+            reposUi._renderAll();
+            reposUi._buildTranslationManifest();
+          }
+          if (modules.repositories.updated_at) {
+            this.bridge.state.moduleTimestamps.repositories = Math.max(this.bridge.state.moduleTimestamps.repositories || 0, modules.repositories.updated_at);
+            this.bridge.state._saveTimestamps();
+          }
+        }
       }
       if (modules.bookmarkSets && Array.isArray(modules.bookmarkSets.data)) {
         await this.bridge.state.mergeArrays(

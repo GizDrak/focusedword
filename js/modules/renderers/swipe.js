@@ -180,8 +180,8 @@ window.SwipeRenderer = class SwipeRenderer {
         } else if (t.type === 'cross_ref') {
           const refEl = document.createElement('span');
           refEl.className = 'token-section-heading-ref';
-          refEl.textContent = t.text || '';
-          const refs = new window.TokenRenderer()._parseCrossRefRefs(t.text);
+          refEl.textContent = new window.TokenRenderer(this.bridge)._limitCrossRefText(t.text, 3);
+          const refs = new window.TokenRenderer(this.bridge)._parseCrossRefRefs(t.text);
           if (refs && refs.length) {
             refEl.dataset.refs = JSON.stringify(refs);
           }
@@ -214,8 +214,8 @@ window.SwipeRenderer = class SwipeRenderer {
       el.className = 'verse-container paragraph-card';
       el.dataset.verse = card.verses[0].verse;
       for (const vData of card.verses) {
-        if (vData.tokens) {
-          const verseEl = new window.TokenRenderer()._renderVerseTokens(vData.verse, vData.tokens, bionic, strength, settings || this.base._getSettings());
+          if (vData.tokens) {
+          const verseEl = new window.TokenRenderer(this.bridge)._renderVerseTokens(vData.verse, vData.tokens, bionic, strength, settings || this.base._getSettings());
           if (verseEl) {
             while (verseEl.firstChild) {
               el.appendChild(verseEl.firstChild);
@@ -240,7 +240,7 @@ window.SwipeRenderer = class SwipeRenderer {
 
     let el;
     if (card.tokens) {
-      el = new window.TokenRenderer()._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings());
+      el = new window.TokenRenderer(this.bridge)._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings());
     }
     if (!el) {
       el = document.createElement('div');

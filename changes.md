@@ -1,5 +1,110 @@
 # Changelog — Focused Word
 
+## v0.8.6
+
+### Scripture Repositories, BSB v3 & Sync Polish
+- **Scripture repositories** — added repository install flow improvements, including `https://` URL prefill, cursor placement after the prefix, private-key auto-focus, and Enter/Return unlock support.
+- **Repository sync** — repository URLs now sync across devices, `currentTranslation` is included in synced settings, and private repo keys / downloaded SQLite files remain local-only.
+- **Sync conflict fix** — repository timestamp handling now includes synced module timestamps to prevent repeated `repositories is newer than client data` conflict loops.
+- **BSB upgraded to `bsb_v3.sqlite`** — normalized token data removes redundant poetry markers/line breaks, and existing bundled BSB installs auto-upgrade from older cached files.
+- **BSB poetry display** — BSB q1 poetry lines receive a translation-scoped indent so quoted poetry reads more naturally.
+- **Typography polish** — centralized typography formatting now handles verse-start binding, Bionic NBSPs, quote-spacing cleanup, marker safeguards, and safer first-word extraction.
+- **Bible tab icon** — switched to the new closed Bible SVG asset and increased the visible icon size.
+- **App version** — bumped visible/package version to `v0.8.6`.
+
+### Repo Sync Integration — currentTranslation, Repository URLs in Sync
+- **currentTranslation synced** — added `currentTranslation` to the `settings` sync module in both `_collectState()` and `_applyServerState()`. Device A's translation choice now propagates to device B.
+- **Repository URLs synced** — added `repositories` sync module. Repository metadata (url, name, id only — no access_key) is now included in sync payload. Receiving device auto-adds unknown repos. Private repo keys remain local-only.
+- **Sync service registered** — `addModule('repositories')` added to both `processSync()` and conflict-retry path in `sync-service.js`.
+- **Timestamp tracking** — `repositories` added to `StateStore.moduleTimestamps` with save/load and `setModuleTimestamp` support.
+- **Onboarding disclosure updated** — sync settings now list "Repository URLs" as shared, and "Private repository keys" + "Downloaded Bible databases" as never shared.
+
+### Repo Dialog UX — https:// Prefix, Key Focus, Enter Submit
+- **URL pre-typed** — the "Add Repository" URL input now starts with `value="https://"` so the user only types the domain/path.
+- **Key input auto-focus** — when the protected repo unlock section appears without a saved access key, cursor is focused on the password input.
+- **Enter confirms dialogs** — the unlock key input now has an `Enter` keydown handler that triggers `_onPopupUnlock()`. The add-repo URL input already had Enter support for `doAdd()`.
+
+### BSB Poetry Fix — q1 Indent & v3 Cache Upgrade
+- **BSB q1 indented** — added `body[data-translation="bsb"] .token-poetry.q1 .poetry-line` CSS override so BSB q1 poetry lines get the same visible indent as q2. BSB heavily uses q1 for quoted poetry lines that should be visually distinct from prose.
+- **Translation on body** — `render-manager.js` now syncs `body.dataset.translation` from `currentTranslation` state (initial set in `_syncOnInit()` + listener in `_bind()`). Enables translation-scoped CSS selectors.
+- **BSB v3 cache upgrade** — `bootstrapBSB()` now checks the installed record's `file_name`. If it isn't `bsb_v3.sqlite`, the old cached DB is removed and the bundled v3 is reinstalled. Wrapped in try-catch to avoid breaking app init.
+
+### BSB Database Upgrade — bsb_v3 Normalized Token Data
+- **Upgraded to `bsb_v3.sqlite`** — normalized `json_tokens` in BSB database: removed 7,258 trailing `poetry_start` tokens and 2,914 redundant `line_break`→`poetry_start` sequences. The app now loads `bsb_v3.sqlite` instead of `bsb_v2`.
+- **Database references updated** — `scripture-repository-service.js` and `generate-wordlist.js` point to `bsb_v3.sqlite`. No renderer changes needed.
+- **Integrity verified** — all 31,086 verses checked; `clean_text` matches reconstructed token text with zero mismatches.
+
+### Typography Module — First-Word Hardening, Swipe Measure Fix, Marker Safeguards
+- **_extractFirstWord() hardened** — now uses `trimStart()` + regex `[\s\u00A0]+` to split on any whitespace or NBSP, handling leading whitespace, tabs, and non-breaking spaces that the previous `indexOf(' ')` missed.
+- **Swipe measure regression fixed** — added `max-width: none` to `#content.swipe-mode .verse-deck .verse-container` to prevent the Phase 1 `--verse-measure` cap from narrowing swipe cards.
+- **Marker attachment safeguard** — `.footnote-caller` now has `white-space: nowrap` and `text-indent: 0` as extra protection against unwanted line-break behavior.
+- **Token survey confirmed** — no `stanza_break` or `blank_line` token type exists in any of the 5 installed translations, so stanza-break rendering is deferred (no source data to render).
+- **QA pass (code review)** — Psalms/Proverbs/Isaiah paths traced through scroll, spotlight, and swipe — poetry hanging indent, verse-start binding, and widow protection all apply correctly. Spotlight dimming and focus highlighting interact properly with centered verse containers.
+
+### Typography Module — Bionic Centralization, Quote Spacing Fix & Cleanup
+- **Bionic centralized** — `ctx.applyBionic()` in `TokenRenderer` now delegates to `TypographyModule.applyBionicToHtml()` when available, making the module the single canonical Bionic owner while preserving the inline fallback.
+- **Opening quote spacing fix** — `fixOpeningQuoteSpacing()` strips invalid whitespace between opening quote marks and the following word (supports ASCII `"`, curly `“`, and curly `‘`). Called inside `formatTextNode()` before widow protection.
+- **Trailing whitespace preserved** — `applyWidowProtection()` now restores trailing whitespace after text processing, avoiding character loss for tokens with intentional trailing spaces.
+- **_extractFirstWord() helper** — first-word splitting logic extracted from `_renderText()` into a dedicated method for clarity.
+
+### Typography Module — Phase 1 Fixes & Layout-Safe Micro-Typography
+- **Poetry hanging indent fixed** — `text-indent` moved to `.poetry-line` (each poetic line now gets its own hanging indent via `display: block`), fixing the bug where `text-indent` on `.token-poetry` didn't apply after `<br>` breaks.
+- **Rhythm variables connected** — `.token-section-heading` uses `--heading-margin-before/after`, `.token-paragraph` and `.token-paragraph-break` use `--paragraph-gap`.
+- **Text column centered** — `max-width` moved from `.verse-text` to `.verse-container`; both `.verse-container` and `.token-section-heading` use `margin-inline: auto`.
+- **Bridge injection** — `TokenRenderer` now accepts `bridge` on construction, giving it access to the `TypographyModule`. All call sites in `BaseRenderer` and `SwipeRenderer` updated.
+- **Micro-typography APIs** — `TypographyModule.formatTextNode()`, `applyWidowProtection()`, and `applyBionicToHtml()` added.
+- **Text routing** — `_renderText()` and `_renderSectionHeading()` route through `formatTextNode()` for widow prevention and future formatting.
+- **Widow prevention** — prose binds last 2 words with `\u00A0`; poetry binds last 3 when the final word is short/sacred-name (`God`, `Lord`, `it`, `he`, `me`, `us`, `you`).
+- **Verse number binding** — first text token creates `<span class="verse-start">` wrapping the verse number + first word with `white-space: nowrap`, preventing the verse number from ever sitting alone on a line.
+- **Bionic NBSP-safe** — regex changed from `[^\s]+` to `[^\s\u00A0]+` so non-breaking-space-bound words are treated as separate Bionic targets.
+
+### Typography Module (Visual Metrics)
+- **New `TypographyModule`** — single owner of all typography CSS variables, registered on the bridge and initialized before `SettingsModule`.
+- **Visual settings delegated** from `SettingsModule._applyTextSettings()` — font family/size, line height, letter spacing, and margins now flow through `TypographyModule.applyVisualSettings()` instead of being written directly.
+- **Mode-aware reading width** — measure (character-level max-width) adapts per mode: scroll `min(72ch, 100%)`, spotlight `min(68ch, 100%)`, swipe `min(58ch, 100%)`. Applied via `--verse-measure` on `.verse-text` and `.token-section-heading`.
+- **Better text wrapping** — `.verse-text` uses `text-wrap: pretty` to optimize the ragged right edge; `.token-section-heading` uses `text-wrap: balance` for even heading breaks.
+- **Poetry hanging indents** — `--poetry-indent-unit` drives `q1`/`q2`/`q3` padding; `text-indent` prevents wrapped lines from aligning with the stanza start.
+- **Dynamic vertical rhythm** — `--heading-margin-before`, `--heading-margin-after`, `--paragraph-gap`, and `--poetry-stanza-gap` scale proportionally with font size and line spacing.
+- **Zero-impact inline markers** — `.footnote-caller`, `.crossref-indicator`, and `.token-section-heading-ref` use `--marker-font-size` (`0.65em`), `--marker-line-height` (`0`), and `--marker-color` (`var(--text-muted)`) so they don't disturb line rhythm.
+- **Mode reactivity** — `TypographyModule` listens for `swipeMode`/`spotlightMode`/`speedMode` changes and reapplies visual settings automatically.
+
+### Repository Download Fix & OPFS Migration
+- Fixed repo download stuck on "Downloading..." — OPFS `importDb` can hang on large SQLite downloads. Now uses `sqlite3.opfs.importDb()` or `oo1.OpfsDb.importDb()` with a 60-second timeout and falls back to IDB on failure.
+- Added 120-second fetch timeout with `AbortController` so the button always resets and shows a clear error.
+- Added `migrateInstalledToOpfs()` — promotes existing IDB-stored repo databases to OPFS in the background at startup, cleaning up IDB bytes on success.
+- `removeInstalledDatabase()` now cleans up OPFS files on uninstall.
+- Bumped SW cache to v21 to ensure clients receive the fixed service files.
+
+### Focus Mode & Settings Cleanup
+- Focus mode progress text now matches the exit button styling (`font-size: 0.8rem`, `font-weight: 500`, `color: var(--text-muted)`) with no background/shadow bar.
+- Removed empty bar at top of focus mode caused by `<main>` having `padding-top: 1rem`.
+- Removed "Lock to Portrait" setting from the settings panel (including all JS wiring and state defaults).
+
+### Selection Underline — Fix Poetry & Style-start Wrapping
+- Fixed poetry selection underline only appearing on the last line — each poetry line is now wrapped in a `<span class="poetry-line">` so the wavy underline applies per-line instead of once at the bottom of the entire block.
+- Fixed first line of verse missing underline when it starts with a style span (e.g., red-letter `.wj`) — `_renderStyleStart` now wraps bare style spans in a `.token-text` container so the underline selector matches them.
+- Fixed blank poetry lines showing the selection underline — empty `.token-poetry` divs no longer get background styling since they lack `.poetry-line` children.
+
+### UI Icons — Complete Refresh
+- **Tab bar icons** replaced with new icon set:
+  - Bible tab → `at-bible-book.svg`
+  - Mode tab → `at-sensor.svg`
+  - Search tab → `at-magnifying-glass-plus.svg`
+  - Library tab → `at-star-bookmark.svg`
+  - More tab → `at-dots-vertical.svg` (centered viewBox)
+- **Mode popup icons** replaced:
+  - Scroll → `at-roll-gym.svg`
+  - Spotlight → `at-virtual-reality-eye.svg`
+  - Swipe → `at-dot-arrow-up-down.svg`
+  - Speed → `at-play-circle.svg`
+  - Split → `at-layout-half-vertical.svg`
+- **More popup icons** replaced:
+  - Settings → `at-gear.svg`
+  - Notes → `at-notebook.svg`
+- **Close buttons** all use `at-xmark-circle.svg` (replaced ✕ text)
+- **Nav install button** uses `at-add-folder.svg` (icon-only, no text)
+- CSS: added `.mode-item .mode-icon svg` rule for consistent sizing (24×24px)
+
 ### Landscape Edge Gestures
 - **Scroll mode: edge scrolling fixed** — `#content` now uses `width: 100vw` (bypasses flex `stretch`) with `margin-left: calc((100% - 100vw) / 2)` so the scrollable hit area extends to viewport edges. Text position preserved via `padding-left/padding-right: calc((100vw - 100%) / 2)`.
 - **Swipe/Spotlight modes: edge taps/swipes fixed** — `body.swipe-mode, body.spotlight-mode` now have `margin: 0; touch-action: none; overscroll-behavior: none` to prevent browser edge-gesture interception. `pointercancel` handler advances verse instead of clearing state.

@@ -126,7 +126,51 @@ static async createDbFromBytes(dbPath) {
   async init(translationId = 'BSB') {
     try {
       const slug = this._slugFor(translationId);
-      const core = await BibleDB.createDbFromBytes(`/scripture/en/trans/${slug}_v2.sqlite`);
+
+      const installed = await window.idb.getInstalledDatabase(translationId);
+      if (installed) {
+        if (installed.storage === 'opfs' && installed.opfs_path) {
+          try {
+            const sqlite3 = await BibleDB._sqliteWasmPromise;
+            if (sqlite3.oo1.OpfsDb) {
+              const db = new sqlite3.oo1.OpfsDb(installed.opfs_path, 'r');
+              if (this._tableExists(db, 'bible_verses')) {
+                this._core = db;
+                this._slug = slug;
+                this._mode = 'tokens';
+                this._booksCache = null;
+                this._codeCache = null;
+                return true;
+              }
+              db.close();
+            }
+          } catch (e) {
+            console.warn('[db] OPFS open failed for', translationId, e);
+          }
+        }
+
+        if (installed.storage === 'idb') {
+          try {
+            const bytes = await window.idb.getDatabaseBytes(translationId);
+            if (bytes) {
+              const core = await BibleDB._dbFromBytes(bytes);
+              if (core && this._tableExists(core, 'bible_verses')) {
+                this._core = core;
+                this._slug = slug;
+                this._mode = 'tokens';
+                this._booksCache = null;
+                this._codeCache = null;
+                return true;
+              }
+              if (core) core.close();
+            }
+          } catch (e) {
+            console.warn('[db] IDB bytes load failed for', translationId, e);
+          }
+        }
+      }
+
+      const core = await BibleDB.createDbFromBytes(`/scripture/en/${slug}_v2.sqlite`);
       if (core && this._tableExists(core, 'bible_verses')) {
         this._core = core;
         this._slug = slug;
@@ -140,6 +184,32 @@ static async createDbFromBytes(dbPath) {
     } catch (e) {
       console.error('BibleDB init failed:', e);
       return false;
+    }
+  }
+
+  static async _dbFromBytes(bytes) {
+    const sqlite3 = await BibleDB._sqliteWasmPromise;
+    const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const header = new TextDecoder().decode(bytes.slice(0, 15));
+    if (header !== 'SQLite format 3') {
+      console.error('[db] Invalid database format');
+      return null;
+    }
+
+    const safe = new Uint8Array(buf);
+    if (safe.length > 20) { safe[18] = 1; safe[19] = 1; }
+
+    try {
+      const pData = sqlite3.wasm.allocFromTypedArray(safe);
+      if (!pData) { console.error('[db] WASM out of memory'); return null; }
+      const db = new sqlite3.oo1.DB(':memory:');
+      const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | 4;
+      const rc = sqlite3.capi.sqlite3_deserialize(db.pointer, 'main', pData, safe.byteLength, safe.byteLength, flags);
+      db.checkRc(rc);
+      return db;
+    } catch (e) {
+      console.error('[db] _dbFromBytes error:', e);
+      return null;
     }
   }
 

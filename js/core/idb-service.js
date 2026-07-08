@@ -6,7 +6,7 @@ window.IDBService = class IDBService {
 
   _open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('focused_word_db', 4);
+      const req = indexedDB.open('focused_word_db', 6);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
         const tx = e.target.transaction;
@@ -57,6 +57,21 @@ window.IDBService = class IDBService {
             if (!store.indexNames.contains('byChapter')) {
               store.createIndex('byChapter', ['bookId', 'chapter'], { unique: false });
             }
+          }
+        }
+
+        if (e.oldVersion < 5) {
+          if (!db.objectStoreNames.contains('repositories')) {
+            db.createObjectStore('repositories', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('installed_databases')) {
+            db.createObjectStore('installed_databases', { keyPath: 'translation_id' });
+          }
+        }
+
+        if (e.oldVersion < 6) {
+          if (!db.objectStoreNames.contains('database_bytes')) {
+            db.createObjectStore('database_bytes', { keyPath: 'key' });
           }
         }
       };
@@ -139,6 +154,62 @@ window.IDBService = class IDBService {
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
+  }
+
+  async getAllRepositories() {
+    return this.getAll('repositories');
+  }
+
+  async getRepository(id) {
+    return this.get('repositories', id);
+  }
+
+  async putRepository(repo) {
+    return this.put('repositories', repo);
+  }
+
+  async deleteRepository(id) {
+    return this.delete('repositories', id);
+  }
+
+  async getAllInstalledDatabases() {
+    return this.getAll('installed_databases');
+  }
+
+  async getInstalledDatabase(translationId) {
+    return this.get('installed_databases', translationId);
+  }
+
+  async putInstalledDatabase(record) {
+    return this.put('installed_databases', record);
+  }
+
+  async deleteInstalledDatabase(translationId) {
+    return this.delete('installed_databases', translationId);
+  }
+
+  async getDatabaseBytes(key) {
+    await this._ready;
+    return new Promise((resolve, reject) => {
+      const tx = this._db.transaction('database_bytes', 'readonly');
+      const req = tx.objectStore('database_bytes').get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.bytes : null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async putDatabaseBytes(key, bytes) {
+    await this._ready;
+    return new Promise((resolve, reject) => {
+      const tx = this._db.transaction('database_bytes', 'readwrite');
+      const req = tx.objectStore('database_bytes').put({ key, bytes });
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async deleteDatabaseBytes(key) {
+    return this.delete('database_bytes', key);
   }
 
   async vacuumGraveyard(storeName) {

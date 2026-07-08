@@ -1,4 +1,9 @@
 window.TokenRenderer = class TokenRenderer {
+  constructor(bridge) {
+    this.bridge = bridge;
+    this.typography = bridge?.get('typography');
+  }
+
   renderChapter(verses, bionic, strength, settings) {
     const frag = document.createDocumentFragment();
     for (const v of verses) {
@@ -35,6 +40,7 @@ window.TokenRenderer = class TokenRenderer {
     verseText.className = 'verse-text';
     verseText.setAttribute('dir', 'auto');
 
+    const self = this;
     const ctx = {
       container,
       verseText,
@@ -44,6 +50,10 @@ window.TokenRenderer = class TokenRenderer {
       verseNumInserted: false,
       styleStack: [],
       lastHeadingEl: null,
+      _poetryBlock: null,
+      _poetryLine: null,
+      _bionic: bionic,
+      _bionicStrength: strength,
       closeBlock() {
         if (!ctx.currentBlock) return;
         if (ctx.currentBlock.tagName === 'SPAN' && !ctx.currentBlock.hasChildNodes()) {
@@ -51,10 +61,13 @@ window.TokenRenderer = class TokenRenderer {
         }
         ctx.currentBlock = null;
       },
-      applyBionic(html) {
+      applyBionic: (html) => {
         if (!bionic || !strength) return html;
+        if (self.typography) {
+          return self.typography.applyBionicToHtml(html, { bionic, bionicStrength: strength });
+        }
         return html.replace(/(^|>)([^<]+)(?=<|$)/g, (_, before, text) => {
-          return before + text.replace(/[^\s]+/g, w => {
+          return before + text.replace(/[^\s\u00A0]+/g, w => {
             const n = Math.max(1, Math.ceil(w.length * strength));
             return '<b>' + w.slice(0, n) + '</b>' + w.slice(n);
           });
@@ -111,24 +124,33 @@ window.TokenRenderer = class TokenRenderer {
     el.className = usePoetry ? 'token-poetry ' + (token.style || 'q1') : 'token-poetry--disabled';
     ctx.verseText.appendChild(el);
     ctx.currentBlock = el;
+    ctx._poetryBlock = null;
+    ctx._poetryLine = null;
+    if (usePoetry) {
+      ctx._poetryBlock = el;
+      ctx._poetryLine = document.createElement('span');
+      ctx._poetryLine.className = 'poetry-line';
+      ctx._poetryBlock.appendChild(ctx._poetryLine);
+      ctx.currentBlock = ctx._poetryLine;
+    }
   }
 
   _renderLineBreak(token, ctx) {
     ctx.lastHeadingEl = null;
     if (ctx.settings.paragraphMode) {
       const space = document.createTextNode('\u00A0');
-      if (ctx.currentBlock) {
-        ctx.currentBlock.appendChild(space);
-      } else {
-        ctx.verseText.appendChild(space);
-      }
+      const parent = ctx._poetryBlock || ctx.currentBlock || ctx.verseText;
+      parent.appendChild(space);
     } else {
       const br = document.createElement('br');
-      if (ctx.currentBlock) {
-        ctx.currentBlock.appendChild(br);
-      } else {
-        ctx.verseText.appendChild(br);
-      }
+      const parent = ctx._poetryBlock || ctx.currentBlock || ctx.verseText;
+      parent.appendChild(br);
+    }
+    if (ctx._poetryBlock) {
+      ctx._poetryLine = document.createElement('span');
+      ctx._poetryLine.className = 'poetry-line';
+      ctx._poetryBlock.appendChild(ctx._poetryLine);
+      ctx.currentBlock = ctx._poetryLine;
     }
   }
 
@@ -140,9 +162,23 @@ window.TokenRenderer = class TokenRenderer {
     if (!ctx.settings.sectionHeadings) return;
     const el = document.createElement('div');
     el.className = 'token-section-heading';
-    el.textContent = headingText;
+    const formatted = this.typography ? this.typography.formatTextNode(headingText, { tokenType: 'section_heading' }) : headingText;
+    el.textContent = formatted;
     ctx.container.appendChild(el);
     ctx.lastHeadingEl = el;
+  }
+
+  _extractFirstWord(text) {
+    if (!text) return { firstWord: '', rest: '' };
+    const trimmed = text.trimStart();
+    const leadingPad = text.length - trimmed.length;
+    if (!trimmed) return { firstWord: '', rest: '' };
+    const wsMatch = trimmed.match(/[\s\u00A0]+/);
+    if (!wsMatch) return { firstWord: trimmed, rest: '' };
+    return {
+      firstWord: trimmed.substring(0, wsMatch.index),
+      rest: text.substring(leadingPad + wsMatch.index + wsMatch[0].length)
+    };
   }
 
   _renderText(token, ctx) {
@@ -153,13 +189,39 @@ window.TokenRenderer = class TokenRenderer {
       ctx.verseText.appendChild(el);
       ctx.currentBlock = el;
     }
+
+    const rawText = token.text || '';
+    const typographyContext = {
+      tokenType: ctx._poetryBlock ? 'poetry' : 'text',
+      poetryLevel: ctx._poetryBlock ? (ctx._poetryBlock.className.match(/q[123]/)?.[0] || 'q1') : null,
+      paragraphMode: ctx.settings?.paragraphMode || false,
+      bionic: ctx._bionic,
+      bionicStrength: ctx._bionicStrength
+    };
+    const formatted = this.typography ? this.typography.formatTextNode(rawText, typographyContext) : rawText;
+
     if (!ctx.verseNumInserted) {
-      ctx.currentBlock.insertAdjacentElement('afterbegin', ctx.verseNumEl);
+      const { firstWord, rest } = this._extractFirstWord(formatted);
+
+      const startSpan = document.createElement('span');
+      startSpan.className = 'verse-start';
+      startSpan.appendChild(ctx.verseNumEl);
+      startSpan.insertAdjacentHTML('beforeend', ctx.applyBionic(MarkdownParser.parse(firstWord)));
+      ctx.currentBlock.appendChild(startSpan);
       ctx.verseNumInserted = true;
+
+      if (rest) {
+        ctx.currentBlock.insertAdjacentHTML(
+          'beforeend',
+          ctx.applyBionic(MarkdownParser.parse(' ' + rest))
+        );
+      }
+      return;
     }
+
     ctx.currentBlock.insertAdjacentHTML(
       'beforeend',
-      ctx.applyBionic(MarkdownParser.parse(token.text || ''))
+      ctx.applyBionic(MarkdownParser.parse(formatted))
     );
   }
 
@@ -170,7 +232,13 @@ window.TokenRenderer = class TokenRenderer {
     }
     const el = document.createElement('span');
     el.className = token.style || '';
-    const parent = ctx.currentBlock || ctx.verseText;
+    let parent = ctx.currentBlock;
+    if (!parent) {
+      parent = document.createElement('span');
+      parent.className = 'token-text';
+      ctx.verseText.appendChild(parent);
+      ctx.currentBlock = parent;
+    }
     parent.appendChild(el);
     ctx.styleStack.push({ el, parent: ctx.currentBlock });
     ctx.currentBlock = el;
@@ -204,12 +272,21 @@ window.TokenRenderer = class TokenRenderer {
     if (!ctx.lastHeadingEl) return;
     const el = document.createElement('span');
     el.className = 'token-section-heading-ref';
-    el.textContent = token.text || '';
+    el.textContent = this._limitCrossRefText(token.text, 3);
     const refs = this._parseCrossRefRefs(token.text);
     if (refs.length) {
       el.dataset.refs = JSON.stringify(refs);
     }
     ctx.lastHeadingEl.appendChild(el);
+  }
+
+  _limitCrossRefText(text, max) {
+    const m = text.match(/^\((.+?)\)\s*$/);
+    if (!m) return text || '';
+    const inner = m[1].trim();
+    const parts = inner.split(/;/).map(s => s.trim()).filter(Boolean);
+    if (parts.length <= max) return text;
+    return '(' + parts.slice(0, max).join('; ') + '; …)';
   }
 
   _parseCrossRefRefs(text) {
