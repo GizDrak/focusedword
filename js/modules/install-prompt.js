@@ -38,11 +38,7 @@ window.InstallPrompt = class InstallPrompt {
     if (this._deferredPrompt) {
       this._deferredPrompt.prompt();
       this._deferredPrompt.userChoice.then((result) => {
-        if (result.outcome === 'accepted') {
-          this._isInstalled = true;
-          this._hideBanner();
-          this._emitChange();
-        }
+        this._hideBanner();
         this._deferredPrompt = null;
       });
     } else if (this._isIOSWeb()) {

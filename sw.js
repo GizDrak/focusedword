@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v23';
+const CACHE_NAME = 'focused-word-v24';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -29,6 +29,7 @@ const APP_SHELL = [
   '/js/core/sync-service.js',
   '/js/core/verse-manager.js',
   '/js/core/bridge.js',
+  '/js/modules/install-prompt.js',
   '/js/core/view-manager.js',
   '/js/core/render-manager.js',
   '/js/modules/chapter-summary.js',

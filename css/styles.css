@@ -483,6 +483,19 @@ html {
   text-size-adjust: 100%;
 }
 
+html::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 9998;
+  background: var(--bg);
+  pointer-events: none;
+  transition: background 0.3s ease;
+}
+
 input, textarea, select {
   font-size: 16px;
 }

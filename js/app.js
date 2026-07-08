@@ -11,6 +11,9 @@ window.App = class App {
     bridge.db = new window.BibleDB();
     bridge.bionic = window.BionicParser;
 
+    const installPrompt = new window.InstallPrompt(bridge);
+    bridge.register('install-prompt', installPrompt);
+
     const initialTheme = bridge.state.get('theme');
     document.documentElement.dataset.theme = initialTheme;
     document.documentElement.dataset.accent = bridge.state.get('accent') || 'gold';
@@ -21,6 +24,14 @@ window.App = class App {
         : '/assets/icons/icon-dark.svg';
       document.querySelectorAll('.app-icon').forEach(el => el.src = src);
     }
+
+    const syncThemeColor = () => {
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta && bg) meta.setAttribute('content', bg);
+    };
+    syncThemeColor();
+    bridge.state.onChange('theme', () => requestAnimationFrame(syncThemeColor));
 
     const splashEl = document.getElementById('splash-screen');
 
@@ -105,9 +116,6 @@ window.App = class App {
       dlUI.init();
     }
     bookmarks.init();
-
-    const installPrompt = new window.InstallPrompt(bridge);
-    bridge.register('install-prompt', installPrompt);
 
     const searchModule = new window.SearchModule(bridge);
     bridge.register('search', searchModule);
