@@ -22,9 +22,11 @@ window.NavigationModule = class NavigationModule {
     if (bibleTab) {
       let pressTimer = null;
       let isLongPress = false;
+      let _pressStart = null;
 
-      bibleTab.addEventListener('pointerdown', () => {
+      bibleTab.addEventListener('pointerdown', (e) => {
         isLongPress = false;
+        _pressStart = { x: e.clientX, y: e.clientY };
         pressTimer = setTimeout(() => {
           isLongPress = true;
           const settings = this.bridge.get('settings');
@@ -32,13 +34,28 @@ window.NavigationModule = class NavigationModule {
         }, 500);
       });
 
+      bibleTab.addEventListener('pointermove', (e) => {
+        if (!_pressStart) return;
+        const dx = e.clientX - _pressStart.x;
+        const dy = e.clientY - _pressStart.y;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+          isLongPress = false;
+          _pressStart = null;
+        }
+      });
+
       bibleTab.addEventListener('pointerup', () => {
         clearTimeout(pressTimer);
+        _pressStart = null;
       });
 
       bibleTab.addEventListener('pointercancel', () => {
         clearTimeout(pressTimer);
+        pressTimer = null;
         isLongPress = false;
+        _pressStart = null;
       });
 
       bibleTab.addEventListener('click', (e) => {
@@ -50,6 +67,8 @@ window.NavigationModule = class NavigationModule {
         }
         this.openSheet('translation');
       });
+
+      bibleTab.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
     document.getElementById('nav-close').addEventListener('click', () => this.closeSheet());

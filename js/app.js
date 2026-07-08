@@ -106,6 +106,9 @@ window.App = class App {
     }
     bookmarks.init();
 
+    const installPrompt = new window.InstallPrompt(bridge);
+    bridge.register('install-prompt', installPrompt);
+
     const searchModule = new window.SearchModule(bridge);
     bridge.register('search', searchModule);
     searchModule.init();
@@ -306,15 +309,34 @@ window.App = class App {
       if (!item) return;
       closeMorePopup();
       setTimeout(() => {
-        const s = bridge.get('settings');
-        if (!s) return;
         if (item.dataset.action === 'settings') {
-          s.openSettings();
+          const s = bridge.get('settings');
+          if (s) s.openSettings();
         } else if (item.dataset.action === 'notes') {
           const notesUI = bridge.get('notes-ui');
           if (notesUI) notesUI.open();
+        } else if (item.dataset.action === 'install-app') {
+          const ip = bridge.get('install-prompt');
+          if (ip) ip.install();
         }
       }, 100);
+    });
+
+    document.getElementById('install-btn')?.addEventListener('click', () => {
+      const ip = bridge.get('install-prompt');
+      if (ip) ip._onInstallBtn();
+    });
+    document.getElementById('install-dismiss-btn')?.addEventListener('click', () => {
+      const ip = bridge.get('install-prompt');
+      if (ip) ip.dismiss();
+    });
+    document.getElementById('install-ios-close')?.addEventListener('click', () => {
+      const ip = bridge.get('install-prompt');
+      if (ip) ip._hideIOSSheet();
+    });
+    document.getElementById('install-ios-backdrop')?.addEventListener('click', () => {
+      const ip = bridge.get('install-prompt');
+      if (ip) ip._hideIOSSheet();
     });
   }
 
