@@ -117,11 +117,11 @@ window.SpotlightRenderer = class SpotlightRenderer {
       window.verseManager.setPassive(v.verse);
     }
 
-    if (!document.body.classList.contains('split-mode') && newEl) {
-      newEl.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
+    if (!document.body.classList.contains('split-mode')) {
+      const vm = this.bridge.get('view-manager');
+      if (vm) {
+        vm.scrollToVerse(verses[index]?.verse);
+      }
     }
   }
 
