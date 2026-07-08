@@ -11,6 +11,10 @@ window.App = class App {
     bridge.db = new window.BibleDB();
     bridge.bionic = window.BionicParser;
 
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+      document.documentElement.classList.add('ios-device');
+    }
+
     const installPrompt = new window.InstallPrompt(bridge);
     bridge.register('install-prompt', installPrompt);
 
@@ -26,12 +30,13 @@ window.App = class App {
     }
 
     const syncThemeColor = () => {
-      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta && bg) meta.setAttribute('content', bg);
+      if (meta && accent) meta.setAttribute('content', accent);
     };
     syncThemeColor();
     bridge.state.onChange('theme', () => requestAnimationFrame(syncThemeColor));
+    bridge.state.onChange('accent', () => requestAnimationFrame(syncThemeColor));
 
     const splashEl = document.getElementById('splash-screen');
 
