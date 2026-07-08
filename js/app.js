@@ -13,6 +13,8 @@ window.App = class App {
 
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
       document.documentElement.classList.add('ios-device');
+      const vp = document.querySelector('meta[name="viewport"]');
+      if (vp) vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
     }
 
     const installPrompt = new window.InstallPrompt(bridge);
