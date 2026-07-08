@@ -9,16 +9,23 @@ window.InstallPrompt = class InstallPrompt {
 
   _init() {
     this._detectInstalled();
+    this._emitChange();
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       this._deferredPrompt = e;
       this._showBanner();
+      this._emitChange();
     });
     window.addEventListener('appinstalled', () => {
       this._isInstalled = true;
       this._deferredPrompt = null;
       this._hideBanner();
+      this._emitChange();
     });
+  }
+
+  _emitChange() {
+    if (this.bridge) this.bridge.emit('install:state-changed');
   }
 
   isInstallable() {
@@ -34,6 +41,7 @@ window.InstallPrompt = class InstallPrompt {
         if (result.outcome === 'accepted') {
           this._isInstalled = true;
           this._hideBanner();
+          this._emitChange();
         }
         this._deferredPrompt = null;
       });
@@ -52,6 +60,7 @@ window.InstallPrompt = class InstallPrompt {
     if (window.matchMedia('(display-mode: standalone)').matches ||
         window.navigator.standalone === true) {
       this._isInstalled = true;
+      this._emitChange();
     }
   }
 

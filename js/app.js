@@ -278,7 +278,14 @@ window.App = class App {
   _setupMoreButton(bridge) {
     const moreTab = document.querySelector('.tab-item[data-tab="more"]');
     const morePopup = document.getElementById('more-popup');
+    const installMoreItem = document.getElementById('more-install-app');
     if (!moreTab || !morePopup) return;
+
+    const refreshInstallItem = () => {
+      if (!installMoreItem) return;
+      const ip = bridge.get('install-prompt');
+      installMoreItem.classList.toggle('hidden', !ip?.isInstallable());
+    };
 
     const closeMorePopup = () => {
       morePopup.classList.remove('open');
@@ -287,6 +294,7 @@ window.App = class App {
 
     moreTab.addEventListener('click', (e) => {
       e.stopPropagation();
+      refreshInstallItem();
       const isOpen = morePopup.classList.contains('open');
       const mp = document.getElementById('mode-popup');
       if (mp && mp.classList.contains('open')) { mp.classList.remove('open'); mp.classList.add('hidden'); }
@@ -296,6 +304,9 @@ window.App = class App {
         requestAnimationFrame(() => morePopup.classList.add('open'));
       }
     });
+
+    bridge.on('install:state-changed', refreshInstallItem);
+    refreshInstallItem();
 
     document.addEventListener('click', (e) => {
       if (!morePopup.classList.contains('open')) return;
