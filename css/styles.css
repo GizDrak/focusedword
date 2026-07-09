@@ -1687,6 +1687,7 @@ body[data-translation="bsb"] .token-poetry.q1 .poetry-line {
 /* ========== Spotlight Mode ========== */
 #content.spotlight-mode {
   touch-action: none;
+  position: relative;
 }
 #content.spotlight-mode .verse-container {
   padding: 0.25rem 0.5rem;
@@ -1705,14 +1706,14 @@ body[data-translation="bsb"] .token-poetry.q1 .poetry-line {
   opacity: 1;
 }
 
-html.ios-device body.spotlight-mode::before {
+html.ios-device #content.spotlight-mode::before {
   content: '';
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: 50px;
-  z-index: 99;
+  z-index: 100;
   background: #000;
   pointer-events: none;
 }
