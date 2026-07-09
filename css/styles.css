@@ -4744,6 +4744,11 @@ body.focus-mode .focus-exit-btn:hover {
   html:not(.ios-device) body.split-mode main {
     height: calc(100dvh - 68px - var(--app-bottom-safe-area));
   }
+
+  html:not(.ios-device) .verse-progress {
+    top: -1px;
+    box-shadow: 0 8px 20px var(--accent-glow);
+  }
 }
 
 /* ========== Print ========== */
