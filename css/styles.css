@@ -890,7 +890,7 @@ body.scroll-mode main {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 68px);
-  height: calc(100svh - 68px);
+  height: calc(100dvh - 68px);
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -941,7 +941,7 @@ body.spotlight-mode main {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 68px);
-  height: calc(100svh - 68px);
+  height: calc(100dvh - 68px);
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -1739,9 +1739,9 @@ html.ios-device #content.spotlight-mode::before {
   top: 0;
   left: 0;
   right: 0;
-  height: 50px;
+  height: max(50px, env(safe-area-inset-top));
   z-index: 100;
-  background: #000;
+  background: var(--bg);
   pointer-events: none;
 }
 
