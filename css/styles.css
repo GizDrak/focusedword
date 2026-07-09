@@ -1740,14 +1740,21 @@ body[data-translation="bsb"] .token-poetry.q1 .poetry-line {
 }
 
 html.ios-device {
-  --ios-safe-area-top: env(safe-area-inset-top, 0px);
-  --ios-progress-overlap: 4px;
-  --ios-progress-top: max(0px, calc(var(--ios-safe-area-top) - var(--ios-progress-overlap)));
-  --ios-spotlight-mask-height: max(50px, var(--ios-safe-area-top));
+  --ios-spotlight-mask-height: max(50px, env(safe-area-inset-top, 0px));
 }
 
 html.ios-device .verse-progress {
-  top: var(--ios-progress-top);
+  top: 0;
+}
+
+html.ios-device .verse-progress::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--accent-gold);
 }
 
 html.ios-device #content.spotlight-mode::before {
