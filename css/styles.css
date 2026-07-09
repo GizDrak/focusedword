@@ -483,6 +483,18 @@ html {
   text-size-adjust: 100%;
 }
 
+html.ios-device::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  z-index: 99;
+  background: #000;
+  pointer-events: none;
+}
+
 input, textarea, select {
   font-size: 16px;
 }
@@ -2233,6 +2245,10 @@ body.split-mode.background-texture #panel-right {
   transition: opacity 0.3s ease, transform 0.3s ease;
   will-change: transform;
   pointer-events: none;
+}
+
+html.ios-device .verse-progress {
+  top: 50px;
 }
 
 .verse-progress.visible {
