@@ -501,7 +501,8 @@ body {
   color: var(--text-primary);
   background-color: var(--bg);
   padding: 0;
-  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100svh;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -896,7 +897,7 @@ body.scroll-mode main {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 68px);
-  height: calc(100dvh - 68px);
+  height: calc(100svh - 68px);
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -947,7 +948,7 @@ body.spotlight-mode main {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 68px);
-  height: calc(100dvh - 68px);
+  height: calc(100svh - 68px);
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -4949,7 +4950,7 @@ body.focus-mode .focus-exit-btn:hover {
 
   html,
   body {
-    min-height: 100dvh;
+    min-height: 100svh;
     background-color: var(--bg);
   }
 
@@ -4962,19 +4963,7 @@ body.focus-mode .focus-exit-btn:hover {
   html:not(.ios-device) body.scroll-mode main,
   html:not(.ios-device) body.spotlight-mode main,
   html:not(.ios-device) body.split-mode main {
-    height: calc(100dvh - 68px - var(--app-bottom-safe-area));
-  }
-
-  /* iOS: extend nav height into the safe area (keeps tabs in the visible zone) */
-  html.ios-device #bottom-nav {
-    box-sizing: border-box;
-    height: calc(68px + var(--app-bottom-safe-area));
-    padding-bottom: var(--app-bottom-safe-area);
-  }
-  html.ios-device body.scroll-mode main,
-  html.ios-device body.spotlight-mode main,
-  html.ios-device body.split-mode main {
-    height: calc(100dvh - 68px - var(--app-bottom-safe-area));
+    height: calc(100svh - 68px - var(--app-bottom-safe-area));
   }
 
   html:not(.ios-device) .verse-progress {
@@ -6819,17 +6808,6 @@ body.focus-mode .changelog-overlay {
     padding: 1.25rem 1rem;
   }
 
-  /* iOS landscape: extend nav height into safe area */
-  html.ios-device #bottom-nav {
-    box-sizing: border-box;
-    height: calc(48px + env(safe-area-inset-bottom, 0px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  html.ios-device body.scroll-mode main,
-  html.ios-device body.spotlight-mode main {
-    height: calc(100dvh - 48px - env(safe-area-inset-bottom, 0px));
-  }
-
   #content.speed-mode {
     min-height: 100vh;
     height: 100dvh;
@@ -6912,7 +6890,7 @@ body.focus-mode .changelog-overlay {
     max-width: none;
     width: 100%;
     height: calc(100vh - 68px);
-    height: calc(100dvh - 68px);
+    height: calc(100svh - 68px);
     overflow: hidden;
     position: relative;
     padding: 0;
@@ -7367,6 +7345,14 @@ input,
 select,
 textarea {
   font-size: 16px;
+}
+
+/* ========== iOS Safe Area ========== */
+@supports (-webkit-touch-callout: none) {
+  #bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(68px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 

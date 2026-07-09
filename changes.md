@@ -38,12 +38,15 @@
 - **IDB `onblocked` handler** now shows a message instead of hanging on splash when another tab has the database locked.
 - **Splash status text** (`Starting…`, `Loading storage…`, `Loading Bible…`) helps users understand what's happening during long startups.
 
-### iOS PWA Nav Gap Fix (Corrected)
-- **Root cause**: on iOS PWA with `viewport-fit=cover`, `position: fixed; bottom: 0` references the *visual* viewport bottom (top of the safe-area-inset-bottom zone), not the physical screen edge. The area below the nav is the home-indicator safe area, not a layout bug.
-- **Fix**: iOS PWA nav now matches the same safe-area approach used by non-iOS: `height: calc(68px + env(safe-area-inset-bottom))` with `padding-bottom: env(safe-area-inset-bottom)` and `box-sizing: border-box`. The content area stays 68px in the visible zone; the padding fills the safe area below.
-- **Main heights**: iOS standalone mode `main` heights use `calc(100dvh - 68px - env(safe-area-inset-bottom))` so content fills down to the nav's content top.
-- **Landscape**: same pattern with `48px` base nav height.
-- **No JS viewport syncing** — iOS recovers viewport metrics natively on orientation change.
+### iOS PWA Nav Gap Fix (Restored v0.8.5 viewport behavior)
+- **Root cause identified**: the v0.8.6 viewport changes (commit `8f028f6`) added `viewport-fit=cover` and switched from `100svh` to `100dvh`. On iOS PWA cold launch, `100dvh` with `viewport-fit=cover` reports a stale/incorrect viewport height that includes the safe area, causing a gap between the bottom nav and the home indicator. Orientation rotation forces iOS to recalculate, which is why rotating then back fixed it.
+- **Fix**: restored v0.8.5's viewport and sizing approach:
+  - `index.html` viewport reverted to `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no` — removes `viewport-fit=cover`.
+  - `body` reverted from `height: 100dvh` to `min-height: 100vh; min-height: 100svh;`.
+  - Scroll/spotlight/split mode `main` heights reverted from `100dvh` to `100svh`.
+  - Standalone safe-area block changed from `100dvh` to `100svh`.
+- **iOS nav safe-area**: restored the v0.8.5 `@supports (-webkit-touch-callout: none)` rule at end of CSS — extends nav into the home-indicator safe area with `height: calc(68px + env(safe-area-inset-bottom))` on all iOS devices (harmless in Safari where `env()` returns 0).
+- **Removed** all `html.ios-device` bottom-nav experiments (shift-down, ::after filler, iOS-specific calc overrides). No JS viewport syncing.
 
 ### Cross-reference & Footnote Marker Polish
 - **CrossRef indicators** now stay inline with poetry lines (appended to last `.poetry-line` instead of `.token-poetry`). Line breaks prevented via word joiner (`\u2060`) before the marker.
