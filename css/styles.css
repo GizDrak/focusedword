@@ -1744,7 +1744,9 @@ html.ios-device {
 }
 
 html.ios-device .verse-progress {
-  top: max(50px, env(safe-area-inset-top, 50px));
+  top: 0;
+  padding-top: calc(env(safe-area-inset-top, 50px) + 10px);
+  padding-bottom: 10px;
 }
 
 html.ios-device #content.spotlight-mode::before {
