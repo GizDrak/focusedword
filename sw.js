@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v43';
+const CACHE_NAME = 'focused-word-v45';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -71,11 +71,7 @@ const APP_SHELL = [
   '/whats_new.md'
 ];
 
-const CACHE_FIRST_PATTERNS = [
-  /\/scripture\/en\/.*\.(db|sqlite|json)$/,
-  /^https:\/\/fonts\.googleapis\.com\//,
-  /^https:\/\/fonts\.gstatic\.com\//
-];
+const APP_SHELL_CACHE_KEYS = new Set(APP_SHELL);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -101,6 +97,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function _isCacheFirst(path) {
+  return (
+    path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.svg') ||
+    path.endsWith('.png') || path.endsWith('.wasm') || path.endsWith('.json') ||
+    path.endsWith('.webp') || path.endsWith('.woff2') ||
+    /\/scripture\/en\/.*\.(db|sqlite|json)$/.test(path)
+  );
+}
+
+function _timeout(ms) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
+}
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -109,32 +118,45 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  if (CACHE_FIRST_PATTERNS.some(pattern => pattern.test(url.href) || pattern.test(path))) {
+  if (_isCacheFirst(path)) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
-        if (cached) return cached;
+        if (cached) {
+          // Refresh cache in the background for app-shell assets
+          if (APP_SHELL_CACHE_KEYS.has(path)) {
+            fetch(event.request).then((r) => {
+              if (r.ok) caches.open(CACHE_NAME).then((c) => c.put(event.request, r));
+            }).catch(() => {});
+          }
+          return cached;
+        }
         return fetch(event.request).then((response) => {
-          const cacheCopy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cacheCopy));
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
         });
       }).catch(() => fetch(event.request))
     );
-  } else {
-    event.respondWith(
+    return;
+  }
+
+  // Network-first with 4s timeout for navigations and other requests
+  event.respondWith(
+    Promise.race([
       fetch(event.request).then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
-      }).catch(() => {
-        return caches.match(event.request).catch(() => null).then((cached) => {
-          if (cached) return cached;
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-          return new Response('', { status: 204, statusText: 'No Content' });
-        });
-      })
-    );
-  }
+      }),
+      _timeout(4000)
+    ]).catch(() => {
+      return caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+        return new Response('', { status: 204, statusText: 'No Content' });
+      });
+    })
+  );
 });

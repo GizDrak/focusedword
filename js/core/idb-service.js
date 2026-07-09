@@ -77,6 +77,11 @@ window.IDBService = class IDBService {
       };
       req.onsuccess = (e) => { this._db = e.target.result; resolve(); };
       req.onerror = () => reject(req.error);
+      req.onblocked = () => {
+        console.warn('[IDB] Database upgrade blocked by another tab, waiting…');
+        const statusEl = document.getElementById('splash-status');
+        if (statusEl) statusEl.textContent = 'Waiting for other tabs to close…';
+      };
     });
   }
 

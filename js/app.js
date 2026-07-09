@@ -15,6 +15,15 @@ window.App = class App {
       document.documentElement.classList.add('ios-device');
     }
 
+    // Sync a reliable viewport height for iOS PWA (100dvh can be stale on first launch)
+    const syncVH = () => {
+      const vh = window.visualViewport?.height || window.innerHeight;
+      document.documentElement.style.setProperty('--app-viewport-height', vh + 'px');
+    };
+    syncVH();
+    window.visualViewport?.addEventListener('resize', syncVH);
+    window.addEventListener('orientationchange', () => setTimeout(syncVH, 300));
+
     const installPrompt = new window.InstallPrompt(bridge);
     bridge.register('install-prompt', installPrompt);
 
@@ -38,19 +47,31 @@ window.App = class App {
     bridge.state.onChange('theme', () => requestAnimationFrame(syncThemeColor));
 
     const splashEl = document.getElementById('splash-screen');
+    const statusEl = document.getElementById('splash-status');
 
-    await window.repoService.ready;
-    await window.repoService.bootstrapBSB();
+    const _splash = (msg) => { if (statusEl) statusEl.textContent = msg; };
+    const _timeout = (promise, ms, fallback) => {
+      return Promise.race([
+        promise,
+        new Promise((resolve) => setTimeout(() => resolve(fallback), ms))
+      ]);
+    };
+
+    _splash('Loading storage…');
+    await _timeout(window.repoService.ready, 8000, null);
+    _splash('Loading Bible database…');
+    await _timeout(window.repoService.bootstrapBSB(), 15000, null);
     // Promote any IDB-installed repo databases to OPFS (background)
     window.repoService.migrateInstalledToOpfs().catch(e =>
       console.warn('[app] OPFS migration error:', e)
     );
 
     let translationId = bridge.state.get('currentTranslation');
-    let ok = await bridge.db.init(translationId);
+    _splash('Opening Bible…');
+    let ok = await _timeout(bridge.db.init(translationId), 10000, false);
     if (!ok) {
       translationId = 'BSB';
-      ok = await bridge.db.init(translationId);
+      ok = await _timeout(bridge.db.init(translationId), 10000, false);
       if (ok) {
         bridge.state.set('currentTranslation', 'BSB');
       }
@@ -63,7 +84,8 @@ window.App = class App {
       return;
     }
 
-    await ChapterSummary.init();
+    // Non-blocking — load chapter summaries in background
+    ChapterSummary.init().catch(() => {});
     bridge.register('chapter-summary', ChapterSummary);
 
     const baseRenderer = new window.BaseRenderer(bridge);
@@ -94,6 +116,7 @@ window.App = class App {
     bridge.register('highlight-manager', new window.HighlightManager(bridge));
 
     bridge.selection = new window.SelectionManager(bridge);
+    _splash('Preparing…');
     await bridge.selection.init();
     await navigation.init();
     settings.init();
@@ -153,6 +176,7 @@ window.App = class App {
     const restoredBook = bridge.state.get('currentBook');
     const restoredChapter = bridge.state.get('currentChapter');
     console.log('[app] restoring to book:', restoredBook, 'chapter:', restoredChapter);
+    _splash('Loading chapter…');
     await navigation.loadChapter(restoredBook, restoredChapter);
 
     const scrollNav = bridge.get('navigation');

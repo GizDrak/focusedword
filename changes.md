@@ -30,6 +30,20 @@
 - Paragraph mode uses per-line cloned highlight via `box-decoration-break`.
 - Selection visual is now entirely CSS-driven via `.verse-container.temp-selected`.
 
+### PWA Startup & Splash Reliability
+- **SW fetch strategy changed from network-first to cache-first** for all app-shell assets (JS, CSS, SVGs, images, wasm). Assets are served instantly from cache with background refresh instead of blocking on network.
+- **Network requests** now have a 4-second timeout before falling back to cache — no more infinite spinner on slow/missing connections.
+- **Startup timeouts** added around `repoService.ready`, `bootstrapBSB()`, and `bridge.db.init()` so one slow operation cannot hang the splash screen indefinitely.
+- **`ChapterSummary.init()`** moved to non-blocking background — chapter titles are no longer required before the app renders.
+- **IDB `onblocked` handler** now shows a message instead of hanging on splash when another tab has the database locked.
+- **Splash status text** (`Starting…`, `Loading storage…`, `Loading Bible…`) helps users understand what's happening during long startups.
+
+### iOS PWA Nav Gap Fix
+- Removed `html:not(.ios-device)` exclusion from standalone safe-area rules so iOS installed PWA also gets `env(safe-area-inset-bottom)` padding on the bottom nav.
+- Nav height and mode `main` heights now use `--bottom-nav-total` (`68px + safe-area`) consistently across all devices.
+- Added `--app-viewport-height` JS synchronizer for iOS PWA — `visualViewport.height` captured on init, resize, and orientationchange (with 300ms delay) as a fallback when `100dvh` returns stale values on cold launch.
+- Bottom nav now correctly touches the physical bottom of the screen on first portrait PWA launch instead of only after an orientation rotation.
+
 ### Cross-reference & Footnote Marker Polish
 - **CrossRef indicators** now stay inline with poetry lines (appended to last `.poetry-line` instead of `.token-poetry`). Line breaks prevented via word joiner (`\u2060`) before the marker.
 - **CrossRef indicator sizing**: increased to `1em`, baseline alignment, compact tappable padding.
