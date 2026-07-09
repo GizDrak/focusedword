@@ -30,12 +30,10 @@ window.App = class App {
     }
 
     const syncThemeColor = () => {
-      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta && bg) meta.setAttribute('content', bg);
+      if (meta) meta.setAttribute('content', '#000000');
     };
     syncThemeColor();
-    bridge.state.onChange('theme', () => requestAnimationFrame(syncThemeColor));
 
     const splashEl = document.getElementById('splash-screen');
 
