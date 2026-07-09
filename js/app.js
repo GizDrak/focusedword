@@ -30,9 +30,9 @@ window.App = class App {
     }
 
     const syncThemeColor = () => {
-      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      const bgSurface = getComputedStyle(document.documentElement).getPropertyValue('--bg-surface').trim();
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta && bg) meta.setAttribute('content', bg);
+      if (meta && bgSurface) meta.setAttribute('content', bgSurface);
     };
     syncThemeColor();
     bridge.state.onChange('theme', () => requestAnimationFrame(syncThemeColor));

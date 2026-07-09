@@ -1740,11 +1740,12 @@ body[data-translation="bsb"] .token-poetry.q1 .poetry-line {
 }
 
 html.ios-device {
-  --ios-top-safe-area: max(50px, env(safe-area-inset-top));
+  --ios-safe-area-top: env(safe-area-inset-top, 0px);
+  --ios-spotlight-mask-height: max(50px, var(--ios-safe-area-top));
 }
 
 html.ios-device .verse-progress {
-  top: var(--ios-top-safe-area);
+  top: var(--ios-safe-area-top);
 }
 
 html.ios-device #content.spotlight-mode::before {
@@ -1753,7 +1754,7 @@ html.ios-device #content.spotlight-mode::before {
   top: 0;
   left: 0;
   right: 0;
-  height: var(--ios-top-safe-area);
+  height: var(--ios-spotlight-mask-height);
   z-index: 100;
   background: var(--bg);
   pointer-events: none;
@@ -4723,15 +4724,15 @@ body.focus-mode .focus-exit-btn:hover {
     background-color: var(--bg);
   }
 
-  #bottom-nav {
+  html:not(.ios-device) #bottom-nav {
     box-sizing: border-box;
     height: calc(68px + var(--app-bottom-safe-area));
     padding-bottom: var(--app-bottom-safe-area);
   }
 
-  body.scroll-mode main,
-  body.spotlight-mode main,
-  body.split-mode main {
+  html:not(.ios-device) body.scroll-mode main,
+  html:not(.ios-device) body.spotlight-mode main,
+  html:not(.ios-device) body.split-mode main {
     height: calc(100dvh - 68px - var(--app-bottom-safe-area));
   }
 }
