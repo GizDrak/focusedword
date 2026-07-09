@@ -1739,13 +1739,21 @@ body[data-translation="bsb"] .token-poetry.q1 .poetry-line {
   opacity: 1;
 }
 
+html.ios-device {
+  --ios-top-safe-area: max(50px, env(safe-area-inset-top));
+}
+
+html.ios-device .verse-progress {
+  top: var(--ios-top-safe-area);
+}
+
 html.ios-device #content.spotlight-mode::before {
   content: '';
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: max(50px, env(safe-area-inset-top));
+  height: var(--ios-top-safe-area);
   z-index: 100;
   background: var(--bg);
   pointer-events: none;
@@ -4700,6 +4708,30 @@ body.focus-mode .focus-exit-btn:hover {
 
   .crossref-bar-ref {
     font-size: 0.95rem;
+  }
+}
+
+/* ========== PWA Standalone Safe Areas ========== */
+@media (display-mode: standalone) {
+  :root {
+    --app-bottom-safe-area: env(safe-area-inset-bottom, 0px);
+  }
+
+  html,
+  body {
+    min-height: 100dvh;
+    background-color: var(--bg);
+  }
+
+  #bottom-nav {
+    height: calc(68px + var(--app-bottom-safe-area));
+    padding-bottom: var(--app-bottom-safe-area);
+  }
+
+  body.scroll-mode main,
+  body.spotlight-mode main,
+  body.split-mode main {
+    height: calc(100dvh - 68px - var(--app-bottom-safe-area));
   }
 }
 
