@@ -483,19 +483,6 @@ html {
   text-size-adjust: 100%;
 }
 
-html.ios-device::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-top, 0px);
-  z-index: 99;
-  background: var(--accent-gold);
-  pointer-events: none;
-  transition: background 0.3s ease;
-}
-
 input, textarea, select {
   font-size: 16px;
 }
@@ -2229,11 +2216,6 @@ body.split-mode.background-texture #panel-right {
   }
 }
 
-html.ios-device #bottom-nav {
-  height: calc(68px + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
 /* ========== Verse Progress Bar ========== */
 .verse-progress {
   position: fixed;
@@ -2251,10 +2233,6 @@ html.ios-device #bottom-nav {
   transition: opacity 0.3s ease, transform 0.3s ease;
   will-change: transform;
   pointer-events: none;
-}
-
-html.ios-device .verse-progress {
-  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
 }
 
 .verse-progress.visible {

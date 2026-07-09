@@ -13,8 +13,6 @@ window.App = class App {
 
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
       document.documentElement.classList.add('ios-device');
-      const vp = document.querySelector('meta[name="viewport"]');
-      if (vp) vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
     }
 
     const installPrompt = new window.InstallPrompt(bridge);
@@ -32,13 +30,12 @@ window.App = class App {
     }
 
     const syncThemeColor = () => {
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta && accent) meta.setAttribute('content', accent);
+      if (meta && bg) meta.setAttribute('content', bg);
     };
     syncThemeColor();
     bridge.state.onChange('theme', () => requestAnimationFrame(syncThemeColor));
-    bridge.state.onChange('accent', () => requestAnimationFrame(syncThemeColor));
 
     const splashEl = document.getElementById('splash-screen');
 
