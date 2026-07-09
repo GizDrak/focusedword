@@ -1744,17 +1744,7 @@ html.ios-device {
 }
 
 html.ios-device .verse-progress {
-  top: env(safe-area-inset-top, 0px);
-}
-
-html.ios-device .verse-progress::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--accent-gold);
+  top: max(50px, env(safe-area-inset-top, 50px));
 }
 
 html.ios-device #content.spotlight-mode::before {
