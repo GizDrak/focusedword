@@ -4965,24 +4965,15 @@ body.focus-mode .focus-exit-btn:hover {
     height: calc(100dvh - 68px - var(--app-bottom-safe-area));
   }
 
-  /* iOS: nav stays at 68px; ::after fills the home-indicator gap visually */
+  /* iOS: shift fixed nav down into the home-indicator safe area */
   html.ios-device #bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 68px;
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
     overflow: visible;
   }
-  html.ios-device #bottom-nav::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-    height: env(safe-area-inset-bottom, 0px);
-    background: var(--bg-surface);
-    pointer-events: none;
+  html.ios-device body.scroll-mode main,
+  html.ios-device body.spotlight-mode main,
+  html.ios-device body.split-mode main {
+    height: calc(100dvh - 68px + env(safe-area-inset-bottom, 0px));
   }
 
   html:not(.ios-device) .verse-progress {
@@ -6827,9 +6818,18 @@ body.focus-mode .changelog-overlay {
     padding: 1.25rem 1rem;
   }
 
+  /* iOS landscape: shift nav into home-indicator zone */
+  html.ios-device #bottom-nav {
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  }
+  html.ios-device body.scroll-mode main,
+  html.ios-device body.spotlight-mode main {
+    height: calc(100dvh - 48px + env(safe-area-inset-bottom, 0px));
+  }
+
   #content.speed-mode {
     min-height: 100vh;
-  height: 100dvh;
+    height: 100dvh;
   }
 
   .speed-word {

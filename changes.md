@@ -38,12 +38,12 @@
 - **IDB `onblocked` handler** now shows a message instead of hanging on splash when another tab has the database locked.
 - **Splash status text** (`Starting…`, `Loading storage…`, `Loading Bible…`) helps users understand what's happening during long startups.
 
-### iOS PWA Nav Gap Fix (Revised)
-- **Reverted** over-broad safe-area height changes from the previous fix (which made the gap persist across orientation changes by pinning a stale JS viewport height).
-- **Corrected approach**: the gap below `#bottom-nav` on iOS PWA is a visual artifact — the fixed nav sits above the home-indicator safe area on first portrait launch. Instead of changing nav/main layout heights (which broke rotation recovery), the fixed `68px` nav is kept as-is and an `#bottom-nav::after` pseudo-element fills the safe-area gap below it with `background: var(--bg-surface)`, pointer-events-none, sized to `env(safe-area-inset-bottom)`.
-- `html:not(.ios-device)` exclusion restored for the `calc()` safe-area height rules; the iOS `::after` filler is self-contained and does not affect layout calculations.
-- Landscape nav remains at plain `48px` with no safe-area overrides.
-- Orientation rotation still triggers native iOS viewport recalculation, which corrects any remaining stale metrics without JS interference.
+### iOS PWA Nav Gap Fix (Final)
+- **Root cause confirmed**: on iOS PWA (viewport-fit=cover, black-translucent status bar), a `position: fixed; bottom: 0` element sits at the top of the safe-area-inset-bottom zone, not at the physical screen bottom. This leaves a gap equal to `env(safe-area-inset-bottom)` between the nav and the home indicator.
+- **Fix**: moved the nav down into the safe area with `bottom: calc(-1 * env(safe-area-inset-bottom, 0px))` for iOS standalone only. This positions the nav bottom at the physical screen edge.
+- **Main height compensation**: iOS standalone `body.scroll-mode main`, `body.spotlight-mode main`, and `body.split-mode main` now use `height: calc(100dvh - 68px + env(safe-area-inset-bottom, 0px))` to prevent a gap between the content and the shifted nav.
+- **Landscape**: same approach with `48px` nav height inside the landscape media query.
+- **Removed** the `--app-viewport-height` JS synchronizer (previous commit) — no JS viewport pinning is needed since iOS recovers correctly on its own during orientation change. The nav starts in the correct position on first load.
 
 ### Cross-reference & Footnote Marker Polish
 - **CrossRef indicators** now stay inline with poetry lines (appended to last `.poetry-line` instead of `.token-poetry`). Line breaks prevented via word joiner (`\u2060`) before the marker.
