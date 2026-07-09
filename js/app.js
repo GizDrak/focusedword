@@ -15,15 +15,6 @@ window.App = class App {
       document.documentElement.classList.add('ios-device');
     }
 
-    // Sync a reliable viewport height for iOS PWA (100dvh can be stale on first launch)
-    const syncVH = () => {
-      const vh = window.visualViewport?.height || window.innerHeight;
-      document.documentElement.style.setProperty('--app-viewport-height', vh + 'px');
-    };
-    syncVH();
-    window.visualViewport?.addEventListener('resize', syncVH);
-    window.addEventListener('orientationchange', () => setTimeout(syncVH, 300));
-
     const installPrompt = new window.InstallPrompt(bridge);
     bridge.register('install-prompt', installPrompt);
 

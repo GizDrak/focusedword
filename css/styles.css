@@ -4945,29 +4945,47 @@ body.focus-mode .focus-exit-btn:hover {
 @media (display-mode: standalone) {
   :root {
     --app-bottom-safe-area: env(safe-area-inset-bottom, 0px);
-    --bottom-nav-height: 68px;
-    --bottom-nav-total: calc(var(--bottom-nav-height) + var(--app-bottom-safe-area));
   }
 
   html,
   body {
-    min-height: var(--app-viewport-height, 100dvh);
+    min-height: 100dvh;
     background-color: var(--bg);
   }
 
-  #bottom-nav {
+  html:not(.ios-device) #bottom-nav {
     box-sizing: border-box;
-    height: var(--bottom-nav-total);
+    height: calc(68px + var(--app-bottom-safe-area));
     padding-bottom: var(--app-bottom-safe-area);
   }
 
-  body.scroll-mode main,
-  body.spotlight-mode main,
-  body.split-mode main {
-    height: calc(var(--app-viewport-height, 100dvh) - var(--bottom-nav-total));
+  html:not(.ios-device) body.scroll-mode main,
+  html:not(.ios-device) body.spotlight-mode main,
+  html:not(.ios-device) body.split-mode main {
+    height: calc(100dvh - 68px - var(--app-bottom-safe-area));
   }
 
-  .verse-progress {
+  /* iOS: nav stays at 68px; ::after fills the home-indicator gap visually */
+  html.ios-device #bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 68px;
+    overflow: visible;
+  }
+  html.ios-device #bottom-nav::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+    height: env(safe-area-inset-bottom, 0px);
+    background: var(--bg-surface);
+    pointer-events: none;
+  }
+
+  html:not(.ios-device) .verse-progress {
     top: -1px;
     box-shadow: 0 8px 20px var(--accent-glow);
   }
@@ -6738,7 +6756,6 @@ body.focus-mode .changelog-overlay {
 @media screen and (orientation: landscape) and (max-height: 520px) {
   #bottom-nav {
     height: 48px;
-    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   .tab-item {

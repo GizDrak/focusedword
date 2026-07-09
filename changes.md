@@ -38,11 +38,12 @@
 - **IDB `onblocked` handler** now shows a message instead of hanging on splash when another tab has the database locked.
 - **Splash status text** (`Starting…`, `Loading storage…`, `Loading Bible…`) helps users understand what's happening during long startups.
 
-### iOS PWA Nav Gap Fix
-- Removed `html:not(.ios-device)` exclusion from standalone safe-area rules so iOS installed PWA also gets `env(safe-area-inset-bottom)` padding on the bottom nav.
-- Nav height and mode `main` heights now use `--bottom-nav-total` (`68px + safe-area`) consistently across all devices.
-- Added `--app-viewport-height` JS synchronizer for iOS PWA — `visualViewport.height` captured on init, resize, and orientationchange (with 300ms delay) as a fallback when `100dvh` returns stale values on cold launch.
-- Bottom nav now correctly touches the physical bottom of the screen on first portrait PWA launch instead of only after an orientation rotation.
+### iOS PWA Nav Gap Fix (Revised)
+- **Reverted** over-broad safe-area height changes from the previous fix (which made the gap persist across orientation changes by pinning a stale JS viewport height).
+- **Corrected approach**: the gap below `#bottom-nav` on iOS PWA is a visual artifact — the fixed nav sits above the home-indicator safe area on first portrait launch. Instead of changing nav/main layout heights (which broke rotation recovery), the fixed `68px` nav is kept as-is and an `#bottom-nav::after` pseudo-element fills the safe-area gap below it with `background: var(--bg-surface)`, pointer-events-none, sized to `env(safe-area-inset-bottom)`.
+- `html:not(.ios-device)` exclusion restored for the `calc()` safe-area height rules; the iOS `::after` filler is self-contained and does not affect layout calculations.
+- Landscape nav remains at plain `48px` with no safe-area overrides.
+- Orientation rotation still triggers native iOS viewport recalculation, which corrects any remaining stale metrics without JS interference.
 
 ### Cross-reference & Footnote Marker Polish
 - **CrossRef indicators** now stay inline with poetry lines (appended to last `.poetry-line` instead of `.token-poetry`). Line breaks prevented via word joiner (`\u2060`) before the marker.
