@@ -153,50 +153,9 @@ window.BaseRenderer = class BaseRenderer {
     return frag;
   }
 
-  renderTokenVerse(verseTokens, verseNum) {
-    if (!this._tokenRenderer) {
-      this._tokenRenderer = new window.TokenRenderer(this.bridge);
-    }
-    return this._tokenRenderer._renderVerseTokens(verseNum, verseTokens, false, 0, this._getSettings());
-  }
-
-  createVerseElement(verse, bionic, strength, crossRefs) {
-    if (verse.tokens) {
-      const frag = this.renderTokenChapter([verse], bionic, strength);
-      const container = frag.querySelector('.verse-container');
-      if (container) {
-        if (crossRefs && crossRefs.length > 0 && this.bridge.state.get('crossRefs')) {
-          this._addCrossRefIndicator(container, verse.verse);
-        }
-        return container;
-      }
-    }
-
-    const container = document.createElement('div');
-    container.className = 'verse-container';
-    container.dataset.verse = verse.verse;
-
-    const verseNum = document.createElement('sup');
-    verseNum.className = 'verse-num';
-    verseNum.textContent = verse.verse;
-
-    const verseText = document.createElement('span');
-    verseText.className = 'verse-text';
-    verseText.setAttribute('dir', 'auto');
-
-    const text = verse.clean_text || '';
-    if (bionic) {
-      verseText.innerHTML = this.bridge.bionic.parse(text, strength);
-    } else {
-      verseText.textContent = text;
-    }
-
-    verseText.prepend(verseNum);
-    container.appendChild(verseText);
-    if (crossRefs && crossRefs.length > 0 && this.bridge.state.get('crossRefs')) {
-      this._addCrossRefIndicator(container, verse.verse);
-    }
-    return container;
+  _isHeadingOnly(verse) {
+    if (!verse.tokens || !verse.tokens.length) return false;
+    return verse.tokens.every(t => t.type === 'section_heading');
   }
 
   updateFocusedVerse(verseNum) {
@@ -257,10 +216,18 @@ window.BaseRenderer = class BaseRenderer {
       }
     }
     if (target) {
+      if (target.classList.contains('token-poetry')) {
+        const poetryLines = Array.from(target.querySelectorAll('.poetry-line'));
+        const lastLine = poetryLines.reverse().find(l => l.textContent.trim());
+        if (lastLine) target = lastLine;
+      }
+      const wj = document.createTextNode('\u2060');
       const lastEl = target.lastElementChild;
       if (lastEl && lastEl.tagName === 'BR') {
+        target.insertBefore(wj, lastEl);
         target.insertBefore(indicator, lastEl);
       } else {
+        target.appendChild(wj);
         target.appendChild(indicator);
       }
     } else {

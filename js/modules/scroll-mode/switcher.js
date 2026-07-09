@@ -55,17 +55,21 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
     }
   }
 
-  stop() {
+  stop(opts = {}) {
+    const restoreLegacyTracking = opts.restoreLegacyTracking !== false;
     this._running = false;
     if (this._reader) {
       this._reader.stop();
       this._reader = null;
     }
-    if (this._bridge) {
+    if (restoreLegacyTracking && this._bridge) {
       const sr = this._bridge.get('renderer-scroll');
-      if (sr) {
-        sr.enableScrollTracking();
+      if (!sr) return;
+      const state = this._bridge.state;
+      if (state.get('spotlightMode') || state.get('swipeMode') || state.get('speedMode') || state.get('splitMode')) {
+        return;
       }
+      sr.enableScrollTracking();
     }
   }
 

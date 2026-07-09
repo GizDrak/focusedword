@@ -9,11 +9,6 @@ window.SwipeRenderer = class SwipeRenderer {
     this._bulkRefs = {};
   }
 
-  _isHeadingOnly(verse) {
-    if (!verse.tokens || !verse.tokens.length) return false;
-    return verse.tokens.every(t => t.type === 'section_heading');
-  }
-
   _getCardVerse(card) {
     if (card.type === 'verse') return card.verse;
     if (card.type === 'paragraph') return card.verses[0].verse;
@@ -32,7 +27,7 @@ window.SwipeRenderer = class SwipeRenderer {
         cards.push({ type: 'verse', verse: v.verse, tokens: null, raw: v });
         continue;
       }
-      if (showHeadings && this._isHeadingOnly(v)) continue;
+      if (showHeadings && this.base._isHeadingOnly(v)) continue;
 
       const headingGroups = [];
       const textTokens = [];
@@ -89,7 +84,7 @@ window.SwipeRenderer = class SwipeRenderer {
         cards.push({ type: 'verse', verse: v.verse, tokens: null, raw: v });
         continue;
       }
-      if (showHeadings && this._isHeadingOnly(v)) continue;
+      if (showHeadings && this.base._isHeadingOnly(v)) continue;
 
       const headingGroups = [];
       const textTokens = [];
@@ -146,7 +141,7 @@ window.SwipeRenderer = class SwipeRenderer {
     const chapter = state.get('currentChapter');
 
     this.bridge.state.set('swipeMode', true);
-    this.animDir = state.get('swipeAnimDir') || 'horizontal';
+    this.animDir = state.get('swipeAnimDir') || 'vertical';
 
     if (state.get('crossRefs')) {
       this.base._currentBookId = bookId;

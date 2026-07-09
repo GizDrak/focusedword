@@ -60,6 +60,15 @@ window.InteractionManager = class InteractionManager {
     this._dismissWordSelection();
   }
 
+  _isSideZone(e) {
+    if (!this.bridge.state?.get('spotlightMode')) return false;
+    const el = document.getElementById('content');
+    const r = el.getBoundingClientRect();
+    const side = Math.min(80, Math.max(56, window.innerWidth * 0.15));
+    const relX = e.clientX - r.left;
+    return relX < side || relX > r.width - side;
+  }
+
   _onPointerUp(e) {
     const dx = Math.abs(e.clientX - this._pointerStartX);
     const dy = Math.abs(e.clientY - this._pointerStartY);
@@ -67,7 +76,14 @@ window.InteractionManager = class InteractionManager {
     if (this.selectionMode) {
       const verseContainer = e.target.closest('.verse-container');
       if (verseContainer && dx < 10 && dy < 10) {
-        if (this._isSpotlightEdgeTap(e)) return;
+        if (e.target.closest('.footnote-caller') ||
+            e.target.closest('.crossref-indicator') ||
+            e.target.closest('.token-cross-ref') ||
+            e.target.closest('.token-section-heading-ref')) {
+          return;
+        }
+        if (this._isSideZone(e)) return;
+        if (!e.target.closest('.verse-text') && !e.target.closest('.verse-num')) return;
         this._toggleVerseSelection(verseContainer);
       } else if (!verseContainer) {
         this.clearSelection();
@@ -78,11 +94,21 @@ window.InteractionManager = class InteractionManager {
     if (dx < 10 && dy < 10) {
       const verseContainer = e.target.closest('.verse-container');
       if (verseContainer) {
-        if (this._isSpotlightEdgeTap(e)) return;
+        if (e.target.closest('.footnote-caller') ||
+            e.target.closest('.crossref-indicator') ||
+            e.target.closest('.token-cross-ref') ||
+            e.target.closest('.token-section-heading-ref')) {
+          return;
+        }
+        if (this._isSideZone(e)) return;
+        if (!e.target.closest('.verse-text') && !e.target.closest('.verse-num')) return;
         this._enterSelectionMode(verseContainer);
         return;
       }
     }
+
+    var isDesktop = window.matchMedia('(any-hover: hover) and (any-pointer: fine)').matches;
+    if (isDesktop && (dx >= 10 || dy >= 10)) return;
 
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount || !sel.toString().trim()) return;
@@ -177,8 +203,7 @@ window.InteractionManager = class InteractionManager {
     document.getElementById('content').classList.add('verse-selecting');
     this.selectedVerses.add(verseContainer);
     verseContainer.classList.add('temp-selected');
-    // To revert to old sidebar indicator, replace with: this._addOldUnderline(verseContainer);
-    this._addUnderline(verseContainer);
+    this._addSelectionStyle(verseContainer);
     this._emitVerseSelection();
   }
 
@@ -186,13 +211,11 @@ window.InteractionManager = class InteractionManager {
     if (this.selectedVerses.has(container)) {
       this.selectedVerses.delete(container);
       container.classList.remove('temp-selected');
-      // To revert: this._removeOldUnderline(container);
-      this._removeUnderline(container);
+      this._removeSelectionStyle(container);
     } else {
       this.selectedVerses.add(container);
       container.classList.add('temp-selected');
-      // To revert: this._addOldUnderline(container);
-      this._addUnderline(container);
+      this._addSelectionStyle(container);
     }
     if (this.selectedVerses.size === 0) {
       this.clearSelection();
@@ -222,7 +245,8 @@ window.InteractionManager = class InteractionManager {
     });
   }
 
-  _addUnderline(verseContainer) {
+  /* SVG underline style — preserved for potential revert */
+  _addSvgUnderline(verseContainer) {
     var verseText = verseContainer.querySelector('.verse-text');
     if (!verseText) return;
     var color = getComputedStyle(verseText).getPropertyValue('--accent-gold').trim() || '#8B5CF6';
@@ -232,38 +256,36 @@ window.InteractionManager = class InteractionManager {
     if (isInline) {
       verseText.style.backgroundImage = dataUri;
     } else {
-      var el = verseText.querySelector('.token-text, .poetry-line');
-      if (el) {
-        var targets = verseText.querySelectorAll('.token-text, .poetry-line');
-        for (var i = 0; i < targets.length; i++) {
-          targets[i].style.backgroundImage = dataUri;
-        }
-      } else {
-        verseText.style.backgroundImage = dataUri;
+      var texts = verseText.querySelectorAll('.token-text');
+      for (var i = 0; i < texts.length; i++) {
+        texts[i].style.backgroundImage = dataUri;
+      }
+      var poetryLines = verseText.querySelectorAll('.poetry-line');
+      for (var i = 0; i < poetryLines.length; i++) {
+        poetryLines[i].style.backgroundImage = dataUri;
       }
     }
   }
 
-  _removeUnderline(verseContainer) {
+  _removeSvgUnderline(verseContainer) {
     var verseText = verseContainer.querySelector('.verse-text');
     if (!verseText) return;
     var isInline = getComputedStyle(verseText).display === 'inline';
     if (isInline) {
       verseText.style.backgroundImage = '';
     } else {
-      var el = verseText.querySelector('.token-text, .poetry-line');
-      if (el) {
-        var targets = verseText.querySelectorAll('.token-text, .poetry-line');
-        for (var i = 0; i < targets.length; i++) {
-          targets[i].style.backgroundImage = '';
-        }
-      } else {
-        verseText.style.backgroundImage = '';
+      var texts = verseText.querySelectorAll('.token-text');
+      for (var i = 0; i < texts.length; i++) {
+        texts[i].style.backgroundImage = '';
+      }
+      var poetryLines = verseText.querySelectorAll('.poetry-line');
+      for (var i = 0; i < poetryLines.length; i++) {
+        poetryLines[i].style.backgroundImage = '';
       }
     }
   }
 
-  _removeAllUnderlines() {
+  _removeAllSvgUnderlines() {
     var self = this;
     self.selectedVerses.forEach(function (vc) {
       var vt = vc.querySelector('.verse-text');
@@ -272,28 +294,22 @@ window.InteractionManager = class InteractionManager {
       if (isInline) {
         vt.style.backgroundImage = '';
       } else {
-        var el = vt.querySelector('.token-text, .poetry-line');
-        if (el) {
-          var targets = vt.querySelectorAll('.token-text, .poetry-line');
-          for (var i = 0; i < targets.length; i++) {
-            targets[i].style.backgroundImage = '';
-          }
-        } else {
-          vt.style.backgroundImage = '';
+        var texts = vt.querySelectorAll('.token-text');
+        for (var i = 0; i < texts.length; i++) {
+          texts[i].style.backgroundImage = '';
+        }
+        var poetryLines = vt.querySelectorAll('.poetry-line');
+        for (var i = 0; i < poetryLines.length; i++) {
+          poetryLines[i].style.backgroundImage = '';
         }
       }
     });
   }
 
-  // ======== Old selection style (border-left sidebar indicator) ========
-  // These are preserved as callable alternatives. To switch back
-  // from the SVG underline to the old sidebar indicator:
-  //   1. Swap the calls in _enterSelectionMode, _toggleVerseSelection,
-  //      and clearSelection to point to these methods instead.
-  //   2. Uncomment the old CSS block in styles.css.
-  _addOldUnderline(_verseContainer) {}
-  _removeOldUnderline(_verseContainer) {}
-  _removeAllOldUnderlines() {}
+  /* Card-style selection visual — no text node mutation, stable layout */
+  _addSelectionStyle(verseContainer) {}
+  _removeSelectionStyle(verseContainer) {}
+  _removeAllSelectionStyles() {}
 
   _dismissWordSelection() {
     this._multiVerseRange = null;
@@ -315,8 +331,7 @@ window.InteractionManager = class InteractionManager {
     document.body.classList.remove('selection-mode');
     const content = document.getElementById('content');
     if (content) content.classList.remove('verse-selecting');
-    // To revert: this._removeAllOldUnderlines();
-    this._removeAllUnderlines();
+    this._removeAllSelectionStyles();
     this.selectedVerses.forEach(v => v.classList.remove('temp-selected'));
     this.selectedVerses.clear();
     this._dismissWordSelection();
@@ -325,4 +340,20 @@ window.InteractionManager = class InteractionManager {
   clearTempSelection() {
     this.clearSelection();
   }
-};
+}
+
+function _addTokenTextUnderline(tokenText, dataUri) {
+  tokenText.style.backgroundImage = dataUri;
+}
+
+function _removeTokenTextUnderline(tokenText) {
+  tokenText.style.backgroundImage = '';
+}
+
+function _addPoetryLineUnderline(lineEl, dataUri) {
+  lineEl.style.backgroundImage = dataUri;
+}
+
+function _removePoetryLineUnderline(lineEl) {
+  lineEl.style.backgroundImage = '';
+}

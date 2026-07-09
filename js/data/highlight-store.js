@@ -1,7 +1,10 @@
 window.HighlightStore = class HighlightStore {
+  constructor(bridge) {
+    this._bridge = bridge;
+  }
+
   async save(data) {
-    const hl = {
-      id: data.id || window.UUID.generate(),
+    this._bridge.state.addHighlight({
       bookId: data.bookId,
       chapter: data.chapter,
       verse: data.verse,
@@ -11,11 +14,7 @@ window.HighlightStore = class HighlightStore {
       endOffset: data.type === 'partial' ? data.endOffset : null,
       color: data.color,
       text: data.text || '',
-      deleted: false,
-      createdAt: data.createdAt || Date.now(),
-      updated_at: Date.now()
-    };
-    await window.idb.put('highlights', hl);
+    });
   }
 
   async updateTags(id, tags) {
@@ -24,14 +23,20 @@ window.HighlightStore = class HighlightStore {
     item.tags = tags;
     item.updated_at = Date.now();
     await window.idb.put('highlights', item);
+    this._bridge.state.updateHighlight(id, { tags });
   }
 
   async delete(id) {
-    const item = await window.idb.get('highlights', id);
-    if (!item) return;
-    item.deleted = true;
-    item.updated_at = Date.now();
-    await window.idb.put('highlights', item);
+    const item = this._bridge.state.highlights.find(i => i.id === id);
+    if (item) {
+      this._bridge.state.deleteHighlight(id);
+      return;
+    }
+    const idbItem = await window.idb.get('highlights', id);
+    if (!idbItem) return;
+    idbItem.deleted = true;
+    idbItem.updated_at = Date.now();
+    await window.idb.put('highlights', idbItem);
   }
 
   async getForChapter(bookId, chapter) {
@@ -60,11 +65,6 @@ window.HighlightStore = class HighlightStore {
 
   async getAllIncludingTombstones() {
     return window.idb.getAll('highlights');
-  }
-
-  async deleteForChapter(bookId, chapter) {
-    const chapterHl = await this.getForChapter(bookId, chapter);
-    await Promise.all(chapterHl.map(h => this.delete(h.id)));
   }
 
   static colorToClass(color) {

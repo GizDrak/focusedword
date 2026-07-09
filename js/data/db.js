@@ -63,49 +63,11 @@ static async createDbFromBytes(dbPath) {
       return null;
     }
 
-    const header = new TextDecoder().decode(bytes.slice(0, 15));
-    if (header !== "SQLite format 3") {
-      console.error(`[db] Invalid format! Expected database but got HTML.`);
-      if (typeof caches !== 'undefined') {
-        caches.open('bible-database-cache').then(c => c.delete(dbPath));
-      }
-      return null;
+    const db = BibleDB._deserialize(bytes);
+    if (!db && typeof caches !== 'undefined') {
+      caches.open('bible-database-cache').then(c => c.delete(dbPath));
     }
-
-    // --- SAFETY PATCH: FORCE ROLLBACK MODE ---
-    if (bytes.length > 20) {
-      bytes[18] = 1;
-      bytes[19] = 1;
-    }
-
-    try {
-      // 2. Allocate memory and load into WASM
-      const pData = sqlite3.wasm.allocFromTypedArray(bytes);
-      if (!pData) {
-        console.error('[db] WASM out of memory!');
-        return null;
-      }
-
-      const db = new sqlite3.oo1.DB(':memory:');
-      
-      // Read-Only flag (4) combined with Free-On-Close (1)
-      const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | 4;
-
-      const rc = sqlite3.capi.sqlite3_deserialize(
-        db.pointer,
-        'main',
-        pData,
-        bytes.byteLength,
-        bytes.byteLength,
-        flags
-      );
-      
-      db.checkRc(rc);
-      return db;
-    } catch (e) {
-      console.error('[db] createDbFromBytes error:', e);
-      return null;
-    }
+    return db;
   }
   
 
@@ -170,7 +132,7 @@ static async createDbFromBytes(dbPath) {
         }
       }
 
-      const core = await BibleDB.createDbFromBytes(`/scripture/en/${slug}_v2.sqlite`);
+      const core = await BibleDB.createDbFromBytes(`/scripture/en/${slug}_v3.sqlite`);
       if (core && this._tableExists(core, 'bible_verses')) {
         this._core = core;
         this._slug = slug;
@@ -188,27 +150,29 @@ static async createDbFromBytes(dbPath) {
   }
 
   static async _dbFromBytes(bytes) {
+    return BibleDB._deserialize(bytes);
+  }
+
+  static async _deserialize(bytes) {
     const sqlite3 = await BibleDB._sqliteWasmPromise;
-    const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     const header = new TextDecoder().decode(bytes.slice(0, 15));
     if (header !== 'SQLite format 3') {
       console.error('[db] Invalid database format');
       return null;
     }
 
-    const safe = new Uint8Array(buf);
-    if (safe.length > 20) { safe[18] = 1; safe[19] = 1; }
+    if (bytes.length > 20) { bytes[18] = 1; bytes[19] = 1; }
 
     try {
-      const pData = sqlite3.wasm.allocFromTypedArray(safe);
+      const pData = sqlite3.wasm.allocFromTypedArray(bytes);
       if (!pData) { console.error('[db] WASM out of memory'); return null; }
       const db = new sqlite3.oo1.DB(':memory:');
       const flags = sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | 4;
-      const rc = sqlite3.capi.sqlite3_deserialize(db.pointer, 'main', pData, safe.byteLength, safe.byteLength, flags);
+      const rc = sqlite3.capi.sqlite3_deserialize(db.pointer, 'main', pData, bytes.byteLength, bytes.byteLength, flags);
       db.checkRc(rc);
       return db;
     } catch (e) {
-      console.error('[db] _dbFromBytes error:', e);
+      console.error('[db] _deserialize error:', e);
       return null;
     }
   }
@@ -244,12 +208,6 @@ static async createDbFromBytes(dbPath) {
   async getBooks() {
     this._ensureBooksCache();
     return this._booksCache.map(({ id, name }) => ({ id, name }));
-  }
-
-  async getBookId(name) {
-    const books = this._ensureBooksCache();
-    const book = books.find(b => b.name === name);
-    return book ? book.id : null;
   }
 
   async getChapterCount(bookId) {
@@ -290,35 +248,6 @@ static async createDbFromBytes(dbPath) {
       }));
     } catch (e) {
       console.error('[db] getChapterTokens:', e, { bookCode, chapter });
-      return [];
-    }
-  }
-  
-  async searchBible(searchTerm) {
-    if (!this._core || !searchTerm) return [];
-    try {
-      const rows = [];
-      this._core.exec({
-        sql: `SELECT v.book, v.chapter, v.verse, v.clean_text, v.json_tokens
-              FROM bible_search s
-              JOIN bible_verses v ON s.verse_id = v.id
-              WHERE bible_search MATCH ?
-              ORDER BY bm25(bible_search)
-              LIMIT 50`,
-        bind: [searchTerm],
-        rowMode: 'object',
-        resultRows: rows
-      });
-
-      return rows.map(r => ({
-        book: r.book,
-        chapter: r.chapter,
-        verse: r.verse,
-        cleanText: r.clean_text || '',
-        tokens: JSON.parse(r.json_tokens || '[]')
-      }));
-    } catch (e) {
-      console.error('[db] searchBible error:', e);
       return [];
     }
   }

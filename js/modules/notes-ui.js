@@ -1209,8 +1209,9 @@ class NotesUI {
       const preview = sorted.slice(0, 3);
       bodyHtml += '<div class="trb-group"><div class="trb-group-title">Bookmarks (' + preview.length + (sorted.length > 3 ? ' of ' + sorted.length : '') + ')</div>';
       for (const bm of preview) {
-        bodyHtml += '<div class="trb-item trb-bookmark" data-book="' + bm.bookId + '" data-chapter="' + bm.chapter + '" data-verse="' + bm.verse + '">' +
-          '<div class="trb-item-ref">' + window.HTMLEscape(this._getBookName(bm.bookId)) + ' ' + bm.chapter + ':' + bm.verse + '</div>' +
+        const bmV = bm.verse ?? (bm.verses?.[0] ?? '');
+        bodyHtml += '<div class="trb-item trb-bookmark" data-book="' + bm.bookId + '" data-chapter="' + bm.chapter + '" data-verse="' + bmV + '">' +
+          '<div class="trb-item-ref">' + window.HTMLEscape(this._getBookName(bm.bookId)) + ' ' + bm.chapter + ':' + bmV + '</div>' +
           '<div class="trb-item-text">' + window.HTMLEscape(bm.text || '') + '</div></div>';
       }
       bodyHtml += '</div>';
@@ -1236,6 +1237,8 @@ class NotesUI {
     bar.querySelectorAll('.trb-note').forEach(el => {
       el.addEventListener('click', () => {
         this._dismissTagResults();
+        const bm = this.bridge.get('bookmarks-ui');
+        if (bm) { bm.closeModal(); bm.closeSlideUp(); }
         const ns = this.bridge.get('note-store');
         if (!ns) return;
         const note = ns.getNoteById(el.dataset.id);
@@ -1246,6 +1249,8 @@ class NotesUI {
     bar.querySelectorAll('.trb-highlight, .trb-bookmark').forEach(el => {
       el.addEventListener('click', () => {
         this._dismissTagResults();
+        const bm = this.bridge.get('bookmarks-ui');
+        if (bm) { bm.closeModal(); bm.closeSlideUp(); }
         const nav = this.bridge.get('navigation');
         if (nav) {
           const book = parseInt(el.dataset.book);
@@ -1348,8 +1353,9 @@ class NotesUI {
     if (results.bookmarks.length) {
       html += '<div class="nts-group"><h4 class="nts-group-title">Bookmarks (' + results.bookmarks.length + ')</h4>';
       for (const bm of results.bookmarks) {
-        html += '<div class="nts-item nts-bookmark" data-book="' + bm.bookId + '" data-chapter="' + bm.chapter + '" data-verse="' + bm.verse + '">' +
-          '<div class="nts-item-ref">' + window.HTMLEscape(this._getBookName(bm.bookId)) + ' ' + bm.chapter + ':' + bm.verse + '</div>' +
+        const bmV = bm.verse ?? (bm.verses?.[0] ?? '');
+        html += '<div class="nts-item nts-bookmark" data-book="' + bm.bookId + '" data-chapter="' + bm.chapter + '" data-verse="' + bmV + '">' +
+          '<div class="nts-item-ref">' + window.HTMLEscape(this._getBookName(bm.bookId)) + ' ' + bm.chapter + ':' + bmV + '</div>' +
           '<div class="nts-item-text">' + window.HTMLEscape(bm.text || '') + '</div></div>';
       }
       html += '</div>';

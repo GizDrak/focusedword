@@ -1,5 +1,31 @@
 # What's New in Focused Word
 
+## v0.8.7 — Smarter Spotlight, Smoother Scrolling
+
+This update focuses on making Spotlight mode more intuitive and fixing several interaction quirks.
+
+### 🎯 Spotlight Navigation Reworked
+Tap advances are now restricted to the edges of the screen — left side goes back, right side goes forward. The center area never navigates, so you can tap a verse to select it without suddenly jumping. Long-press repeat also uses the same edge zones.
+
+- **Verse selection is now a soft card style** — tinted background with an accent left rail, stable line endings, no layout shift.
+- **Footnotes and cross-references** always open when tapped, even in the edge zones.
+- **Split-mode panel** follows the same edge-zone navigation rules.
+
+### 📱 iOS Focus Flash Fixed
+When advancing verses in Spotlight mode, the old highlight no longer lingers — the transition fires immediately on the outgoing verse before activating the new one.
+
+### 🎯 Smooth Mode Switching
+Switching from any reading mode to Scroll mode now lands on the correct verse instead of jumping to a nearby one (e.g. verse 15 → 13). The scroll tracker waits for the programmatic scroll to settle before activating.
+
+### 🖋 Verse Selection — Stable & Clean
+The wavy SVG underline has been replaced with a clean card-style highlight. Tapping a verse no longer shifts line endings or rearranges the text — the layout stays exactly as it was.
+
+### 🔧 Bug Fixes & Polish
+- **Desktop chapter navigation bars** repositioned to floating pills outside the reader column.
+- **Landscape edge gestures** fixed for scroll, swipe, and spotlight modes.
+
+---
+
 ## v0.8.6 — Scripture Repositories, Better Sync & Reading Polish
 
 This update makes Focused Word more flexible, easier to set up on multiple devices, and smoother to read across translations.

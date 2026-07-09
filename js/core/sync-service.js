@@ -29,7 +29,6 @@ window.SyncService = class SyncService {
     this._ready = new Promise((resolve, reject) => {
       const req = indexedDB.open('FocusedSyncDB', 1);
       req.onupgradeneeded = () => {
-        req.result.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true });
       };
       req.onsuccess = () => {
         this._db = req.result;
@@ -37,13 +36,6 @@ window.SyncService = class SyncService {
       };
       req.onerror = () => reject(req.error);
     });
-  }
-
-  async enqueueAction(type, payload) {
-    await this._ready;
-    const tx = this._db.transaction('outbox', 'readwrite');
-    tx.objectStore('outbox').add({ type, payload, timestamp: Date.now() });
-    console.log(`[SyncService] Queued action: ${type}`);
   }
 
   setServerUrl(url) {
@@ -156,6 +148,38 @@ window.SyncService = class SyncService {
     return serverState;
   }
 
+  _buildSyncBody(raw) {
+    const MODULE_NAMES = ['settings', 'reading', 'bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'repositories'];
+    const SERVER_NAME = { noteCategories: 'catagory' };
+    const body = { modules: {} };
+    for (const mod of MODULE_NAMES) {
+      if (raw[mod] && raw[mod].data) {
+        const serverMod = SERVER_NAME[mod] || mod;
+        body.modules[serverMod] = { data: raw[mod].data, updated_at: raw[mod].updated_at || 0 };
+      }
+    }
+    return body;
+  }
+
+  _onSyncSuccess(resp) {
+    if (resp && resp.modules) {
+      this._normalizeModuleNames(resp.modules);
+      const ts = Object.values(resp.modules).map(m => m.updated_at).filter(v => typeof v === 'number');
+      this._lastUpdatedAt = ts.length ? Math.max(...ts) : 0;
+      localStorage.setItem('sync-last-updated', String(this._lastUpdatedAt));
+      if (this._stateApplier) {
+        return this._stateApplier(resp.modules);
+      }
+    }
+  }
+
+  _vacuumGraveyards() {
+    if (!window.idb) return;
+    for (const store of ['bookmarks', 'highlights', 'notes', 'plans', 'note_categories']) {
+      window.idb.vacuumGraveyard(store).catch(() => {});
+    }
+  }
+
   async processSync() {
     if (!this._enabled) return;
     if (!navigator.onLine) {
@@ -168,58 +192,17 @@ window.SyncService = class SyncService {
       console.warn('[SyncService] No key configured — skipping sync');
       return;
     }
-    await this._ready;
-    const tx = this._db.transaction('outbox', 'readonly');
-    const records = await new Promise((resolve, reject) => {
-      const req = tx.objectStore('outbox').getAll();
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
     const raw = this._stateProvider ? await this._stateProvider() : {};
-    const SERVER_NAME = { noteCategories: 'catagory' };
-    const body = { modules: {} };
-    const addModule = (mod) => {
-      if (raw[mod] && raw[mod].data) {
-        const serverMod = SERVER_NAME[mod] || mod;
-        body.modules[serverMod] = { data: raw[mod].data, updated_at: raw[mod].updated_at || 0 };
-      }
-    };
-    addModule('settings');
-    addModule('reading');
-    addModule('bookmarks');
-    addModule('highlights');
-    addModule('notes');
-    addModule('plans');
-    addModule('noteCategories');
-    addModule('repositories');
+    const body = this._buildSyncBody(raw);
     try {
-      const resp = await this.apiRequest('sync', {
-        method: 'POST',
-        body: JSON.stringify(body)
-      });
-      if (resp && records.length > 0) {
-        const clearTx = this._db.transaction('outbox', 'readwrite');
-        clearTx.objectStore('outbox').clear();
-      }
-      if (resp && resp.modules) {
-        this._normalizeModuleNames(resp.modules);
-        const ts = Object.values(resp.modules).map(m => m.updated_at).filter(v => typeof v === 'number');
-        this._lastUpdatedAt = ts.length ? Math.max(...ts) : 0;
-        localStorage.setItem('sync-last-updated', String(this._lastUpdatedAt));
-        if (this._stateApplier) {
-          await this._stateApplier(resp.modules);
-        }
-      }
+      const resp = await this.apiRequest('sync', { method: 'POST', body: JSON.stringify(body) });
+      await this._onSyncSuccess(resp);
       if (this._lastUpdatedAt === 0) {
         this._lastUpdatedAt = Date.now();
         localStorage.setItem('sync-last-updated', String(this._lastUpdatedAt));
       }
       this.lastError = null;
-      if (window.idb) {
-        for (const store of ['bookmarks', 'highlights', 'notes', 'plans', 'note_categories']) {
-          window.idb.vacuumGraveyard(store).catch(() => {});
-        }
-      }
+      this._vacuumGraveyards();
       return resp;
     } catch (e) {
       if (e._status === 409) {
@@ -238,45 +221,15 @@ window.SyncService = class SyncService {
             }
           }
           const retryRaw = this._stateProvider ? await this._stateProvider() : {};
-          const retryBody = { modules: {} };
-          const addMod = (mod) => {
-            if (retryRaw[mod] && retryRaw[mod].data) {
-              const serverMod = SERVER_NAME[mod] || mod;
-              retryBody.modules[serverMod] = { data: retryRaw[mod].data, updated_at: retryRaw[mod].updated_at || 0 };
-            }
-          };
-          addMod('settings');
-          addMod('reading');
-          addMod('bookmarks');
-          addMod('highlights');
-          addMod('notes');
-          addMod('plans');
-          addMod('noteCategories');
-          addMod('repositories');
-          const retryResp = await this.apiRequest('sync', {
-            method: 'POST',
-            body: JSON.stringify(retryBody)
-          });
-          if (retryResp && records.length > 0) {
-            const clearTx = this._db.transaction('outbox', 'readwrite');
-            clearTx.objectStore('outbox').clear();
-          }
-          if (retryResp && retryResp.modules) {
-            this._normalizeModuleNames(retryResp.modules);
-            const ts = Object.values(retryResp.modules).map(m => m.updated_at).filter(v => typeof v === 'number');
-            this._lastUpdatedAt = ts.length ? Math.max(...ts) : 0;
-            localStorage.setItem('sync-last-updated', String(this._lastUpdatedAt));
-          }
+          const retryBody = this._buildSyncBody(retryRaw);
+          const retryResp = await this.apiRequest('sync', { method: 'POST', body: JSON.stringify(retryBody) });
+          await this._onSyncSuccess(retryResp);
           if (this._lastUpdatedAt === 0) {
             this._lastUpdatedAt = Date.now();
             localStorage.setItem('sync-last-updated', String(this._lastUpdatedAt));
           }
           this.lastError = null;
-          if (window.idb) {
-            for (const store of ['bookmarks', 'highlights', 'notes', 'plans', 'note_categories']) {
-              window.idb.vacuumGraveyard(store).catch(() => {});
-            }
-          }
+          this._vacuumGraveyards();
           return retryResp;
         } catch (retryErr) {
           this.lastError = typeof retryErr?.message === 'string' ? retryErr.message : 'Retry after conflict failed';
@@ -290,17 +243,6 @@ window.SyncService = class SyncService {
   }
 
   async sync() {
-    if (!this._enabled) return;
-    if (!navigator.onLine) {
-      this.lastError = 'Offline';
-      console.warn('[SyncService] Offline — skipping sync');
-      return;
-    }
-    if (!this.syncKey) {
-      this.lastError = 'No key configured';
-      console.warn('[SyncService] No key configured — skipping sync');
-      return;
-    }
     return this.processSync();
   }
 };

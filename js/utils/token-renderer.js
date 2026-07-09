@@ -48,6 +48,7 @@ window.TokenRenderer = class TokenRenderer {
       settings,
       currentBlock: null,
       verseNumInserted: false,
+      pendingLeadingFootnotes: [],
       styleStack: [],
       lastHeadingEl: null,
       _poetryBlock: null,
@@ -90,6 +91,9 @@ window.TokenRenderer = class TokenRenderer {
     }
 
     ctx.closeBlock();
+    while (ctx.pendingLeadingFootnotes.length) {
+      ctx.verseText.appendChild(ctx.pendingLeadingFootnotes.shift());
+    }
     if (!ctx.verseNumInserted) {
       ctx.verseText.appendChild(ctx.verseNumEl);
     }
@@ -206,6 +210,9 @@ window.TokenRenderer = class TokenRenderer {
       const startSpan = document.createElement('span');
       startSpan.className = 'verse-start';
       startSpan.appendChild(ctx.verseNumEl);
+      while (ctx.pendingLeadingFootnotes.length) {
+        startSpan.appendChild(ctx.pendingLeadingFootnotes.shift());
+      }
       startSpan.insertAdjacentHTML('beforeend', ctx.applyBionic(MarkdownParser.parse(firstWord)));
       ctx.currentBlock.appendChild(startSpan);
       ctx.verseNumInserted = true;
@@ -265,7 +272,11 @@ window.TokenRenderer = class TokenRenderer {
     el.className = 'footnote-caller';
     el.textContent = token.marker || '*';
     el.dataset.footnoteText = token.text || '';
-    (ctx.currentBlock || ctx.verseText).appendChild(el);
+    if (!ctx.verseNumInserted) {
+      ctx.pendingLeadingFootnotes.push(el);
+    } else {
+      (ctx.currentBlock || ctx.verseText).appendChild(el);
+    }
   }
 
   _renderCrossRef(token, ctx) {

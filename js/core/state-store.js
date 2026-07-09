@@ -6,7 +6,7 @@ window.StateStore = class StateStore {
     this._immediateKeys = new Set([
       'theme', 'accent', 'bionic', 'bionicStrength',
       'swipeMode', 'spotlightMode', 'speedMode', 'splitMode', 'splitPortrait',
-      'focusMode', 'speedAutoAdvance', 'tapSwipe',
+      'focusMode', 'speedAutoAdvance', 'tapSwipeMode',
       'activeBookmarkSet',
       'activeHighlightColor',
       'fontFamily', 'fontSize', 'margins', 'lineSpacing', 'letterSpacing',
@@ -510,7 +510,7 @@ window.StateStore = class StateStore {
         'focused-word:paragraph-breaks': 'paragraphBreaks',
         'focused-word:paragraph-mode': 'paragraphMode',
         'focused-word:swipe-max-verses': 'swipeMaxVerses',
-        'focused-word:background-texture': 'backgroundTexture'
+        'focused-word:background-texture': 'backgroundTexture',
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);

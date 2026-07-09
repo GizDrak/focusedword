@@ -1,7 +1,7 @@
 window.HighlightManager = class HighlightManager {
   constructor(bridge) {
     this.bridge = bridge;
-    this.store = new window.HighlightStore();
+    this.store = new window.HighlightStore(bridge);
     this.defaultColor = '#FFD700';
     this._toolbar = document.getElementById('highlight-toolbar');
     this._tempSelection = null;
@@ -626,29 +626,6 @@ window.HighlightManager = class HighlightManager {
     if (notesUI) {
       notesUI.newNote({ content });
     }
-  }
-
-  async _applyFullHighlight(container, verseNum, color) {
-    const state = this.bridge.state;
-    const verseText = container.querySelector('.verse-text')?.textContent?.trim() || '';
-    await this.store.save({
-      bookId: state.get('currentBook'),
-      chapter: state.get('currentChapter'),
-      verse: verseNum,
-      type: 'full',
-      color,
-      text: verseText
-    });
-    container.classList.add('highlighted');
-    container.style.setProperty('--hl-color', color);
-  }
-
-  async _removeFullHighlight(container, bookId, chapter, verseNum) {
-    const highlights = await this.store.getByVerse(bookId, chapter, verseNum);
-    const fullHl = highlights.find(h => h.type === 'full');
-    if (fullHl) await this.store.delete(fullHl.id);
-    container.classList.remove('highlighted');
-    container.style.removeProperty('--hl-color');
   }
 
   _calcOffsetFromSpan(parentEl, span) {

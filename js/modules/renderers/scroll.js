@@ -75,6 +75,7 @@ window.ScrollRenderer = class ScrollRenderer {
 
   enableScrollTracking() {
     this._scrollTrackingDisabled = false;
+    this._setupScrollTracking();
   }
 
   onRenderComplete() {

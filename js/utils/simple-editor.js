@@ -11,6 +11,10 @@ window.SimpleEditor = class SimpleEditor {
     };
   }
 
+  static get _INLINE_FORMAT_TAGS() {
+    return new Set(['STRONG', 'B', 'EM', 'I', 'SUP']);
+  }
+
   constructor({ element, content = '', onUpdate, attributes = {} }) {
     this.element = element;
     this._onUpdate = onUpdate;
@@ -86,7 +90,6 @@ window.SimpleEditor = class SimpleEditor {
 
   toggleBold() { this._command(() => this._toggleInline('strong')); }
   toggleItalic() { this._command(() => this._toggleInline('em')); }
-  toggleSuperscript() { this._command(() => this._toggleInline('sup')); }
 
   toggleHeading(level) {
     this._command(() => {
@@ -281,8 +284,7 @@ window.SimpleEditor = class SimpleEditor {
             const ref = trailing || wordNode.nextSibling;
             wordNode.remove();
             if (!node.textContent) node.remove();
-            const INLINE_FMT_2 = new Set(['STRONG', 'B', 'EM', 'I', 'SUP']);
-            if (parent && INLINE_FMT_2.has(parent.tagName) && parent.parentNode) {
+            if (parent && SimpleEditor._INLINE_FORMAT_TAGS.has(parent.tagName) && parent.parentNode) {
               const gp = parent.parentNode;
               if (trailing) gp.insertBefore(trailing, parent.nextSibling);
               gp.insertBefore(pill, parent.nextSibling);
@@ -679,8 +681,7 @@ window.SimpleEditor = class SimpleEditor {
     let parent = node.parentNode;
     const ref = trailing || node.nextSibling;
     if (!node.textContent) node.remove();
-    const INLINE_FMT = new Set(['STRONG', 'B', 'EM', 'I', 'SUP']);
-    if (parent && INLINE_FMT.has(parent.tagName) && parent.parentNode) {
+    if (parent && SimpleEditor._INLINE_FORMAT_TAGS.has(parent.tagName) && parent.parentNode) {
       const gp = parent.parentNode;
       if (trailing) gp.insertBefore(trailing, parent.nextSibling);
       gp.insertBefore(pill, parent.nextSibling);
@@ -965,32 +966,6 @@ window.SimpleEditor = class SimpleEditor {
         const w = document.createElement(tagName);
         w.appendChild(n.cloneNode(true));
         fragment.replaceChild(w, n);
-      }
-    }
-  }
-
-  /* ---------- Block formatting ---------- */
-
-  _setBlockType(tagName) {
-    const blocks = this._getSelectedBlocks();
-    if (!blocks.length) return;
-    const tagUC = tagName.toUpperCase();
-    const allMatch = blocks.every(b => b.tagName === tagUC);
-    const parent = blocks[0].parentNode;
-    const ref = blocks[0].nextSibling;
-    for (const block of blocks) {
-      this._convertBlock(block, allMatch ? 'P' : tagUC);
-    }
-    if (parent) {
-      let target = ref ? ref.previousSibling : parent.lastChild;
-      while (target && target.nodeType === 3) target = target.previousSibling;
-      if (target) {
-        const range = document.createRange();
-        const sel = window.getSelection();
-        range.selectNodeContents(target);
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
       }
     }
   }

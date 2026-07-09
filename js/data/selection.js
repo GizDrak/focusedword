@@ -23,17 +23,13 @@ window.SelectionManager = class SelectionManager {
 
   async saveBookmark(bookId, chapter, verses, text, setId) {
     if (!Array.isArray(verses)) verses = [verses];
-    await window.idb.put('bookmarks', {
-      id: window.UUID.generate(),
+    this._bridge.state.addBookmark({
       bookId,
       chapter,
       verse: verses[0],
       verses,
       setId: setId || null,
       text: text.slice(0, 200),
-      deleted: false,
-      createdAt: Date.now(),
-      updated_at: Date.now()
     });
     if (bookId === this._bridge.state.get('currentBook') && chapter === this._bridge.state.get('currentChapter')) {
       this._bridge.call('base-renderer', 'applyBookmarks');
@@ -68,11 +64,16 @@ window.SelectionManager = class SelectionManager {
   }
 
   async deleteItem(id) {
-    const item = await window.idb.get('bookmarks', id);
-    if (!item) return;
-    item.deleted = true;
-    item.updated_at = Date.now();
-    await window.idb.put('bookmarks', item);
+    const item = this._bridge.state.bookmarks.find(i => i.id === id);
+    if (item) {
+      this._bridge.state.deleteBookmark(id);
+      return;
+    }
+    const idbItem = await window.idb.get('bookmarks', id);
+    if (!idbItem) return;
+    idbItem.deleted = true;
+    idbItem.updated_at = Date.now();
+    await window.idb.put('bookmarks', idbItem);
   }
 
   async updateBookmarkTags(bookmarkId, tags) {
@@ -81,14 +82,7 @@ window.SelectionManager = class SelectionManager {
     item.tags = tags;
     item.updated_at = Date.now();
     await window.idb.put('bookmarks', item);
-  }
-
-  async updateBookmarkSetId(bookmarkId, setId) {
-    const item = await window.idb.get('bookmarks', bookmarkId);
-    if (!item) return;
-    item.setId = setId || null;
-    item.updated_at = Date.now();
-    await window.idb.put('bookmarks', item);
+    this._bridge.state.updateBookmark(bookmarkId, { tags });
   }
 
   async saveBookmarkSet(name, color) {

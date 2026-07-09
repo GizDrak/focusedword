@@ -32,8 +32,7 @@ window.RenderManager = class RenderManager {
     } else {
       this.bridge.call('renderer-scroll', 'render', verses);
       if (this._scrollSwitcher) {
-        this._scrollSwitcher.stop();
-        this._scrollSwitcher.start();
+        this._scrollSwitcher.stop({ restoreLegacyTracking: false });
       }
     }
   }
@@ -45,6 +44,12 @@ window.RenderManager = class RenderManager {
       if (!verses) return;
       const bookName = state.get('currentBookName');
       const currentVerse = state.get('currentVerse');
+
+      // Lock current verse before programmatic scroll so scroll tracking
+      // cannot overwrite it during the mode transition
+      if (!state.get('swipeMode') && !state.get('spotlightMode') && !state.get('speedMode')) {
+        window.verseManager.setIntentional(currentVerse);
+      }
 
       this.base.showChapterHeader(verses, bookName);
       this.base.updateFocusedVerse(currentVerse);

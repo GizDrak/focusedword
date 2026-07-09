@@ -186,10 +186,9 @@ window.BookmarksUI = class BookmarksUI {
         <button class="bm-delete" data-id="${item.id}">✕</button>`;
       el.querySelector('.bm-content').addEventListener('click', () => this._navigateToItem(item));
       const tagRow = el.querySelector('.bm-tag-row');
-      if (tagRow) this._wireTagRow(tagRow, item, (id, tags) => this.bridge.selection.updateBookmarkTags(id, tags));
+      if (tagRow) this._wireTagRow(tagRow, item, (id, tags) => this.bridge.selection.updateBookmarkTags(id, tags), 'bookmark');
       el.querySelector('.bm-delete').addEventListener('click', async (e) => {
         e.stopPropagation();
-        this._updateTagCache(item.tags || [], []);
         await this.bridge.selection.deleteItem(item.id);
         this.renderBookmarksTab();
         const curBook = this.bridge.state.get('currentBook');
@@ -323,51 +322,6 @@ window.BookmarksUI = class BookmarksUI {
       if (e.key === 'Enter') doCreate();
       if (e.key === 'Escape') closeForm();
     });
-  }
-
-  _showSetMenu(set, chipEl) {
-    const existing = document.querySelector('.bm-set-menu');
-    if (existing) existing.remove();
-
-    const menu = document.createElement('div');
-    menu.className = 'bm-set-menu';
-    const rect = chipEl.getBoundingClientRect();
-    menu.style.left = Math.min(rect.left, window.innerWidth - 160) + 'px';
-    menu.style.top = rect.bottom + 'px';
-
-    const renameBtn = document.createElement('button');
-    renameBtn.className = 'bm-set-menu-item';
-    renameBtn.textContent = 'Rename';
-    renameBtn.addEventListener('click', () => {
-      menu.remove();
-      this._renameSet(set);
-    });
-    menu.appendChild(renameBtn);
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'bm-set-menu-item bm-set-menu-danger';
-    delBtn.textContent = 'Delete Set';
-    delBtn.addEventListener('click', async () => {
-      menu.remove();
-      if (!confirm(`Delete "${set.name}"? Bookmarks in this set will become unassigned.`)) return;
-      await this.bridge.selection.deleteBookmarkSet(set.id);
-      if (this._activeFilterSet === set.id) {
-    this._activeFilterSet = null;
-    this._activeHighlightColor = null;
-        this.bridge.state.set('activeBookmarkSet', null);
-      }
-      this.renderBookmarksTab();
-    });
-    menu.appendChild(delBtn);
-
-    document.body.appendChild(menu);
-    const hide = (e) => {
-      if (!menu.contains(e.target)) {
-        menu.remove();
-        document.removeEventListener('click', hide);
-      }
-    };
-    setTimeout(() => document.addEventListener('click', hide), 10);
   }
 
   _showSetManagePopover(anchorEl, sets, setMap) {
@@ -617,10 +571,9 @@ window.BookmarksUI = class BookmarksUI {
         <button class="bm-delete" data-id="${item.id}">✕</button>`;
       el.querySelector('.bm-content').addEventListener('click', () => this._navigateToItem(item));
       const tagRow = el.querySelector('.bm-tag-row');
-      if (tagRow) this._wireTagRow(tagRow, item, (id, tags) => hm.store.updateTags(id, tags));
+      if (tagRow) this._wireTagRow(tagRow, item, (id, tags) => hm.store.updateTags(id, tags), 'highlight');
       el.querySelector('.bm-delete').addEventListener('click', async (e) => {
         e.stopPropagation();
-        this._updateTagCache(item.tags || [], []);
         await hm.store.delete(item.id);
         this.renderHighlightsTab();
         if (item.bookId === state.get('currentBook') && item.chapter === state.get('currentChapter')) {
@@ -762,133 +715,214 @@ window.BookmarksUI = class BookmarksUI {
   _renderTagRow(item) {
     const tags = item.tags || [];
     const chips = tags.map(t => `<span class="note-tag-chip bm-tag-chip" data-tag="${t}">#${t}</span>`).join('');
-    return `<div class="bm-tag-row" data-id="${item.id}">${chips}<input type="text" class="bm-tag-input" placeholder="+#tag" maxlength="30"></div>`;
+    return `<div class="bm-tag-row" data-id="${item.id}">${chips}<button class="bm-tag-add-btn" title="Edit tags">+</button></div>`;
   }
 
-  _updateTagCache(oldTags, newTags) {
-    const cache = this.bridge.state._tagCountCache;
-    if (cache) {
-      window.TagCacheUtils.applyDiff(cache, oldTags, newTags);
-      window.TagCacheUtils.persistCache(cache);
+  _wireTagRow(rowEl, item, persistFn, type) {
+    if (!rowEl) return;
+    rowEl.querySelectorAll('.bm-tag-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tag = chip.dataset.tag;
+        if (!tag) return;
+        const nu = this.bridge.get('notes-ui');
+        if (nu) nu._openTagSearch(tag.toLowerCase());
+      });
+    });
+    const addBtn = rowEl.querySelector('.bm-tag-add-btn');
+    if (addBtn) {
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._openTagPopup(e.currentTarget, item, persistFn, type);
+      });
     }
   }
 
-  _wireTagRow(rowEl, item, persistFn) {
-    if (!rowEl) return;
-    const input = rowEl.querySelector('.bm-tag-input');
-    if (!input) return;
-    const id = rowEl.dataset.id;
-    if (!id) return;
+  _openTagPopup(anchorEl, item, persistFn, type) {
+    this._closeTagPopup();
 
-    const rebuildRow = () => {
-      const tags = item.tags || [];
-      const chips = tags.map(t => `<span class="note-tag-chip bm-tag-chip" data-tag="${t}">#${t}</span>`).join('');
-      rowEl.innerHTML = chips + `<input type="text" class="bm-tag-input" placeholder="+#tag" maxlength="30">`;
-      this._wireTagRow(rowEl, item, persistFn);
+    const popup = document.createElement('div');
+    popup.className = 'bm-tag-popup';
+
+    const header = document.createElement('div');
+    header.className = 'bm-tag-popup-header';
+    header.innerHTML = '<span class="bm-tag-popup-title">Tags</span><button class="bm-tag-popup-close">✕</button>';
+    header.querySelector('.bm-tag-popup-close').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._closeTagPopup();
+    });
+    popup.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'bm-tag-popup-body';
+
+    const chipsRow = document.createElement('div');
+    chipsRow.className = 'bm-tag-popup-chips';
+    body.appendChild(chipsRow);
+
+    const inputRow = document.createElement('div');
+    inputRow.className = 'bm-tag-popup-input-row';
+    const prefix = document.createElement('span');
+    prefix.className = 'bm-tag-popup-prefix';
+    prefix.textContent = '#';
+    inputRow.appendChild(prefix);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'bm-tag-popup-input';
+    input.placeholder = 'add tag...';
+    input.maxLength = 30;
+    inputRow.appendChild(input);
+    body.appendChild(inputRow);
+
+    const suggContainer = document.createElement('div');
+    suggContainer.className = 'bm-tag-popup-suggestions';
+    body.appendChild(suggContainer);
+
+    popup.appendChild(body);
+    document.body.appendChild(popup);
+
+    const rowEl = anchorEl.closest('.bm-tag-row');
+    this._tagPopupState = { popup, rowEl, item, persistFn, type, input, chipsRow, suggContainer, existingTags: [...(item.tags || [])] };
+    this._renderPopupChips();
+    this._positionTagPopup(popup, anchorEl);
+
+    setTimeout(() => input.focus(), 50);
+
+    const normalize = (v) => v.trim().replace(/^#/, '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+
+    const persistAndRefresh = (tags) => {
+      item.tags = tags;
+      if (type === 'bookmark') {
+        this.bridge.state.updateBookmark(item.id, { tags });
+      } else {
+        this.bridge.state.updateHighlight(item.id, { tags });
+      }
+      this._refreshTagRow(rowEl, item, persistFn, type);
+      this._renderPopupChips();
+      this._renderPopupSuggestions('');
     };
 
-    const updateTags = (newTags) => {
-      const oldTags = [...(item.tags || [])];
-      item.tags = newTags;
-      persistFn(id, newTags);
-      this._updateTagCache(oldTags, newTags);
-      rebuildRow();
+    const addTag = (raw) => {
+      const val = normalize(raw);
+      if (!val) return;
+      const s = this._tagPopupState;
+      if (s.existingTags.includes(val)) return;
+      s.existingTags.push(val);
+      persistAndRefresh(s.existingTags);
+      input.value = '';
+      input.focus();
     };
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ',') {
         e.preventDefault();
-        const val = input.value.trim().replace(/^#/, '').toLowerCase().replace(/[^a-z0-9-]/g, '');
-        if (!val) return;
-        input.value = '';
-        const tags = [...(item.tags || [])];
-        if (tags.includes(val)) return;
-        tags.push(val);
-        updateTags(tags);
+        addTag(input.value);
+      } else if (e.key === 'Escape') {
+        this._closeTagPopup();
       }
     });
 
-    rowEl.addEventListener('click', (e) => {
-      const chip = e.target.closest('.bm-tag-chip');
-      if (!chip) return;
-      e.stopPropagation();
-      const tag = chip.dataset.tag;
-      if (!tag) return;
-      const nu = this.bridge.get('notes-ui');
-      if (nu) nu._openTagSearch(tag.toLowerCase());
+    input.addEventListener('input', () => {
+      this._renderPopupSuggestions(normalize(input.value));
     });
 
-    let longPressTimer = null;
-    rowEl.addEventListener('touchstart', (e) => {
-      const chip = e.target.closest('.bm-tag-chip');
-      if (!chip) return;
-      const tag = chip.dataset.tag;
-      if (!tag) return;
-      longPressTimer = setTimeout(() => {
-        longPressTimer = null;
-        e.preventDefault();
-        const t = e.changedTouches[0] || e.touches[0];
-        this._showTagChipMenu(chip, tag, item, updateTags, t.clientX, t.clientY);
-      }, 500);
-    }, { passive: false });
+    this._tagPopupAddTag = addTag;
+  }
 
-    rowEl.addEventListener('touchmove', () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-    }, { passive: true });
-
-    rowEl.addEventListener('touchend', () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-    }, { passive: true });
-
-    rowEl.addEventListener('contextmenu', (e) => {
-      const chip = e.target.closest('.bm-tag-chip');
-      if (!chip) return;
-      e.preventDefault();
-      const tag = chip.dataset.tag;
-      if (!tag) return;
-      this._showTagChipMenu(chip, tag, item, updateTags, e.clientX, e.clientY);
+  _renderPopupChips() {
+    const s = this._tagPopupState;
+    if (!s) return;
+    const tags = s.existingTags;
+    s.chipsRow.innerHTML = tags.map(t =>
+      `<span class="bm-tag-popup-chip"><span>#${t}</span><button class="bm-tag-popup-chip-remove" data-tag="${t}">✕</button></span>`
+    ).join('');
+    s.chipsRow.querySelectorAll('.bm-tag-popup-chip-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tag = btn.dataset.tag;
+        const idx = s.existingTags.indexOf(tag);
+        if (idx !== -1) {
+          s.existingTags.splice(idx, 1);
+          s.item.tags = s.existingTags;
+          if (s.type === 'bookmark') {
+            this.bridge.state.updateBookmark(s.item.id, { tags: s.existingTags });
+          } else {
+            this.bridge.state.updateHighlight(s.item.id, { tags: s.existingTags });
+          }
+          this._refreshTagRow(s.rowEl, s.item, s.persistFn, s.type);
+          this._renderPopupChips();
+          this._renderPopupSuggestions('');
+        }
+      });
     });
   }
 
-  _showTagChipMenu(chipEl, tag, item, updateTags, x, y) {
-    const existing = document.querySelector('.tag-context-menu');
-    if (existing) existing.remove();
+  _refreshTagRow(rowEl, item, persistFn, type) {
+    if (!rowEl) return;
+    const tags = item.tags || [];
+    const chips = tags.map(t => `<span class="note-tag-chip bm-tag-chip" data-tag="${t}">#${t}</span>`).join('');
+    rowEl.innerHTML = chips + `<button class="bm-tag-add-btn" title="Edit tags">+</button>`;
+    this._wireTagRow(rowEl, item, persistFn, type);
+  }
 
-    const menu = document.createElement('div');
-    menu.className = 'tag-context-menu';
-    menu.style.left = x + 'px';
-    menu.style.top = y + 'px';
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'tag-context-remove';
-    removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const tags = (item.tags || []).filter(t => t !== tag);
-      updateTags(tags);
-      menu.remove();
+  _renderPopupSuggestions(filter) {
+    const s = this._tagPopupState;
+    if (!s) return;
+    const cache = this.bridge.state._tagCountCache;
+    const container = s.suggContainer;
+    if (!cache) { container.innerHTML = ''; return; }
+    let tags = Object.keys(cache).sort((a, b) => a.localeCompare(b));
+    if (filter) {
+      const lower = filter.toLowerCase();
+      tags = tags.filter(t => t.toLowerCase().includes(lower));
+    }
+    tags = tags.filter(t => !s.existingTags.includes(t));
+    if (!tags.length) { container.innerHTML = ''; return; }
+    const maxSuggest = 10;
+    container.innerHTML = tags.slice(0, maxSuggest).map(t =>
+      `<button class="bm-tag-popup-suggestion" data-tag="${t}">#${t}</button>`
+    ).join('');
+    container.querySelectorAll('.bm-tag-popup-suggestion').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tag = btn.dataset.tag;
+        if (tag && this._tagPopupAddTag) this._tagPopupAddTag(tag);
+      });
     });
-    menu.appendChild(removeBtn);
+  }
 
-    document.body.appendChild(menu);
+  _positionTagPopup(popup, anchorEl) {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      popup.classList.add('bm-tag-popup-mobile');
+      const backdrop = document.createElement('div');
+      backdrop.className = 'bm-tag-popup-backdrop';
+      backdrop.addEventListener('click', () => this._closeTagPopup());
+      document.body.appendChild(backdrop);
+      if (this._tagPopupState) this._tagPopupState.backdrop = backdrop;
+    } else {
+      const rect = anchorEl.getBoundingClientRect();
+      const popupWidth = 260;
+      let left = rect.left + rect.width / 2 - popupWidth / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - popupWidth - 8));
+      const top = rect.bottom + 4;
+      popup.style.left = left + 'px';
+      popup.style.top = top + 'px';
+      popup.style.width = popupWidth + 'px';
+    }
+  }
 
-    let closeHandler = (e) => {
-      if (!menu.contains(e.target)) {
-        menu.remove();
-        document.removeEventListener('click', closeHandler);
-        document.removeEventListener('touchstart', closeHandler);
+  _closeTagPopup() {
+    if (this._tagPopupState) {
+      if (this._tagPopupState.backdrop) {
+        this._tagPopupState.backdrop.remove();
       }
-    };
-    setTimeout(() => {
-      document.addEventListener('click', closeHandler);
-      document.addEventListener('touchstart', closeHandler);
-    }, 0);
+      if (this._tagPopupState.popup.parentNode) {
+        this._tagPopupState.popup.parentNode.removeChild(this._tagPopupState.popup);
+      }
+      this._tagPopupState = null;
+      this._tagPopupAddTag = null;
+    }
   }
 
   _navigateToItem(item) {

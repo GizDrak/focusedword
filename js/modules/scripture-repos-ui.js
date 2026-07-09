@@ -421,15 +421,8 @@ window.ScriptureReposUI = class ScriptureReposUI {
     }
   }
 
-  refresh() {
-    this._renderAll();
-  }
-
   _escape(str) {
-    if (!str) return '';
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+    return window.HTMLEscape(str);
   }
 
   _formatSize(bytes) {

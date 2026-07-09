@@ -28,6 +28,7 @@ window.ViewManager = class ViewManager {
     document.body.classList.toggle('scroll-mode', !anyActive);
     document.body.classList.toggle('reading-mode', anyActive);
     document.body.classList.toggle('swipe-mode', !!flags.swipe);
+    document.body.classList.toggle('spotlight-mode', !!flags.spotlight);
     document.body.classList.toggle('speed-mode', !!flags.speed);
     document.body.classList.toggle('split-mode', !!flags.split);
     document.body.classList.toggle('split-portrait', !!flags.split && !!flags.splitPortrait);
@@ -65,7 +66,9 @@ window.ViewManager = class ViewManager {
       this._scrollRaf = null;
     }
 
-    const el = document.querySelector(`.verse-container[data-verse="${verseNum}"], .verse-container.active-verse`);
+    const el = verseNum != null
+      ? document.querySelector(`.verse-container[data-verse="${verseNum}"]`)
+      : document.querySelector('.verse-container.active-verse');
     if (!el) { this._instantScroll = false; return; }
 
     const content = document.getElementById('content');

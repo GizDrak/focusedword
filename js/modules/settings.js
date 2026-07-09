@@ -173,21 +173,6 @@ window.SettingsModule = class SettingsModule {
     }
   }
 
-  toggleSettings() {
-    this.settingsOpen = !this.settingsOpen;
-    document.getElementById('settings-panel').classList.toggle('open', this.settingsOpen);
-    document.getElementById('settings-overlay').classList.toggle('open', this.settingsOpen);
-    if (this.settingsOpen) {
-      const base = this.bridge.get('base-renderer');
-      if (base) {
-        this._cleanupFocus = base.trapFocus(document.getElementById('settings-panel'), document.querySelector('.tab-item[data-tab="bible"]'));
-      }
-    } else {
-      document.querySelectorAll('.section-header').forEach(h => h.setAttribute('aria-expanded', 'false'));
-      if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
-    }
-  }
-
   closeSettings() {
     this.settingsOpen = false;
     document.getElementById('settings-panel').classList.remove('open');
@@ -362,10 +347,7 @@ window.SettingsModule = class SettingsModule {
   }
 
   _escapeDebug(str) {
-    if (!str) return '';
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+    return window.HTMLEscape(str);
   }
 
   _syncBionicStrengthVisibility(enabled) {
@@ -533,14 +515,13 @@ window.SettingsModule = class SettingsModule {
 
     if (state.get(mode)) {
       state.batch({ swipeMode: false, spotlightMode: false, speedMode: false, splitMode: false });
+      if (mode === 'speedMode' && speed) speed.stop();
     } else {
       const modes = { swipeMode: false, spotlightMode: false, speedMode: false, splitMode: false };
       modes[mode] = true;
       state.batch(modes);
-      if (mode === 'speedMode' && speed) speed.stop();
     }
 
-    if (speed && !state.get('speedMode')) speed.stop();
     this.bridge.emit('render:refresh');
   }
 

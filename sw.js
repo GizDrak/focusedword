@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v39';
+const CACHE_NAME = 'focused-word-v43';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -9,7 +9,6 @@ const APP_SHELL = [
   '/js/core/config.js',
   '/js/utils/uuid.js',
   '/js/utils/html.js',
-  '/js/utils/idb-migration.js',
   '/js/utils/bionic.js',
   '/js/utils/markdown-parser.js',
   '/js/utils/tag-cache-utils.js',
@@ -35,6 +34,8 @@ const APP_SHELL = [
   '/js/modules/chapter-summary.js',
   '/js/modules/search.js',
   '/js/modules/navigation.js',
+  '/js/modules/typography.js',
+  '/js/modules/split-mode.js',
   '/js/modules/color-theme.js',
   '/js/modules/settings.js',
   '/js/modules/settings-sync-ui.js',
@@ -101,6 +102,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
   const path = url.pathname;
 

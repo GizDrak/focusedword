@@ -963,7 +963,7 @@ body.spotlight-mode #content {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  touch-action: none;
   scroll-behavior: smooth;
 }
 
@@ -1197,6 +1197,46 @@ body.paragraph-mode #content.spotlight-mode .token-section-heading {
   font-weight: 600;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+
+/* ========== Desktop Click Navigation Side Bars ========== */
+.desktop-chapter-bar {
+  display: none;
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 88px;
+  cursor: pointer;
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border-radius: 10px;
+  opacity: 0.65;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: opacity 0.2s ease, color 0.2s ease, background 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.desktop-chapter-bar:hover {
+  opacity: 1;
+  color: var(--accent-gold);
+  background: var(--bg-card);
+}
+.desktop-chapter-bar--prev { left: max(calc((100vw - 780px) / 2 - 52px), 8px); }
+.desktop-chapter-bar--next { right: max(calc((100vw - 780px) / 2 - 52px), 8px); }
+
+@media (any-hover: hover) and (any-pointer: fine) {
+  .desktop-chapter-bar {
+    display: flex;
+  }
+}
+
+body.speed-mode .desktop-chapter-bar,
+body.split-mode .desktop-chapter-bar {
+  display: none !important;
 }
 
 #content.slide-out-left {
@@ -1577,17 +1617,19 @@ body.paragraph-mode #content.spotlight-mode .token-section-heading {
 
 /* ========== Footnote Caller ========== */
 .footnote-caller {
-  font-size: var(--marker-font-size);
+  font-size: 0.85em;
   font-weight: 700;
   color: var(--marker-color);
   cursor: pointer;
-  vertical-align: super;
-  line-height: var(--marker-line-height);
-  white-space: nowrap;
-  text-indent: 0;
+  vertical-align: 0.1em;
+  line-height: 1;
+  display: inline-block;
   user-select: none;
   -webkit-user-select: none;
-  transition: color 0.15s;
+  padding: 0.15em 0.3em;
+  margin: -0.15em -0.2em;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
 }
 
 .footnote-caller:hover {
@@ -3092,16 +3134,38 @@ input[type="range"]::-moz-range-thumb {
   margin: 0.15rem 0;
 }
 
-/* ========== Verse Selection Underline (smooth curve) ========== */
-.verse-container.temp-selected .verse-text,
-.verse-container.temp-selected .token-text,
-.verse-container.temp-selected .poetry-line {
-  background-repeat: no-repeat;
-  background-position: left calc(100% + 2px);
-  background-size: 100% 14px;
+/* ========== Verse Selection Card (current) ========== */
+.verse-container.temp-selected {
+  background: color-mix(in srgb, var(--accent-gold) 12%, transparent);
+  box-shadow:
+    inset 3px 0 0 var(--accent-gold),
+    0 0 0 1px color-mix(in srgb, var(--accent-gold) 28%, transparent);
+}
+
+body.paragraph-mode .verse-container.temp-selected {
+  background: none;
+  box-shadow: none;
+}
+
+body.paragraph-mode .verse-container.temp-selected .verse-text {
+  background: color-mix(in srgb, var(--accent-gold) 16%, transparent);
+  border-radius: 0.2em;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
+
+/* ========== OLD: SVG Underline Selection ========== */
+/* Restore this block to revert to the wavy SVG underline style.
+   .verse-container.temp-selected .verse-text,
+   .verse-container.temp-selected .token-text,
+   .verse-container.temp-selected .poetry-line {
+     background-repeat: no-repeat;
+     background-position: left calc(100% + 2px);
+     background-size: 100% 14px;
+     box-decoration-break: clone;
+     -webkit-box-decoration-break: clone;
+   }
+*/
 
 /* ========== OLD: Verse Selection Sidebar Indicator ========== */
 /* Uncomment this block and comment out the rules above to
@@ -3560,22 +3624,174 @@ mark {
   background: color-mix(in srgb, var(--accent-gold) 10%, transparent);
 }
 
-.bm-tag-input {
-  flex: 0 1 60px;
-  min-width: 40px;
-  max-width: 80px;
-  border: none;
+.bm-tag-add-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  padding: 0 0.35rem;
+  line-height: 1.4;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.bm-tag-add-btn:hover {
+  color: var(--accent-gold);
+  border-color: var(--accent-gold);
+}
+
+/* Tag popup */
+.bm-tag-popup {
+  position: fixed;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 10000;
+  min-width: 240px;
+  max-width: 320px;
+  overflow: hidden;
+}
+
+.bm-tag-popup-mobile {
+  left: 8px !important;
+  right: 8px !important;
+  width: auto !important;
+  top: auto !important;
+  bottom: 8px !important;
+  max-width: none;
+}
+
+.bm-tag-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border);
+}
+
+.bm-tag-popup-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.bm-tag-popup-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.bm-tag-popup-close:hover {
+  background: var(--hover-bg, rgba(128,128,128,0.15));
+}
+
+.bm-tag-popup-body {
+  padding: 0.5rem 0.75rem;
+}
+
+.bm-tag-popup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+  min-height: 1.6rem;
+}
+
+.bm-tag-popup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  color: var(--accent-gold);
+  font-weight: 500;
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 35%, transparent);
+  background: color-mix(in srgb, var(--accent-gold) 8%, transparent);
+}
+
+.bm-tag-popup-chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.bm-tag-popup-chip-remove:hover {
+  opacity: 1;
+  color: #e54d4d;
+}
+
+.bm-tag-popup-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.4rem;
+}
+
+.bm-tag-popup-prefix {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  opacity: 0.6;
+  padding-bottom: 2px;
+}
+
+.bm-tag-popup-input {
+  flex: 1;
+  border: none;
   background: transparent;
   color: var(--text-primary);
-  font-size: 0.65rem;
-  padding: 0.05rem 0;
+  font-size: 16px;
+  padding: 0.3rem 0;
   outline: none;
 }
 
-.bm-tag-input::placeholder {
+.bm-tag-popup-input::placeholder {
   color: var(--text-muted);
   opacity: 0.6;
+}
+
+.bm-tag-popup-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.bm-tag-popup-suggestion {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bm-tag-popup-suggestion:hover {
+  background: color-mix(in srgb, var(--accent-gold) 12%, transparent);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.bm-tag-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 9999;
 }
 
 /* ========== Bookmark Set Badge ========== */
@@ -4155,19 +4371,15 @@ mark {
 .verse-text .crossref-indicator {
   font-size: 1em;
   font-weight: 700;
-  vertical-align: baseline;
-  position: relative;
-  top: -0.15em;
-  line-height: var(--marker-line-height);
-  display: inline-block;
+  vertical-align: -0.1em;
+  line-height: 1;
   color: var(--marker-color);
   cursor: pointer;
   opacity: 0.75;
   transition: opacity 0.15s, background 0.15s;
   user-select: none;
-  padding: 0.4em 0.5em;
-  margin: -0.4em -0.5em;
-  border-radius: 4px;
+  padding: 0.15em 0.3em;
+  border-radius: 3px;
 }
 
 .verse-text .crossref-indicator:hover {

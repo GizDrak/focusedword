@@ -113,19 +113,6 @@ window.BookMap = {
     return entry ? entry.name : '';
   },
 
-  getIds() {
-    this._build();
-    return Object.keys(this._idToCode).map(Number);
-  },
-
-  isOT(id) {
-    return id <= 39;
-  },
-
-  isNT(id) {
-    return id >= 40;
-  },
-
   normalizeName(name) {
     return name
       .replace(/^1\s+/, 'I ')

@@ -94,13 +94,26 @@ window.SpotlightRenderer = class SpotlightRenderer {
       this.base.updateFocusedVerse(verses[index]?.verse);
       newEl = document.querySelector(`.verse-container.focused`);
     } else {
-      document.querySelectorAll('.verse-container.focused').forEach(el => el.classList.remove('focused'));
-
+      // Deactivate old verse instantly (no CSS transition flash)
       const oldEl = document.querySelector('.verse-container.active-verse');
       if (oldEl) {
+        oldEl.style.transition = 'none';
         oldEl.classList.remove('active-verse');
         oldEl.classList.add('dimmed-verse');
       }
+      document.querySelectorAll('.verse-container.focused').forEach(el => {
+        el.style.transition = 'none';
+        el.classList.remove('focused');
+      });
+
+      // Force style flush so deactivation takes effect before activating new verse
+      void document.body.offsetHeight;
+
+      // Restore transitions on deactivated elements
+      if (oldEl) oldEl.style.transition = '';
+      document.querySelectorAll('.verse-container.dimmed-verse').forEach(el => {
+        el.style.transition = '';
+      });
 
       newEl = document.querySelector(`.verse-container[data-verse-index="${index}"]`);
       if (newEl) {
@@ -125,11 +138,6 @@ window.SpotlightRenderer = class SpotlightRenderer {
     }
   }
 
-  _isHeadingOnly(verse) {
-    if (!verse.tokens || !verse.tokens.length) return false;
-    return verse.tokens.every(t => t.type === 'section_heading');
-  }
-
   advance(verses, direction) {
     if (direction === 'next') {
       let next = this.currentVerseIndex;
@@ -140,7 +148,7 @@ window.SpotlightRenderer = class SpotlightRenderer {
           this.bridge.emit('nav:advance-chapter', { direction: 'next' });
           return;
         }
-      } while (this._isHeadingOnly(verses[next]));
+      } while (this.base._isHeadingOnly(verses[next]));
       this.currentVerseIndex = next;
       this.setActiveVerse(verses, this.currentVerseIndex);
     } else {
@@ -152,7 +160,7 @@ window.SpotlightRenderer = class SpotlightRenderer {
           this.bridge.emit('nav:advance-chapter', { direction: 'prev' });
           return;
         }
-      } while (this._isHeadingOnly(verses[prev]));
+      } while (this.base._isHeadingOnly(verses[prev]));
       this.currentVerseIndex = prev;
       this.setActiveVerse(verses, this.currentVerseIndex);
     }

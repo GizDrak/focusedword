@@ -1,4 +1,4 @@
-window.StateEditor = class StateEditor {
+﻿window.StateEditor = class StateEditor {
   constructor({ element, content = '', onUpdate, attributes = {} }) {
     this._markdownState = content;
     this._onUpdate = onUpdate;
@@ -6,7 +6,7 @@ window.StateEditor = class StateEditor {
     this._historyIndex = 0;
     this._lastCursorIndex = 0;
     this._container = element;
-    console.log('[StateEditor] constructor', { contentLength: content.length });
+    /* console.log('[StateEditor] constructor', { contentLength: content.length }); */
 
     for (const [k, v] of Object.entries(attributes)) {
       element.setAttribute(k, v);
@@ -79,7 +79,7 @@ window.StateEditor = class StateEditor {
 
   _parseToAST(markdownString) {
     if (!markdownString) {
-      console.log('[StateEditor] parseToAST empty');
+      /* console.log('[StateEditor] parseToAST empty'); */
       return { type: 'document', startIndex: 0, endIndex: 0, children: [
         { type: 'paragraph', startIndex: 0, endIndex: 0, children: [
           { type: 'text', value: '', startIndex: 0, endIndex: 0 }
@@ -231,7 +231,7 @@ window.StateEditor = class StateEditor {
 
     const docEnd = children.length ? children[children.length - 1].endIndex : 0;
     const result = { type: 'document', startIndex: 0, endIndex: docEnd, children };
-    console.log('[StateEditor] parseToAST done', { childCount: children.length, docEnd });
+    /* console.log('[StateEditor] parseToAST done', { childCount: children.length, docEnd }); */
     return result;
   }
 
@@ -346,7 +346,7 @@ window.StateEditor = class StateEditor {
   /* ---------- AST Renderer ---------- */
 
   _renderAST(ast) {
-    console.log('[StateEditor] renderAST', { childCount: ast.children.length });
+    /* console.log('[StateEditor] renderAST', { childCount: ast.children.length }); */
     this._posMap = [];
     const fragment = document.createDocumentFragment();
 
@@ -356,13 +356,13 @@ window.StateEditor = class StateEditor {
 
     this.previewElement.innerHTML = '';
     this.previewElement.appendChild(fragment);
-    console.log('[StateEditor] renderAST done', { innerHTML: this.previewElement.innerHTML.slice(0, 300) });
+    /* console.log('[StateEditor] renderAST done', { innerHTML: this.previewElement.innerHTML.slice(0, 300) }); */
   }
 
   /* ---------- Patch DOM Reconciler ---------- */
 
   _patchDOM(ast) {
-    console.log('[StateEditor] patchDOM', { oldBlocks: this.previewElement.childNodes.length, newBlocks: ast.children.length });
+    /* console.log('[StateEditor] patchDOM', { oldBlocks: this.previewElement.childNodes.length, newBlocks: ast.children.length }); */
     const newPosMap = [];
     const oldBlocks = Array.from(this.previewElement.childNodes);
     const newBlocks = ast.children;
@@ -390,7 +390,7 @@ window.StateEditor = class StateEditor {
     while (ni < newBlocks.length) this.previewElement.appendChild(this._createBlockDOM(newBlocks[ni++], newPosMap));
 
     this._posMap = newPosMap;
-    console.log('[StateEditor] patchDOM done', { innerHTML: this.previewElement.innerHTML.slice(0, 300), posMap: this._posMap.map(e => ({ nodeType: e.node.nodeType, tag: e.node.tagName, text: e.node.textContent?.slice(0, 15), mdStart: e.mdStart, mdEnd: e.mdEnd })) });
+    /* console.log('[StateEditor] patchDOM done', { innerHTML: this.previewElement.innerHTML.slice(0, 300), posMap: this._posMap.map(e => ({ nodeType: e.node.nodeType, tag: e.node.tagName, text: e.node.textContent?.slice(0, 15), mdStart: e.mdStart, mdEnd: e.mdEnd })) }); */
   }
 
   _patchBlock(newAst, oldDom, posMap) {
@@ -740,7 +740,7 @@ window.StateEditor = class StateEditor {
   _onBeforeInput(e) {
     const { inputType, data } = e;
     const cursorIdx = this._getCursorMarkdownIndex();
-    console.log('[StateEditor] beforeInput', { inputType, data, cursorIdx, mdLen: this._markdownState.length });
+    /* console.log('[StateEditor] beforeInput', { inputType, data, cursorIdx, mdLen: this._markdownState.length }); */
 
     if (inputType === 'insertText') {
       if (data === '\n' || data === '\r') {
@@ -825,17 +825,17 @@ window.StateEditor = class StateEditor {
   }
 
   _onInput(e) {
-    console.log('[StateEditor] input', { inputType: e.inputType, data: e.data });
+    /* console.log('[StateEditor] input', { inputType: e.inputType, data: e.data }); */
     this._markdownState = this.ghostLayer.textContent || '';
     this._commit(this._getCursorMarkdownIndex());
   }
 
   _commit(cursorState) {
     const newIndex = typeof cursorState === 'number' ? cursorState : (cursorState?.end ?? 0);
-    console.log('[StateEditor] commit', { cursorState, newIndex, mdLen: this._markdownState.length, mdState: this._markdownState });
+    /* console.log('[StateEditor] commit', { cursorState, newIndex, mdLen: this._markdownState.length, mdState: this._markdownState }); */
     const domText = this.previewElement.textContent;
     if (domText !== this._markdownState.replace(/\n/g, '')) {
-      console.log('[StateEditor] commit DIVERGENCE', { domText, mdText: this._markdownState.replace(/\n/g, '') });
+      /* console.log('[StateEditor] commit DIVERGENCE', { domText, mdText: this._markdownState.replace(/\n/g, '') }); */
     }
     const ast = this._parseToAST(this._markdownState);
     this._currentAST = ast;
@@ -939,12 +939,12 @@ window.StateEditor = class StateEditor {
   /* ---------- Public API ---------- */
 
   getContent() {
-    console.log('[StateEditor] getContent', { len: this._markdownState.length });
+    /* console.log('[StateEditor] getContent', { len: this._markdownState.length }); */
     return this._markdownState;
   }
 
   setContent(content) {
-    console.log('[StateEditor] setContent', { len: content?.length });
+    /* console.log('[StateEditor] setContent', { len: content?.length }); */
     this._markdownState = content || '';
     const ast = this._parseToAST(this._markdownState);
     this._currentAST = ast;
@@ -972,7 +972,7 @@ window.StateEditor = class StateEditor {
 
   undo() {
     if (this._historyIndex > 0) {
-      console.log('[StateEditor] undo', { from: this._markdownState, to: this._history[this._historyIndex - 1] });
+      /* console.log('[StateEditor] undo', { from: this._markdownState, to: this._history[this._historyIndex - 1] }); */
       this._historyIndex--;
       this._markdownState = this._history[this._historyIndex];
       const ast = this._parseToAST(this._markdownState);
@@ -986,7 +986,7 @@ window.StateEditor = class StateEditor {
 
   redo() {
     if (this._historyIndex < this._history.length - 1) {
-      console.log('[StateEditor] redo', { from: this._markdownState, to: this._history[this._historyIndex + 1] });
+      /* console.log('[StateEditor] redo', { from: this._markdownState, to: this._history[this._historyIndex + 1] }); */
       this._historyIndex++;
       this._markdownState = this._history[this._historyIndex];
       const ast = this._parseToAST(this._markdownState);
@@ -1045,7 +1045,7 @@ window.StateEditor = class StateEditor {
   insertHorizontalRule() {
     const cursorIdx = this._getCursorMarkdownIndex();
     const md = this._markdownState;
-    console.log('[StateEditor] insertHorizontalRule', { cursorIdx });
+    /* console.log('[StateEditor] insertHorizontalRule', { cursorIdx }); */
     this._markdownState = md.slice(0, cursorIdx) + '\n---\n\n' + md.slice(cursorIdx);
     this._commit(cursorIdx + 5);
   }
@@ -1054,7 +1054,7 @@ window.StateEditor = class StateEditor {
     const range = this._getSelectionMarkdownRange();
     const cursorIdx = range ? range.start : this._getCursorMarkdownIndex();
     const md = this._markdownState;
-    console.log('[StateEditor] clearFormatting', { cursorIdx, range });
+    /* console.log('[StateEditor] clearFormatting', { cursorIdx, range }); */
 
     let lineStart = cursorIdx;
     while (lineStart > 0 && md[lineStart - 1] !== '\n') lineStart--;
@@ -1084,7 +1084,7 @@ window.StateEditor = class StateEditor {
       const idx = this._getCursorMarkdownIndex();
       range = { start: idx, end: idx };
     }
-    console.log('[StateEditor] toggleFormat', { prefix, range });
+    /* console.log('[StateEditor] toggleFormat', { prefix, range }); */
 
     if (range.start === range.end) {
       const r = this._findWordRange(range.start);
@@ -1105,7 +1105,7 @@ window.StateEditor = class StateEditor {
     const len = prefix.length;
     const before = md.slice(Math.max(0, start - len), start);
     const after = md.slice(end, Math.min(md.length, end + len));
-    console.log('[StateEditor] toggleInline', { prefix, start, end, before, after });
+    /* console.log('[StateEditor] toggleInline', { prefix, start, end, before, after }); */
 
     if (before === prefix && after === prefix) {
       this._markdownState = md.slice(0, start - len) + md.slice(start, end) + md.slice(end + len);
@@ -1130,7 +1130,7 @@ window.StateEditor = class StateEditor {
   _toggleLinePrefix(prefix) {
     const range = this._getSelectionMarkdownRange() || { start: this._getCursorMarkdownIndex(), end: this._getCursorMarkdownIndex() };
     const md = this._markdownState;
-    console.log('[StateEditor] toggleLinePrefix', { prefix, range });
+    /* console.log('[StateEditor] toggleLinePrefix', { prefix, range }); */
 
     let lineStart = range.start;
     while (lineStart > 0 && md[lineStart - 1] !== '\n') lineStart--;

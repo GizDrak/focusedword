@@ -250,8 +250,11 @@ window.SplitMode = class SplitMode {
       const spotlight = this.bridge.get('renderer-spotlight');
       if (!verses?.length || !spotlight) return;
 
-      const rect = container.getBoundingClientRect();
-      const direction = e.clientX - rect.left < rect.width / 2 ? 'prev' : 'next';
+      const sRect = container.getBoundingClientRect();
+      const sRelX = e.clientX - sRect.left;
+      const sSide = Math.min(80, Math.max(56, window.innerWidth * 0.15));
+      if (sRelX >= sSide && sRelX <= sRect.width - sSide) return;
+      const direction = sRelX < sSide ? 'prev' : 'next';
 
       if (container._panelTimer) {
         clearTimeout(container._panelTimer);

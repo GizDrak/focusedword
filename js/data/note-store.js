@@ -75,14 +75,6 @@ window.NoteStore = class NoteStore {
     return this._state.notes.find(n => n.id === id && !n.deleted);
   }
 
-  getNotesByCategory(categoryId) {
-    return this._state.notes.filter(n => n.categoryId === categoryId && !n.deleted);
-  }
-
-  getNotesByTag(tag) {
-    return this._state.notes.filter(n => n.tags && n.tags.includes(tag) && !n.deleted);
-  }
-
   scheduleAutoSave(noteId, fieldUpdates, onSaved) {
     if (this._autoSaveTimers.has(noteId)) {
       clearTimeout(this._autoSaveTimers.get(noteId));

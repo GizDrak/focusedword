@@ -1,5 +1,44 @@
 # Changelog — Focused Word
 
+## v0.8.7
+
+### Spotlight Side-Zone Controls
+- **Strict side-zone tap/hold advance** — prev/next navigation only triggers in explicit left/right side strips (`clamp(56px, 15vw, 80px)`). Center zone never advances, even on verse text.
+- **Verse selection restricted to center zone** — `InteractionManager._isSideZone()` blocks enter/toggle selection in side strips; footnotes & crossrefs still work everywhere.
+- **Split-mode panel** now uses the same side-zone rule for spotlight clicks.
+- **Removed old `.verse-text`/`.verse-num` gutter guards** — side strips override verse content per strict-controls requirement.
+
+### iOS Focus Flash Fix
+- **`SpotlightRenderer.setActiveVerse`** — disables CSS transitions on the outgoing verse, force-flushes style (`void document.body.offsetHeight`), then restores transitions and activates the new verse. Prevents the iOS double-highlight where both old and new verses appeared active during the 0.4s transition.
+
+### Spotlight Blank-Area Tap Guard Refactor
+- Click & hold-to-advance now only fire on blank gutter/padding (not `.verse-text` or `.verse-num`), eliminating accidental navigation when tapping verse content.
+- Pointer-move cancellation (`>12px`) prevents long-press repeat from firing during drag/select.
+
+### Scroll-To-Verse Selector Fix
+- `ViewManager.scrollToVerse` now queries by `data-verse` only (when verse number is provided) instead of falling back to `.verse-container.active-verse` which could return a stale element during rapid advance.
+
+### Mode-Switch Verse Preservation
+- Fixed switching from spotlight/swipe/speed to scroll mode jumping to the wrong verse (e.g. verse 15 → 13). The scroll mode reading tracker was restarting before the programmatic `scrollToReadingBand` settled, causing passive overwrite of `currentVerse`.
+- `RenderManager._dispatch()` now stops the scroll switcher without restoring legacy scroll tracking during mode transition.
+- `RenderManager._finalize()` locks `currentVerse` with `verseManager.setIntentional()` before the programmatic scroll, preventing the tracker from overwriting it via `setPassive`.
+- `ScrollModeSwitcher.stop()` gained an `opts.restoreLegacyTracking` parameter (default `true`) so the renderer can opt out during mode switches.
+
+### Verse Selection Card Style
+- Replaced the wavy SVG underline with a clean selection card: tinted background, inset accent left rail, and subtle border — no DOM mutation, no text-node moves, no line-end layout shift.
+- SVG underline code preserved as `_addSvgUnderline` / `_removeSvgUnderline` / `_removeAllSvgUnderlines` helpers in JS and commented CSS block for easy revert.
+- Paragraph mode uses per-line cloned highlight via `box-decoration-break`.
+- Selection visual is now entirely CSS-driven via `.verse-container.temp-selected`.
+
+### Cross-reference & Footnote Marker Polish
+- **CrossRef indicators** now stay inline with poetry lines (appended to last `.poetry-line` instead of `.token-poetry`). Line breaks prevented via word joiner (`\u2060`) before the marker.
+- **CrossRef indicator sizing**: increased to `1em`, baseline alignment, compact tappable padding.
+- **Footnote caller sizing**: increased to `0.85em`, baseline alignment, `display: inline-block` with explicit tap target.
+- **Desktop Click Navigation**: removed user-facing toggle; feature now activates automatically on desktop/fine-pointer devices via `(any-hover: hover) and (any-pointer: fine)` media query.
+- **Desktop chapter bars**: converted from full-height absolute overlays inside `#content` to `position: fixed` floating pills centered vertically outside the reader column.
+- **Spotlight mode layout**: added missing `body.spotlight-mode` toggle so full-height layout and background texture extend correctly to the bottom nav bar.
+- **Spotlight mode gesture fix**: changed `body.spotlight-mode #content touch-action` from `pan-y` to `none` to restore swipe-to-advance.
+
 ## v0.8.6
 
 ### Scripture Repositories, BSB v3 & Sync Polish

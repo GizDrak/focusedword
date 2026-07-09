@@ -394,6 +394,7 @@ window.App = class App {
     this._setupClickEvents(bridge);
     this._setupWheelEvents(bridge);
     this._setupKeyboardEvents(bridge);
+    this._setupDesktopNav(bridge);
   }
 
   _setupPointerEvents(bridge) {
@@ -408,9 +409,32 @@ window.App = class App {
       }
 
       if (bridge.state.get('spotlightMode')) {
-        this._ptrHoldDir = e.clientX - e.currentTarget.getBoundingClientRect().left < e.currentTarget.getBoundingClientRect().width / 2 ? 'prev' : 'next';
+        if (e.target.closest('.footnote-caller') ||
+            e.target.closest('.crossref-indicator') ||
+            e.target.closest('.token-cross-ref') ||
+            e.target.closest('.token-section-heading-ref')) {
+          return;
+        }
+
+        const szRect = e.currentTarget.getBoundingClientRect();
+        const szRelX = e.clientX - szRect.left;
+        const szSide = Math.min(80, Math.max(56, window.innerWidth * 0.15));
+        if (szRelX >= szSide && szRelX <= szRect.width - szSide) return; // center zone, no hold
+
+        this._ptrHoldDir = szRelX < szSide ? 'prev' : 'next';
         this._ptrHeld = false;
         clearTimeout(this._ptrHoldTimer);
+
+        const moveGuard = (me) => {
+          if (Math.abs(me.clientX - _ptrStart.x) > 12 || Math.abs(me.clientY - _ptrStart.y) > 12) {
+            clearTimeout(this._ptrHoldTimer);
+            this._ptrHoldTimer = null;
+            content.removeEventListener('pointermove', moveGuard);
+          }
+        };
+        content.addEventListener('pointermove', moveGuard);
+        this._ptrMoveCancel = () => content.removeEventListener('pointermove', moveGuard);
+
         this._ptrHoldTimer = setTimeout(() => {
           this._ptrHoldTimer = null;
           this._ptrHeld = true;
@@ -447,6 +471,7 @@ window.App = class App {
       }
       if (this._ptrHoldTimer) { clearTimeout(this._ptrHoldTimer); this._ptrHoldTimer = null; }
       if (this._ptrHoldTimeout) { clearTimeout(this._ptrHoldTimeout); this._ptrHoldTimeout = null; }
+      if (this._ptrMoveCancel) { this._ptrMoveCancel(); this._ptrMoveCancel = null; }
       content.style.webkitUserSelect = '';
       content.style.userSelect = '';
       this._ptrHeld = false;
@@ -459,6 +484,10 @@ window.App = class App {
       const absDx = Math.abs(dx);
       const absDy = Math.abs(dy);
       _ptrStart = null;
+
+      if (window.getSelection() && !window.getSelection().isCollapsed) return;
+
+      if (window.matchMedia('(any-hover: hover) and (any-pointer: fine)').matches) return;
 
       const nav = bridge.get('navigation');
       if (!nav) return;
@@ -514,6 +543,7 @@ window.App = class App {
     content.addEventListener('pointercancel', () => {
       if (this._ptrHoldTimer) { clearTimeout(this._ptrHoldTimer); this._ptrHoldTimer = null; }
       if (this._ptrHoldTimeout) { clearTimeout(this._ptrHoldTimeout); this._ptrHoldTimeout = null; }
+      if (this._ptrMoveCancel) { this._ptrMoveCancel(); this._ptrMoveCancel = null; }
       content.style.webkitUserSelect = '';
       content.style.userSelect = '';
       this._ptrHeld = false;
@@ -526,6 +556,7 @@ window.App = class App {
       if (this._ptrHeld || this._ptrHoldTimer || this._ptrHoldTimeout) {
         if (this._ptrHoldTimer) { clearTimeout(this._ptrHoldTimer); this._ptrHoldTimer = null; }
         if (this._ptrHoldTimeout) { clearTimeout(this._ptrHoldTimeout); this._ptrHoldTimeout = null; }
+        if (this._ptrMoveCancel) { this._ptrMoveCancel(); this._ptrMoveCancel = null; }
         content.style.webkitUserSelect = '';
         content.style.userSelect = '';
         this._ptrHeld = false;
@@ -574,8 +605,21 @@ window.App = class App {
           return;
         }
 
+        if (e.target.closest('.footnote-caller') ||
+            e.target.closest('.crossref-indicator') ||
+            e.target.closest('.token-cross-ref') ||
+            e.target.closest('.token-section-heading-ref')) {
+          return;
+        }
+
         const hlToolbar = document.getElementById('highlight-toolbar');
         if (hlToolbar && !hlToolbar.classList.contains('hidden')) return;
+
+        const cRect = e.currentTarget.getBoundingClientRect();
+        const cRelX = e.clientX - cRect.left;
+        const cSide = Math.min(80, Math.max(56, window.innerWidth * 0.15));
+        if (cRelX >= cSide && cRelX <= cRect.width - cSide) return;
+        const direction = cRelX < cSide ? 'prev' : 'next';
 
         if (clickTimer) {
           clearTimeout(clickTimer);
@@ -585,14 +629,22 @@ window.App = class App {
 
         const spotlight = bridge.get('renderer-spotlight');
         if (!spotlight) return;
-        const rect = e.currentTarget.getBoundingClientRect();
-        const direction = e.clientX - rect.left < rect.width / 2 ? 'prev' : 'next';
         clickTimer = setTimeout(() => {
           clickTimer = null;
           spotlight.advance(verses, direction);
         }, 200);
       }
     });
+  }
+
+  _setupDesktopNav(bridge) {
+    var prev = document.getElementById('desktop-prev-chapter');
+    var next = document.getElementById('desktop-next-chapter');
+    if (!prev || !next) return;
+    var nav = bridge.get('navigation');
+    if (!nav) return;
+    prev.addEventListener('click', function () { nav.loadPrevChapter(); });
+    next.addEventListener('click', function () { nav.loadNextChapter(); });
   }
 
   _setupWheelEvents(bridge) {
