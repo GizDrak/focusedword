@@ -1744,16 +1744,16 @@ html.ios-device {
 }
 
 html.ios-device .verse-progress {
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
 }
 
-html.ios-device .verse-progress::after {
+html.ios-device .verse-progress::before {
   content: '';
   position: absolute;
-  top: -6px;
+  bottom: 100%;
   left: 0;
   right: 0;
-  height: 6px;
+  height: 4px;
   background: var(--accent-gold);
 }
 
