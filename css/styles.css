@@ -4965,15 +4965,16 @@ body.focus-mode .focus-exit-btn:hover {
     height: calc(100dvh - 68px - var(--app-bottom-safe-area));
   }
 
-  /* iOS: shift fixed nav down into the home-indicator safe area */
+  /* iOS: extend nav height into the safe area (keeps tabs in the visible zone) */
   html.ios-device #bottom-nav {
-    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-    overflow: visible;
+    box-sizing: border-box;
+    height: calc(68px + var(--app-bottom-safe-area));
+    padding-bottom: var(--app-bottom-safe-area);
   }
   html.ios-device body.scroll-mode main,
   html.ios-device body.spotlight-mode main,
   html.ios-device body.split-mode main {
-    height: calc(100dvh - 68px + env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 68px - var(--app-bottom-safe-area));
   }
 
   html:not(.ios-device) .verse-progress {
@@ -6818,13 +6819,15 @@ body.focus-mode .changelog-overlay {
     padding: 1.25rem 1rem;
   }
 
-  /* iOS landscape: shift nav into home-indicator zone */
+  /* iOS landscape: extend nav height into safe area */
   html.ios-device #bottom-nav {
-    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+    height: calc(48px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   html.ios-device body.scroll-mode main,
   html.ios-device body.spotlight-mode main {
-    height: calc(100dvh - 48px + env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 48px - env(safe-area-inset-bottom, 0px));
   }
 
   #content.speed-mode {
