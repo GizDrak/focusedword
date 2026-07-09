@@ -4724,6 +4724,7 @@ body.focus-mode .focus-exit-btn:hover {
   }
 
   #bottom-nav {
+    box-sizing: border-box;
     height: calc(68px + var(--app-bottom-safe-area));
     padding-bottom: var(--app-bottom-safe-area);
   }
