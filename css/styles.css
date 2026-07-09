@@ -1741,11 +1741,13 @@ body[data-translation="bsb"] .token-poetry.q1 .poetry-line {
 
 html.ios-device {
   --ios-safe-area-top: env(safe-area-inset-top, 0px);
+  --ios-progress-overlap: 4px;
+  --ios-progress-top: max(0px, calc(var(--ios-safe-area-top) - var(--ios-progress-overlap)));
   --ios-spotlight-mask-height: max(50px, var(--ios-safe-area-top));
 }
 
 html.ios-device .verse-progress {
-  top: var(--ios-safe-area-top);
+  top: var(--ios-progress-top);
 }
 
 html.ios-device #content.spotlight-mode::before {
