@@ -76,7 +76,8 @@ window.TokenRenderer = class TokenRenderer {
       }
     };
 
-    for (const token of tokens) {
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
       switch (token.type) {
         case 'paragraph_start': this._renderParagraphStart(token, ctx); break;
         case 'poetry_start':    this._renderPoetryStart(token, ctx); break;
@@ -85,7 +86,7 @@ window.TokenRenderer = class TokenRenderer {
         case 'text':            this._renderText(token, ctx); break;
         case 'style_start':     this._renderStyleStart(token, ctx); break;
         case 'style_end':       this._renderStyleEnd(token, ctx); break;
-        case 'footnote':        this._renderFootnote(token, ctx); break;
+        case 'footnote':        this._renderFootnote(token, ctx, tokens, i); break;
         case 'cross_ref':       this._renderCrossRef(token, ctx); break;
       }
     }
@@ -222,6 +223,14 @@ window.TokenRenderer = class TokenRenderer {
           'beforeend',
           ctx.applyBionic(MarkdownParser.parse(' ' + rest))
         );
+      } else {
+        const trimmed = formatted.trimStart();
+        if (trimmed.length > firstWord.length) {
+          ctx.currentBlock.insertAdjacentHTML(
+            'beforeend',
+            ctx.applyBionic(MarkdownParser.parse(trimmed.substring(firstWord.length)))
+          );
+        }
       }
       return;
     }
@@ -262,9 +271,26 @@ window.TokenRenderer = class TokenRenderer {
     if (entry.el && !entry.el.hasChildNodes()) entry.el.remove();
   }
 
-  _renderFootnote(token, ctx) {
+  _renderFootnote(token, ctx, tokens, index) {
     if (!ctx.settings.footnotes) {
       ctx.lastHeadingEl = null;
+      if (ctx.verseText.textContent.length > 0) {
+        const last = ctx.verseText.textContent[ctx.verseText.textContent.length - 1];
+        if (last !== ' ' && last !== '\u00A0') {
+          let nextText = null;
+          for (let j = index + 1; j < tokens.length; j++) {
+            if (tokens[j].type === 'text' && tokens[j].text) {
+              nextText = tokens[j].text;
+              break;
+            }
+            if (['paragraph_start', 'poetry_start', 'section_heading'].includes(tokens[j].type)) break;
+          }
+          if (nextText && !nextText.startsWith(' ') &&
+              !'.,;:!?)]}\u2019\u201d'.includes(nextText[0])) {
+            (ctx.currentBlock || ctx.verseText).appendChild(document.createTextNode(' '));
+          }
+        }
+      }
       return;
     }
     ctx.lastHeadingEl = null;

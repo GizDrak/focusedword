@@ -1,5 +1,28 @@
 # What's New in Focused Word
 
+## v0.8.8 — Split Mode Upgraded, Smarter Selections
+
+Split mode gets some serious love in this release — the right panel can now do everything the main panel can.
+
+### 📐 Split Mode: Right Panel is Now Full-Featured
+The right/bottom panel in Split mode is no longer a read-only reference pane. You can now tap verses to select them, long-press to select a range, and copy the text with the right panel translation name included. Cross-reference markers also appear in the right panel now — tap any † to explore related verses.
+
+Switching from split mode to speed reading or swipe reading works immediately, and the panel divider is thicker so you can see the split clearly.
+
+### 📝 Notes: Full Text Selected
+When you tap "Add Note" from the selection toolbar, all selected verse text is now included — no more notes cut off at 500 characters.
+
+### 📋 Copy Uses Clean Abbreviations
+Whether you use a repository-installed Bible or a bundled one, the abbreviation in copied citations will be the clean user-facing name (like `NASB1995`) instead of the internal database id (`NASB1995_v1`).
+
+### 👆 Verse Range Selection with Long-Press
+Enter verse selection mode by tapping a verse, then long-press another verse to select everything in between. Great for highlighting or copying a passage in one step. This works in both the main and split panels.
+
+### 📱 iOS Long-Press Fix
+Native iOS text selection no longer interferes when long-pressing during verse selection mode.
+
+---
+
 ## v0.8.7 — Smarter Spotlight, Smoother Scrolling
 
 This update focuses on making Spotlight mode more intuitive and fixing several interaction quirks.

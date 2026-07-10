@@ -284,6 +284,11 @@ window.App = class App {
       if (!item) return;
       const action = item.dataset.action;
 
+      if (bridge.state.get('splitMode') && action !== 'split') {
+        const sm = bridge.get('split-mode');
+        if (sm) sm.prepareExternalModeSwitch();
+      }
+
       if (action === 'scroll') {
         bridge.state.batch({ swipeMode: false, spotlightMode: false, speedMode: false, splitMode: false });
         requestAnimationFrame(() => bridge.emit('render:refresh'));

@@ -426,7 +426,7 @@ window.ScriptureRepositoryService = class ScriptureRepositoryService {
 
   _abbrevFromId(id) {
     if (!id) return '';
-    return id.replace(/_\d*$/i, '').toUpperCase();
+    return id.replace(/_(?:v)?\d+$/i, '').toUpperCase();
   }
 
   _displayName(t) {

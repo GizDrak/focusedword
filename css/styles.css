@@ -4396,6 +4396,13 @@ mark {
   background: var(--accent-glow);
 }
 
+body.selection-mode #content .verse-container,
+body.selection-mode #content .verse-container * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
 body.selection-mode .crossref-indicator,
 body.selection-mode .footnote-caller,
 body.selection-mode .token-section-heading-ref {
@@ -6928,7 +6935,7 @@ body.focus-mode .changelog-overlay {
     flex-direction: column;
     height: 100%;
     background: var(--bg);
-    border-left: 1px solid var(--border);
+    border-left: 4px solid var(--border);
     padding-top: 44px;
   }
 
@@ -7043,7 +7050,7 @@ body.focus-mode .changelog-overlay {
     max-width: 100%;
     height: 50%;
     border-left: none;
-    border-top: 1px solid var(--border);
+    border-top: 4px solid var(--border);
     padding-top: 0;
   }
 

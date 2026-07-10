@@ -9,19 +9,46 @@ window.InteractionManager = class InteractionManager {
     this._tempSelection = null;
     this._multiVerseRange = null;
     this._selectionCreatedTime = 0;
+    this._selectionAnchor = null;
+    this._selectionRoot = null;
+    this._longPressTimer = null;
+    this._longPressHandled = false;
+    this._longPressTarget = null;
+    this._longPressMoveCancel = null;
     this.init();
   }
 
   init() {
     document.addEventListener('contextmenu', (e) => {
+      if (this.selectionMode) {
+        e.preventDefault();
+        return;
+      }
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed && sel.toString().trim()) return;
       e.preventDefault();
     });
 
-    const content = document.getElementById('content');
-    content.addEventListener('pointerdown', (e) => this._onPointerDown(e));
-    content.addEventListener('pointerup', (e) => this._onPointerUp(e));
+    const selectionContainers = ['content', 'panel-right-body']
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+
+    for (const container of selectionContainers) {
+      container.addEventListener('pointerdown', (e) => this._onPointerDown(e));
+      container.addEventListener('pointerup', (e) => this._onPointerUp(e));
+      container.addEventListener('selectstart', (e) => {
+        if (this.selectionMode) e.preventDefault();
+      });
+    }
+
+    document.addEventListener('selectionchange', () => {
+      if (this.selectionMode) {
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.rangeCount) {
+          sel.removeAllRanges();
+        }
+      }
+    });
 
     this.bridge.on('nav:chapter-loaded', () => this.clearSelection());
 
@@ -44,7 +71,52 @@ window.InteractionManager = class InteractionManager {
 
     if (e.target.closest('.highlight-toolbar')) return;
 
-    if (this.selectionMode) return;
+    if (this.selectionMode) {
+      const vc = e.target.closest('.verse-container');
+      if (!vc) return;
+      if (e.target.closest('.footnote-caller') ||
+          e.target.closest('.crossref-indicator') ||
+          e.target.closest('.token-cross-ref') ||
+          e.target.closest('.token-section-heading-ref')) {
+        return;
+      }
+      if (this._isSideZone(e)) return;
+      if (!e.target.closest('.verse-text') && !e.target.closest('.verse-num')) return;
+
+      this._clearLongPressTimer();
+      this._longPressTarget = vc;
+      this._longPressHandled = false;
+      e.preventDefault();
+
+      const sel = window.getSelection();
+      if (sel) sel.removeAllRanges();
+
+      const root = e.currentTarget;
+      root.style.webkitUserSelect = 'none';
+      root.style.userSelect = 'none';
+
+      const onMove = (me) => {
+        const dx = Math.abs(me.clientX - this._pointerStartX);
+        const dy = Math.abs(me.clientY - this._pointerStartY);
+        if (dx > 10 || dy > 10) this._clearLongPressTimer();
+      };
+      root.addEventListener('pointermove', onMove);
+      this._longPressMoveCancel = () => root.removeEventListener('pointermove', onMove);
+
+      this._longPressTimer = setTimeout(() => {
+        this._longPressTimer = null;
+        this._longPressHandled = true;
+        if (this._longPressMoveCancel) {
+          this._longPressMoveCancel();
+          this._longPressMoveCancel = null;
+        }
+        if (this._selectionAnchor && this._longPressTarget) {
+          this._performRangeSelection(this._longPressTarget);
+        }
+        this._longPressTarget = null;
+      }, 500);
+      return;
+    }
 
     if (this._multiVerseRange) {
       if (Date.now() - this._selectionCreatedTime < 150) return;
@@ -62,7 +134,7 @@ window.InteractionManager = class InteractionManager {
 
   _isSideZone(e) {
     if (!this.bridge.state?.get('spotlightMode')) return false;
-    const el = document.getElementById('content');
+    const el = this._selectionRoot || e.currentTarget || document.getElementById('content');
     const r = el.getBoundingClientRect();
     const side = Math.min(80, Math.max(56, window.innerWidth * 0.15));
     const relX = e.clientX - r.left;
@@ -74,6 +146,12 @@ window.InteractionManager = class InteractionManager {
     const dy = Math.abs(e.clientY - this._pointerStartY);
 
     if (this.selectionMode) {
+      if (this._longPressHandled) {
+        this._longPressHandled = false;
+        this._clearLongPressTimer();
+        return;
+      }
+      this._clearLongPressTimer();
       const verseContainer = e.target.closest('.verse-container');
       if (verseContainer && dx < 10 && dy < 10) {
         if (e.target.closest('.footnote-caller') ||
@@ -200,10 +278,13 @@ window.InteractionManager = class InteractionManager {
     if (this.selectionMode) return;
     this.selectionMode = true;
     document.body.classList.add('selection-mode');
-    document.getElementById('content').classList.add('verse-selecting');
+    const root = verseContainer.closest('#content, #panel-right-body') || document.getElementById('content');
+    root.classList.add('verse-selecting');
+    this._selectionRoot = root;
     this.selectedVerses.add(verseContainer);
     verseContainer.classList.add('temp-selected');
     this._addSelectionStyle(verseContainer);
+    this._selectionAnchor = verseContainer;
     this._emitVerseSelection();
   }
 
@@ -237,11 +318,20 @@ window.InteractionManager = class InteractionManager {
       .filter(Boolean)
       .join(' ');
 
+    const firstContainer = this.selectedVerses.values().next().value;
+    const inRightPanel = firstContainer && firstContainer.closest('#panel-right-body');
+    let translationId;
+    if (inRightPanel) {
+      const splitMode = this.bridge.get('split-mode');
+      if (splitMode) translationId = splitMode._rightTranslation;
+    }
+
     this.bridge.emit('selection:active', {
       mode: 'verse',
       text,
       rect,
-      verses: Array.from(this.selectedVerses)
+      verses: Array.from(this.selectedVerses),
+      translationId
     });
   }
 
@@ -311,6 +401,44 @@ window.InteractionManager = class InteractionManager {
   _removeSelectionStyle(verseContainer) {}
   _removeAllSelectionStyles() {}
 
+  _clearLongPressTimer() {
+    if (this._longPressTimer) {
+      clearTimeout(this._longPressTimer);
+      this._longPressTimer = null;
+    }
+    if (this._longPressMoveCancel) {
+      this._longPressMoveCancel();
+      this._longPressMoveCancel = null;
+    }
+    const root = this._selectionRoot || document.getElementById('content');
+    if (root) {
+      root.style.webkitUserSelect = '';
+      root.style.userSelect = '';
+    }
+    this._longPressTarget = null;
+  }
+
+  _performRangeSelection(targetContainer) {
+    const root = this._selectionRoot || document.getElementById('content');
+    const allContainers = Array.from(root.querySelectorAll('.verse-container[data-verse]'));
+    const anchorIdx = allContainers.indexOf(this._selectionAnchor);
+    const targetIdx = allContainers.indexOf(targetContainer);
+    if (anchorIdx === -1 || targetIdx === -1) return;
+
+    const start = Math.min(anchorIdx, targetIdx);
+    const end = Math.max(anchorIdx, targetIdx);
+    const toSelect = allContainers.slice(start, end + 1);
+
+    for (const container of toSelect) {
+      if (!this.selectedVerses.has(container)) {
+        this.selectedVerses.add(container);
+        container.classList.add('temp-selected');
+        this._addSelectionStyle(container);
+      }
+    }
+    this._emitVerseSelection();
+  }
+
   _dismissWordSelection() {
     this._multiVerseRange = null;
     if (this._tempSelection) {
@@ -329,12 +457,18 @@ window.InteractionManager = class InteractionManager {
   clearSelection() {
     this.selectionMode = false;
     document.body.classList.remove('selection-mode');
-    const content = document.getElementById('content');
-    if (content) content.classList.remove('verse-selecting');
+    ['content', 'panel-right-body'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('verse-selecting');
+    });
     this._removeAllSelectionStyles();
     this.selectedVerses.forEach(v => v.classList.remove('temp-selected'));
     this.selectedVerses.clear();
     this._dismissWordSelection();
+    this._selectionAnchor = null;
+    this._selectionRoot = null;
+    this._clearLongPressTimer();
+    this._longPressHandled = false;
   }
 
   clearTempSelection() {

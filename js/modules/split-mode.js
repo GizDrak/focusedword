@@ -4,7 +4,9 @@ window.SplitMode = class SplitMode {
     this._active = false;
     this._rightTranslation = null;
     this._savedModes = null;
+    this._externalModeSwitch = false;
     this._verseUnsub = null;
+    this._refreshUnsub = null;
     this._boundDocClick = null;
     this._bodyObserver = null;
   }
@@ -49,22 +51,22 @@ window.SplitMode = class SplitMode {
           dd.appendChild(item);
         });
       });
-
-      const alt = manifest.find(t => (t.id || t.name) !== this.bridge.state.get('currentTranslation'));
-      this._rightTranslation = alt ? (alt.id || alt.name) : this.bridge.state.get('currentTranslation');
     }
 
     const currentTrans = this.bridge.state.get('currentTranslation');
     this._setBtnAbbr(this._els.leftTransBtn, currentTrans);
+    this._rightTranslation = this._resolveRightTranslation(currentTrans);
     this._setBtnAbbr(this._els.rightTransBtn, this._rightTranslation || currentTrans);
-    if (!this._rightTranslation) this._rightTranslation = currentTrans;
   }
 
   _setBtnAbbr(btn, id) {
     if (!btn) return;
     const manifest = this.bridge.translationManifest || [];
     const entry = manifest.find(t => (t.id || t.name) === id);
-    btn.textContent = entry ? (entry.id || '').substring(0, 3) : (id || '').substring(0, 3);
+    const label = entry ? (entry.shortname || entry.abbreviation || entry.id) : (id || '');
+    const short = label.substring(0, 6);
+    btn.textContent = short;
+    btn.title = label;
   }
 
   _bindEvents() {
@@ -123,6 +125,28 @@ window.SplitMode = class SplitMode {
       if (!this._active || !verse) return;
       this._syncBothPanels(verse);
     });
+
+    this._refreshUnsub = this.bridge.on('render:refresh', () => {
+      if (!this._active) return;
+      this._refreshRight().then(() => {
+        const verse = this.bridge.state.get('currentVerse');
+        if (verse) this._syncBothPanels(verse);
+      });
+    });
+  }
+
+  _resolveRightTranslation(currentTrans) {
+    const manifest = this.bridge.translationManifest || [];
+
+    const saved = localStorage.getItem('focused-word:split-right-translation');
+    if (saved && manifest.some(t => (t.id || t.name) === saved)) return saved;
+
+    if (this._rightTranslation && manifest.some(t => (t.id || t.name) === this._rightTranslation)) {
+      return this._rightTranslation;
+    }
+
+    const alt = manifest.find(t => (t.id || t.name) !== currentTrans);
+    return alt ? (alt.id || alt.name) : currentTrans;
   }
 
   _syncLeftTransSelect() {
@@ -144,20 +168,10 @@ window.SplitMode = class SplitMode {
   async _onActivate() {
     const state = this.bridge.state;
     const currentTrans = state.get('currentTranslation');
-    const manifest = this.bridge.translationManifest || [];
 
     this._setBtnAbbr(this._els.leftTransBtn, currentTrans);
-
-    const alt = manifest.find(t => (t.id || t.name) !== currentTrans);
-    this._rightTranslation = alt ? (alt.id || alt.name) : currentTrans;
+    this._rightTranslation = this._resolveRightTranslation(currentTrans);
     this._setBtnAbbr(this._els.rightTransBtn, this._rightTranslation);
-
-    // Restore the last-used right-panel translation, if available
-    const savedRight = localStorage.getItem('focused-word:split-right-translation');
-    if (savedRight && manifest.some(t => (t.id || t.name) === savedRight)) {
-      this._rightTranslation = savedRight;
-      this._setBtnAbbr(this._els.rightTransBtn, this._rightTranslation);
-    }
 
     // Save current reading mode to restore on exit
     this._savedModes = {
@@ -166,11 +180,14 @@ window.SplitMode = class SplitMode {
       speedMode: state.get('speedMode')
     };
 
-    // Switch left panel to spotlight mode via the main render pipeline
-    state.set('spotlightMode', true);
-
-    // Detect device orientation for portrait (top/bottom) vs landscape (left/right) layout
-    state.set('splitPortrait', window.innerHeight > window.innerWidth);
+    // Force spotlight navigation for split; clear swipe/speed so they don't
+    // block the render pipeline
+    state.batch({
+      swipeMode: false,
+      speedMode: false,
+      spotlightMode: true,
+      splitPortrait: window.innerHeight > window.innerWidth
+    });
 
     // Re-render left panel with SpotlightRenderer
     this.bridge.emit('render:refresh');
@@ -183,15 +200,26 @@ window.SplitMode = class SplitMode {
     if (verse) this._syncBothPanels(verse);
   }
 
+  /** Call before switching to speed/swipe/scroll so deactivate does not override the new mode. */
+  prepareExternalModeSwitch() {
+    this._externalModeSwitch = true;
+  }
+
   _onDeactivate() {
     this._teardownPanelEvents(this._els.panelBody);
     this._teardownRightPanelPointerEvents();
     this._els.panelBody.innerHTML = '';
     this._unlistenOrientation();
 
-    // Restore the reading mode that was active before split
-    if (this._savedModes) {
-      const state = this.bridge.state;
+    const state = this.bridge.state;
+
+    if (this._externalModeSwitch) {
+      // User explicitly chose another mode — don't restore saved modes
+      this._externalModeSwitch = false;
+      this._savedModes = null;
+      state.set('splitPortrait', false);
+    } else if (this._savedModes) {
+      // Tapping Split off — restore the reading mode that was active before split
       state.batch({
         spotlightMode: this._savedModes.spotlightMode,
         swipeMode: this._savedModes.swipeMode,
@@ -200,12 +228,11 @@ window.SplitMode = class SplitMode {
       });
       this._savedModes = null;
     } else {
-      this.bridge.state.set('splitPortrait', false);
+      state.set('splitPortrait', false);
     }
 
-    // Re-render left panel with the restored mode
+    // Re-render left panel with the restored/new mode
     this.bridge.emit('render:refresh');
-
   }
 
   _listenOrientation() {
@@ -450,6 +477,18 @@ window.SplitMode = class SplitMode {
     const strength = state.get('bionicStrength');
 
     const frag = base.renderTokenChapter(verses, bionic, strength);
+
+    // Inject cross-reference indicators if enabled
+    if (state.get('crossRefs')) {
+      base._currentBookId = bookId;
+      base._currentChapter = chapter;
+      const cr = this.bridge.get('cross-references');
+      if (cr && cr.enabled) {
+        const bulkRefs = cr.getRefsBulk(bookId, chapter) || {};
+        base._addCrossRefIndicators(frag, bulkRefs);
+      }
+    }
+
     body.appendChild(frag);
 
     // Apply initial spotlight classes (all dimmed except current verse)
@@ -509,6 +548,10 @@ window.SplitMode = class SplitMode {
     if (this._verseUnsub) {
       this._verseUnsub();
       this._verseUnsub = null;
+    }
+    if (this._refreshUnsub) {
+      this._refreshUnsub();
+      this._refreshUnsub = null;
     }
     if (this._boundDocClick) {
       document.removeEventListener('click', this._boundDocClick);

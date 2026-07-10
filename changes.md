@@ -1,6 +1,34 @@
 # Changelog — Focused Word
 
+## v0.8.8
+
+### Split Mode Overhaul
+- **Right panel now supports verse selection** — tap, toggle, and long-press range selection all work in the right/bottom split panel alongside the main panel.
+- **Copy from right panel** uses the right panel translation abbreviation (e.g. selecting verses from NASB1995 copies `… NASB1995` instead of the left panel's abbreviation).
+- **Right panel cross-reference markers** — crossref † icons now appear and are clickable in the right/bottom panel.
+- **Split opens from any mode** — you can now enter split mode from speed or swipe reading modes; the active mode is restored on exit.
+- **Switching to speed/swipe from split** works immediately instead of reverting to the previously saved mode.
+- **Wider panel divider** — the split panel border increased from 1px to 4px for a clearer visual separation.
+- **Right translation selector persistence** — the right panel abbreviation no longer randomly reverts to a different translation when the manifest is rebuilt.
+- **Selector buttons show full abbreviation** — `NASB1995` instead of `NAS`.
+
+### Notes Fix
+- **Add Note no longer truncates** — notes created from verse selections include all selected text instead of being cut off at 500 characters.
+
+### Copy Text Citation Fix
+- **Copy uses translation abbreviation** — the citation appended to copied verses now uses the user-facing abbreviation (e.g. `NASB1995`) instead of the internal database id (e.g. `NASB1995_v1`).
+
+### iOS Native Selection Suppression
+- **Long-press in verse selection mode** — after entering selection mode (tap a verse), long-pressing another verse selects all verses between the anchor and the long-pressed target, adding to the existing selection.
+- **iOS native text selection suppressed** during selection-mode long-press via `selectstart` / `selectionchange` / `contextmenu` listeners and CSS `-webkit-user-select: none !important` on all `.verse-container` descendants.
+
 ## v0.8.7
+
+### Verse Long-Press Range Selection
+- **Long-press in verse selection mode** — after entering selection mode (tap a verse), long-pressing another verse selects all verses between the anchor and the long-pressed target, adding them to the existing selection.
+- **Long-press in verse selection mode** — after entering selection mode (tap a verse), long-pressing another verse selects all verses between the anchor and the long-pressed target, adding them to the existing selection.
+- **Range anchor** — the first verse tapped to enter selection mode becomes the anchor; the range spans from anchor to the long-pressed verse in DOM order, regardless of direction.
+- **iOS native selection suppressed** — `selectstart` / `selectionchange` / `contextmenu` listeners, CSS `-webkit-user-select: none !important` on all `.verse-container` descendants, and inline `user-select: none` during the hold prevent iOS from showing selection handles or the callout during selection-mode long-press.
 
 ### Spotlight Side-Zone Controls
 - **Strict side-zone tap/hold advance** — prev/next navigation only triggers in explicit left/right side strips (`clamp(56px, 15vw, 80px)`). Center zone never advances, even on verse text.
@@ -47,6 +75,12 @@
   - Standalone safe-area block changed from `100dvh` to `100svh`.
 - **iOS nav safe-area**: restored the v0.8.5 `@supports (-webkit-touch-callout: none)` rule at end of CSS — extends nav into the home-indicator safe area with `height: calc(68px + env(safe-area-inset-bottom))` on all iOS devices (harmless in Safari where `env()` returns 0).
 - **Removed** all `html.ios-device` bottom-nav experiments (shift-down, ::after filler, iOS-specific calc overrides). No JS viewport syncing.
+
+### Verse-Start Trailing Whitespace Fix
+- **`_renderText` preserved trailing whitespace** — when the first text token had trailing whitespace after the first word (e.g. `" For "`, `" HE "`), and there was no further content in that token, the whitespace was silently dropped — merging text across `style_start` boundaries (e.g. `ForHE` → `For HE`). Now any remaining whitespace after the first-word extraction is emitted.
+
+### Hidden Footnote Word-Merge Fix
+- **`_renderFootnote` space insertion** — when footnotes are disabled, a single space is now inserted between tokens that would otherwise merge (e.g. `serpentwas` → `serpent was`). The look-ahead skips punctuation boundaries (`?`, `)`, `,`, etc.) to avoid inserting incorrect spaces.
 
 ### Cross-reference & Footnote Marker Polish
 - **CrossRef indicators** now stay inline with poetry lines (appended to last `.poetry-line` instead of `.token-poetry`). Line breaks prevented via word joiner (`\u2060`) before the marker.

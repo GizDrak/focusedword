@@ -8,6 +8,7 @@ window.HighlightManager = class HighlightManager {
     this._multiVerseRange = null;
     this._activeText = '';
     this._activeContainers = null;
+    this._activeTranslationId = null;
     this.init();
   }
 
@@ -55,6 +56,7 @@ window.HighlightManager = class HighlightManager {
       }
       this._activeText = payload.text;
     }
+    this._activeTranslationId = payload.translationId || null;
     this._positionToolbar(payload.rect);
     this._toolbar.classList.remove('hidden');
   }
@@ -68,6 +70,7 @@ window.HighlightManager = class HighlightManager {
     this._multiVerseRange = null;
     this._activeContainers = null;
     this._activeText = '';
+    this._activeTranslationId = null;
     this._toolbar.classList.add('hidden');
   }
 
@@ -490,6 +493,25 @@ window.HighlightManager = class HighlightManager {
     }
   }
 
+  _getCurrentTranslationAbbr() {
+    const activeId = this._activeTranslationId;
+    if (activeId) {
+      const manifest = this.bridge.translationManifest;
+      if (manifest) {
+        const entry = manifest.find(t => t.id === activeId);
+        if (entry) return entry.shortname || activeId;
+      }
+      return activeId.replace(/_(?:v)?\d+$/i, '');
+    }
+    const id = this.bridge.state.get('currentTranslation') || '';
+    const manifest = this.bridge.translationManifest;
+    if (manifest && manifest.length) {
+      const entry = manifest.find(t => t.id === id);
+      if (entry) return entry.shortname || entry.id;
+    }
+    return id.replace(/_(?:v)?\d+$/i, '');
+  }
+
   _copyText() {
     const interaction = this.bridge.get('interaction-manager');
     const state = this.bridge.state;
@@ -530,7 +552,7 @@ window.HighlightManager = class HighlightManager {
         }
         const bookName = state.get('currentBookName') || '';
         const chapter = state.get('currentChapter') || '';
-        const translation = state.get('currentTranslation') || '';
+        const translation = this._getCurrentTranslationAbbr();
         text = `${body} ${bookName} ${chapter}:${verseRef} ${translation}`.trim();
       }
     }
@@ -566,6 +588,7 @@ window.HighlightManager = class HighlightManager {
     this._multiVerseRange = null;
     this._activeContainers = null;
     this._activeText = '';
+    this._activeTranslationId = null;
     this._toolbar.classList.add('hidden');
   }
 
@@ -604,11 +627,11 @@ window.HighlightManager = class HighlightManager {
             ? `[${bookName} ${chapter}:${verseNums[0]}-${verseNums[verseNums.length - 1]}]`
             : `[${bookName} ${chapter}:${verseNums[0]}]`;
         }
-        text = cleanTexts.join(' ').slice(0, 500);
+        text = cleanTexts.join(' ');
       }
     }
 
-    if (!text) text = (this._activeText || '').slice(0, 500);
+    if (!text) text = this._activeText || '';
 
     let content = '';
     if (ref || text) {
@@ -620,6 +643,7 @@ window.HighlightManager = class HighlightManager {
     this._multiVerseRange = null;
     this._activeContainers = null;
     this._activeText = '';
+    this._activeTranslationId = null;
     this._toolbar.classList.add('hidden');
 
     const notesUI = this.bridge.get('notes-ui');
