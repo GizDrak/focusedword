@@ -81,7 +81,7 @@ self.addEventListener('install', (event) => {
           cache.add(url).catch(() => {})
         )
       );
-    }).then(() => self.skipWaiting()).catch((error) => {
+    }).catch((error) => {
       console.error('Service Worker installation failed to cache files:', error);
     })
   );
@@ -94,6 +94,39 @@ self.addEventListener('activate', (event) => {
         keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'Focused Word';
+  const options = {
+    body: data.body || '',
+    icon: '/assets/icons/android/launchericon-192x192.png',
+    badge: '/assets/icons/android/launchericon-192x192.png',
+    data: data.url ? { url: data.url } : undefined
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const urlToOpen = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return clients.openWindow(urlToOpen);
+    })
   );
 });
 

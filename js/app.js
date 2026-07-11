@@ -216,6 +216,7 @@ window.App = class App {
     document.getElementById('content').style.display = '';
     splashEl.classList.add('splash-hidden');
     setTimeout(() => splashEl.remove(), 500);
+    this._handleStartupIntent(bridge);
   }
 
   async _buildTranslationManifest(bridge) {
@@ -761,11 +762,67 @@ window.App = class App {
     });
 
   }
+
+  _handleStartupIntent(bridge) {
+    const params = new URLSearchParams(location.search);
+    const hash = location.hash.replace('#', '').toLowerCase();
+
+    const sharedText = params.get('text');
+    if (sharedText) {
+      setTimeout(() => {
+        const input = document.getElementById('discover-input');
+        const backdrop = document.getElementById('discover-backdrop');
+        const panel = document.getElementById('discover-panel');
+        if (input && backdrop && panel) {
+          backdrop.classList.remove('hidden');
+          panel.classList.remove('hidden');
+          input.value = sharedText;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.focus();
+        }
+      }, 600);
+      return;
+    }
+
+    const action = params.get('action') || hash;
+    if (action === 'search') {
+      setTimeout(() => {
+        const tab = document.querySelector('.tab-item[data-tab="discover"]');
+        if (tab) tab.click();
+      }, 600);
+    } else if (action === 'notes') {
+      setTimeout(() => {
+        const ui = bridge.get('notes-ui');
+        if (ui) ui.open();
+      }, 600);
+    } else if (action === 'settings') {
+      setTimeout(() => {
+        const s = bridge.get('settings');
+        if (s) s.openSettings();
+      }, 600);
+    }
+  }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
   new App().init();
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+      reg.addEventListener('updatefound', () => {
+        const installing = reg.installing;
+        if (installing) {
+          installing.addEventListener('statechange', () => {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              if (reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+              }
+            }
+          });
+        }
+      });
+    });
   }
 });
