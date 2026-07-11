@@ -2,7 +2,7 @@
   "name": "Focused Word",
   "short_name": "FocusedWord",
   "description": "Offline-first Bible study PWA with bionic reading, multi-mode reading, bookmarks, highlights, and cross-device sync.",
-  "start_url": "/index.html",
+  "start_url": "/",
   "scope": "/",
   "id": "/",
   "display": "standalone",
@@ -35,7 +35,7 @@
       "name": "Search Scripture",
       "short_name": "Search",
       "description": "Search the Bible for verses, topics, and references",
-      "url": "/index.html?action=search",
+      "url": "/?action=search",
       "icons": [
         {
           "src": "/assets/icons/icon-192.png",
@@ -48,7 +48,7 @@
       "name": "Notes",
       "short_name": "Notes",
       "description": "View and manage your study notes",
-      "url": "/index.html?action=notes",
+      "url": "/?action=notes",
       "icons": [
         {
           "src": "/assets/icons/icon-192.png",
@@ -61,7 +61,7 @@
       "name": "Settings",
       "short_name": "Settings",
       "description": "Reading preferences, sync, and app settings",
-      "url": "/index.html?action=settings",
+      "url": "/?action=settings",
       "icons": [
         {
           "src": "/assets/icons/icon-192.png",
@@ -72,7 +72,7 @@
     }
   ],
   "share_target": {
-    "action": "/index.html",
+    "action": "/",
     "method": "GET",
     "enctype": "application/x-www-form-urlencoded",
     "params": {

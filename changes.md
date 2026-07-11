@@ -2,6 +2,14 @@
 
 ## v0.8.8
 
+### PWA Launch Fix — ERR_FAILED on Installed App
+- **Root cause**: The server at `app.focusedword.com` redirects `/index.html` → `/` via 307. The SW's install handler cached the redirected response for `/index.html`. When Android Chrome launched the PWA and the SW served that cached redirect response, Chrome rejected it as a navigation response and reported `ERR_FAILED`.
+- **Fix**: changed manifest `start_url` from `/index.html` to `/`. Shortcut and share_target URLs also changed from `/index.html?action=` to `/?action=`. The SW now uses `/` as the single canonical navigation resource and maps any `/index.html` request to `/`.
+- **Atomic install**: required shell (HTML, CSS, JS, manifest, primary icon) now uses `cache.addAll()` — if any required asset fails, the entire install fails and the previous working SW stays active. Optional fonts and data files still use `Promise.allSettled`.
+- **Safe fallback**: navigation fallback now returns an inline HTML page if neither cache nor network is available, instead of returning `undefined` which Chrome surfaces as `ERR_FAILED`.
+- **Activate**: only deletes caches matching `focused-word-*` prefix, preserving any unrelated caches created by the app at runtime.
+- **SW cache bumped to v52**.
+
 ### Android Icon Fix — Transparent Icons + Cache-Busting Maskable
 - **Root cause (icon)**: Android launcher uses the `any` purpose icon at the highest available resolution. The old manifest entries pointed to opaque `#232323` background PNGs. The square opaque shape was visibly cropped by Android's icon mask.
 - **Fix**: Manifest `any` icons now point to `assets/icons/icon-192.png` and `icon-512.png` (transparent backgrounds, already existed). The `maskable` entry uses a new `launchericon-512x512-maskable-v2.png` with `#111112` background (matching the dark theme nav surface color), with the icon content scaled to 70% and centered for the safe zone. The new filename forces Android to re-download rather than serving a stale cached icon.

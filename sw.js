@@ -1,13 +1,17 @@
-const CACHE_NAME = 'focused-word-v51';
+const CACHE_NAME = 'focused-word-v52';
 const DB_CACHE = 'bible-database-cache';
 
-const APP_SHELL = [
+const REQUIRED_SHELL = [
   '/',
-  '/index.html',
   '/css/styles.css',
+  '/js/app.js',
+  '/manifest.json',
+  '/assets/icons/icon-192.png'
+];
+
+const OPTIONAL_SHELL = [
   '/js/core/scripture-repository-service.js',
   '/js/modules/scripture-repos-ui.js',
-  '/js/app.js',
   '/js/core/config.js',
   '/js/utils/uuid.js',
   '/js/utils/html.js',
@@ -61,8 +65,6 @@ const APP_SHELL = [
   '/js/modules/scroll-mode/switcher.js',
   '/js/vendor/sqlite-wasm/index.mjs',
   '/js/vendor/sqlite-wasm/sqlite3.wasm',
-  '/manifest.json',
-  '/assets/icons/icon-192.png',
   '/assets/icons/icon-512.png',
   '/assets/icons/android/launchericon-512x512-maskable-v2.png',
   '/assets/icons/ios/1024.png',
@@ -75,7 +77,6 @@ const APP_SHELL = [
   '/whats_new.md',
   '/assets/lists/bible-wordlist.json',
   '/scripture/en/bible_chapters.json',
-  // Local fonts
   '/assets/fonts/san/inter-v20-latin-regular.woff2',
   '/assets/fonts/san/inter-v20-latin-italic.woff2',
   '/assets/fonts/san/inter-v20-latin-700.woff2',
@@ -106,14 +107,45 @@ const APP_SHELL = [
   '/assets/fonts/display/lexend-v26-latin-700.woff2'
 ];
 
-const APP_SHELL_CACHE_KEYS = new Set(APP_SHELL);
+const ALL_SHELL = [...REQUIRED_SHELL, ...OPTIONAL_SHELL];
+const SHELL_SET = new Set(ALL_SHELL);
+
+function isNavigation(req) {
+  return req.mode === 'navigate';
+}
+
+function isShellAsset(path) {
+  return SHELL_SET.has(path);
+}
+
+function isCacheableAsset(path) {
+  return (
+    path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.svg') ||
+    path.endsWith('.png') || path.endsWith('.wasm') || path.endsWith('.json') ||
+    path.endsWith('.webp') || path.endsWith('.woff2') ||
+    /\/scripture\/en\/.*\.(db|sqlite|json)$/.test(path)
+  );
+}
+
+function canonicalUrl(url) {
+  if (url.pathname === '/index.html') return '/';
+  return url.pathname;
+}
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+  const cacheAndActivate = caches.open(CACHE_NAME).then((cache) => {
+    return cache.addAll(REQUIRED_SHELL).then(() => {
       return Promise.allSettled(
-        APP_SHELL.map(url => cache.add(url).catch(() => {}))
+        OPTIONAL_SHELL.map((url) =>
+          cache.add(url).catch(() => {})
+        )
       );
+    });
+  });
+
+  event.waitUntil(
+    cacheAndActivate.then(() => self.skipWaiting()).catch((error) => {
+      console.error('[SW] Install failed:', error);
     })
   );
 });
@@ -122,11 +154,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => {
-          if (key === CACHE_NAME) return false;
-          if (key === DB_CACHE) return false;
-          return true;
-        }).map((key) => caches.delete(key))
+        keys
+          .filter((key) => key.startsWith('focused-word-') && key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );
@@ -143,8 +173,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Focused Word';
   const options = {
     body: data.body || '',
-    icon: '/assets/icons/android/launchericon-192x192.png',
-    badge: '/assets/icons/android/launchericon-192x192.png',
+    icon: '/assets/icons/icon-192.png',
+    badge: '/assets/icons/icon-192.png',
     data: data.url ? { url: data.url } : undefined
   };
   event.waitUntil(self.registration.showNotification(title, options));
@@ -154,8 +184,8 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const urlToOpen = event.notification.data?.url || '/';
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
@@ -169,29 +199,71 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
-  const path = url.pathname;
-
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) {
-        if (APP_SHELL_CACHE_KEYS.has(path)) {
-          fetch(event.request).then((r) => {
-            if (r.ok) caches.open(CACHE_NAME).then((c) => c.put(event.request, r));
-          }).catch(() => {});
-        }
-        return cached;
-      }
+  const path = canonicalUrl(url);
 
-      return fetch(event.request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+  if (isNavigation(event.request)) {
+    event.respondWith(
+      caches.match('/').then((cached) => {
+        if (cached) {
+          fetch(event.request).then((r) => {
+            if (r.ok) caches.open(CACHE_NAME).then((c) => c.put('/', r));
+          }).catch(() => {});
+          return cached;
         }
+        return fetch(event.request).then((r) => {
+          if (r.ok) {
+            const copy = r.clone();
+            caches.open(CACHE_NAME).then((c) => c.put('/', copy));
+          }
+          return r;
+        }).catch(() => {
+          return caches.match('/').then((fallback) => {
+            if (!fallback) {
+              return new Response(
+                '<!DOCTYPE html><html><head><title>Offline</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#0A0A0A;color:#EDE8DD;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:1rem}</style></head><body><h2>Focused Word</h2><p>Please connect to the internet and try again.</p></body></html>',
+                { status: 200, statusText: 'OK', headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+              );
+            }
+            return fallback;
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  if (isShellAsset(path) || isCacheableAsset(path)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) {
+          if (isShellAsset(path)) {
+            fetch(event.request).then((r) => {
+              if (r.ok) caches.open(CACHE_NAME).then((c) => c.put(event.request, r));
+            }).catch(() => {});
+          }
+          return cached;
+        }
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        }).catch(() => {
+          return new Response('', { status: 204, statusText: 'No Content' });
+        });
+      })
+    );
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        if (path.endsWith('.html')) return caches.match('/');
         return new Response('', { status: 204, statusText: 'No Content' });
       });
     })
