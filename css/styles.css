@@ -1,8 +1,14 @@
 /* ========== CSS Quarantine ========== */
 :root {
   -webkit-tap-highlight-color: transparent;
-  --app-height: 100dvh;
+  --app-height: 100vh;
   --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@supports (height: 100dvh) and (not (-webkit-touch-callout: none)) {
+  :root {
+    --app-height: 100dvh;
+  }
 }
 
 /* ========== Font Faces ========== */
@@ -496,7 +502,6 @@ html, body {
 }
 
 html.ios-device {
-  --app-height: 100vh;
   --safe-inset-bottom: 10px;
 }
 
@@ -4960,6 +4965,10 @@ body.focus-mode .focus-exit-btn:hover {
   body {
     min-height: var(--app-height);
     background-color: var(--bg);
+  }
+
+  html:not(.ios-device) {
+    background-color: var(--bg-surface);
   }
 
   html:not(.ios-device) body.scroll-mode main,

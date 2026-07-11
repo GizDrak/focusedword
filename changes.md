@@ -17,9 +17,10 @@
 
 ### Android Gesture Bar — Dynamic Viewport Height
 - **Root cause (gesture bar)**: The app used `100vh` for all layout height calculations. On Android Chrome with gesture navigation enabled, `100vh` includes the system gesture bar area (occupied by the back/home gesture strip). Since the app is in `display: standalone` mode, this extra space was left as a black gap below the bottom nav.
-- **Fix**: Introduced `--app-height: 100dvh` CSS variable on `:root`. All height declarations (`html`, `body`, `main` in every reading mode, swipe/speed containers, settings panel, standalone overrides) now use `var(--app-height)` instead of hardcoded `100vh`. On iOS, the variable is overridden to `100vh` to avoid the documented PWA cold-start viewport bug (`docs/ios-pwa.md` Section 2).
+- **Fix**: Introduced `--app-height` CSS variable. Default is `100vh`. A `@supports (height: 100dvh) and (not (-webkit-touch-callout: none))` rule enables `100dvh` only on non-WebKit browsers (Android Chrome, etc.). iOS is excluded via the `-webkit-touch-callout` property check — no JavaScript-dependant class is needed, so iOS never sees `100dvh` even during cold start. All height declarations use `var(--app-height)`.
+- **Android gesture strip color**: In standalone mode, the `html` element now uses `--bg-surface` (`#111112`) instead of `--bg` (`#0A0A0A`). Any system-exposed area below the viewport blends with the bottom navigation background instead of appearing as a darker black strip.
+- **Removed**: `html.ios-device { --app-height: 100vh }` — no longer needed since `100vh` is the default.
 - **`color-scheme` meta tag** added to improve Android system gesture area contrast.
-- **SW cache bumped to v51**; new icon URLs added to APP_SHELL.
 
 ### Android Icon Fix — Restored Original Launcher Icons
 - **Root cause**: the previous commit added new manifest icon entries at 384x384 and 1024x1024 with `purpose: "any"` and `purpose: "maskable"`. Android prefers the largest/special-purpose icon available, picking the solid-background maskable variants over the original transparent launcher assets. The maskable icons were generated with `#0A0A0A` background vs the originals' `#232323`, creating a visible inner square.
