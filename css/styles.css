@@ -489,7 +489,7 @@ input, textarea, select {
 
 html, body {
   background-color: var(--bg);
-  height: 100%;
+  height: 100vh;
   width: 100%;
 }
 
@@ -502,7 +502,6 @@ body {
   background-color: var(--bg);
   padding: 0;
   min-height: 100vh;
-  min-height: 100svh;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -897,7 +896,6 @@ body.scroll-mode main {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
-  height: calc(100svh - 68px - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -948,7 +946,6 @@ body.spotlight-mode main {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
-  height: calc(100svh - 68px - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -1267,7 +1264,6 @@ body.split-mode .desktop-chapter-bar {
   width: 100%;
   max-width: none;
   height: 100vh;
-  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2013,7 +2009,6 @@ body.split-mode.background-texture #panel-right {
 /* ========== Speed Word Display ========== */
 #content.speed-mode {
   min-height: 100vh;
-  min-height: 100dvh;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -2232,7 +2227,7 @@ body.split-mode.background-texture #panel-right {
 /* ========== Bottom Navigation ========== */
 #bottom-nav {
   position: fixed;
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: 0;
   left: 0;
   right: 0;
   z-index: 100;
@@ -2243,18 +2238,9 @@ body.split-mode.background-texture #panel-right {
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
   padding: 0 0.5rem;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   will-change: transform;
   transition: background-color 0.3s ease, border-color 0.3s ease;
-}
-
-#bottom-nav::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-bottom, 0px);
-  background: var(--bg-surface);
 }
 
 .tab-item {
@@ -4577,7 +4563,6 @@ body.focus-mode .focus-exit-btn:hover {
   width: 300px;
   max-width: 85vw;
   height: 100vh;
-  height: 100dvh;
   background: var(--bg-surface);
   border-left: 1px solid var(--border);
   z-index: 210;
@@ -4967,18 +4952,14 @@ body.focus-mode .focus-exit-btn:hover {
 
   html,
   body {
-    min-height: 100svh;
+    min-height: 100vh;
     background-color: var(--bg);
-  }
-
-  html:not(.ios-device) #bottom-nav {
-    bottom: env(safe-area-inset-bottom, 0px);
   }
 
   html:not(.ios-device) body.scroll-mode main,
   html:not(.ios-device) body.spotlight-mode main,
   html:not(.ios-device) body.split-mode main {
-    height: calc(100svh - 68px - var(--app-bottom-safe-area));
+    height: calc(100vh - 68px - var(--app-bottom-safe-area));
   }
 
   html:not(.ios-device) .verse-progress {
@@ -6797,7 +6778,6 @@ body.focus-mode .changelog-overlay {
 
   body.scroll-mode main {
     height: calc(100vh - 48px - env(safe-area-inset-bottom, 0px));
-    height: calc(100dvh - 48px - env(safe-area-inset-bottom, 0px));
     overflow: visible;
   }
 
@@ -6812,7 +6792,6 @@ body.focus-mode .changelog-overlay {
 
   #content.swipe-mode {
     height: 100vh;
-    height: 100dvh;
   }
 
   #content.swipe-mode .verse-deck {
@@ -6825,7 +6804,6 @@ body.focus-mode .changelog-overlay {
 
   #content.speed-mode {
     min-height: 100vh;
-    height: 100dvh;
   }
 
   .speed-word {
@@ -6905,7 +6883,6 @@ body.focus-mode .changelog-overlay {
     max-width: none;
     width: 100%;
     height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
-    height: calc(100svh - 68px - env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     position: relative;
     padding: 0;
@@ -7363,7 +7340,8 @@ textarea {
 }
 
 /* ========== iOS Safe Area ========== */
-/* Handled via ::after pseudo-element on #bottom-nav and safe-area in main height calcs */
+/* bottom-nav background extends edge-to-edge via bottom:0 + padding-bottom: env().
+   Interactive tabs stay above home indicator. Main content calc subtracts safe area. */
 
 
 
