@@ -1,6 +1,7 @@
 /* ========== CSS Quarantine ========== */
 :root {
   -webkit-tap-highlight-color: transparent;
+  --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ========== Font Faces ========== */
@@ -493,6 +494,10 @@ html, body {
   width: 100%;
 }
 
+html.ios-device {
+  --safe-inset-bottom: 10px;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 1rem;
@@ -895,7 +900,7 @@ body.scroll-mode {
 body.scroll-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
+  height: calc(100vh - 56px - var(--safe-inset-bottom));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -945,7 +950,7 @@ body.spotlight-mode {
 body.spotlight-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
+  height: calc(100vh - 56px - var(--safe-inset-bottom));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -2231,13 +2236,13 @@ body.split-mode.background-texture #panel-right {
   left: 0;
   right: 0;
   z-index: 100;
-  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  height: calc(56px + var(--safe-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: space-around;
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
-  padding: 0 0.5rem env(safe-area-inset-bottom, 0px);
+  padding: 0 0.5rem var(--safe-inset-bottom);
   will-change: transform;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -4512,7 +4517,7 @@ body.focus-mode .verse-progress .verse-progress-label {
   color: var(--text-muted);
   border: none;
   cursor: pointer;
-  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-bottom: var(--safe-inset-bottom);
   transition: background 0.2s ease, color 0.2s ease;
 }
 
@@ -4946,7 +4951,7 @@ body.focus-mode .focus-exit-btn:hover {
 /* ========== PWA Standalone Safe Areas ========== */
 @media (display-mode: standalone) {
   :root {
-    --app-bottom-safe-area: env(safe-area-inset-bottom, 0px);
+    --app-bottom-safe-area: var(--safe-inset-bottom);
   }
 
   html,
@@ -6731,7 +6736,7 @@ body.focus-mode .changelog-overlay {
 
 @media screen and (orientation: landscape) and (max-height: 520px) {
   #bottom-nav {
-    height: calc(48px + env(safe-area-inset-bottom, 0px));
+    height: calc(48px + var(--safe-inset-bottom));
   }
 
   .tab-item {
@@ -6776,7 +6781,7 @@ body.focus-mode .changelog-overlay {
   }
 
   body.scroll-mode main {
-    height: calc(100vh - 48px - env(safe-area-inset-bottom, 0px));
+    height: calc(100vh - 48px - var(--safe-inset-bottom));
     overflow: visible;
   }
 
@@ -6881,7 +6886,7 @@ body.focus-mode .changelog-overlay {
   body.split-mode main {
     max-width: none;
     width: 100%;
-    height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
+    height: calc(100vh - 56px - var(--safe-inset-bottom));
     overflow: hidden;
     position: relative;
     padding: 0;
