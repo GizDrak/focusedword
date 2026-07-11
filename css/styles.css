@@ -896,8 +896,8 @@ body.scroll-mode {
 body.scroll-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 68px);
-  height: calc(100svh - 68px);
+  height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
+  height: calc(100svh - 68px - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -947,8 +947,8 @@ body.spotlight-mode {
 body.spotlight-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 68px);
-  height: calc(100svh - 68px);
+  height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
+  height: calc(100svh - 68px - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -2232,7 +2232,7 @@ body.split-mode.background-texture #panel-right {
 /* ========== Bottom Navigation ========== */
 #bottom-nav {
   position: fixed;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom, 0px);
   left: 0;
   right: 0;
   z-index: 100;
@@ -2245,6 +2245,16 @@ body.split-mode.background-texture #panel-right {
   padding: 0 0.5rem;
   will-change: transform;
   transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+#bottom-nav::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-bottom, 0px);
+  background: var(--bg-surface);
 }
 
 .tab-item {
@@ -4962,9 +4972,7 @@ body.focus-mode .focus-exit-btn:hover {
   }
 
   html:not(.ios-device) #bottom-nav {
-    box-sizing: border-box;
-    height: calc(68px + var(--app-bottom-safe-area));
-    padding-bottom: var(--app-bottom-safe-area);
+    bottom: env(safe-area-inset-bottom, 0px);
   }
 
   html:not(.ios-device) body.scroll-mode main,
@@ -6788,8 +6796,8 @@ body.focus-mode .changelog-overlay {
   }
 
   body.scroll-mode main {
-    height: calc(100vh - 48px);
-    height: calc(100dvh - 48px);
+    height: calc(100vh - 48px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 48px - env(safe-area-inset-bottom, 0px));
     overflow: visible;
   }
 
@@ -6896,8 +6904,8 @@ body.focus-mode .changelog-overlay {
   body.split-mode main {
     max-width: none;
     width: 100%;
-    height: calc(100vh - 68px);
-    height: calc(100svh - 68px);
+    height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
+    height: calc(100svh - 68px - env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     position: relative;
     padding: 0;
@@ -7355,12 +7363,7 @@ textarea {
 }
 
 /* ========== iOS Safe Area ========== */
-@supports (-webkit-touch-callout: none) {
-  #bottom-nav {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    height: calc(68px + env(safe-area-inset-bottom, 0px));
-  }
-}
+/* Handled via ::after pseudo-element on #bottom-nav and safe-area in main height calcs */
 
 
 
