@@ -895,7 +895,7 @@ body.scroll-mode {
 body.scroll-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
+  height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -945,7 +945,7 @@ body.spotlight-mode {
 body.spotlight-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
+  height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -2231,7 +2231,7 @@ body.split-mode.background-texture #panel-right {
   left: 0;
   right: 0;
   z-index: 100;
-  height: calc(68px + env(safe-area-inset-bottom, 0px));
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -4958,7 +4958,7 @@ body.focus-mode .focus-exit-btn:hover {
   html:not(.ios-device) body.scroll-mode main,
   html:not(.ios-device) body.spotlight-mode main,
   html:not(.ios-device) body.split-mode main {
-    height: calc(100vh - 68px - var(--app-bottom-safe-area));
+    height: calc(100vh - 56px - var(--app-bottom-safe-area));
   }
 
   html:not(.ios-device) .verse-progress {
@@ -6881,7 +6881,7 @@ body.focus-mode .changelog-overlay {
   body.split-mode main {
     max-width: none;
     width: 100%;
-    height: calc(100vh - 68px - env(safe-area-inset-bottom, 0px));
+    height: calc(100vh - 56px - env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     position: relative;
     padding: 0;
