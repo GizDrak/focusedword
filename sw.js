@@ -6,7 +6,7 @@ const REQUIRED_SHELL = [
   '/css/styles.css',
   '/js/app.js',
   '/manifest.json',
-  '/assets/icons/icon-192.png'
+  '/assets/icons/pwa/icon-192.png'
 ];
 
 const OPTIONAL_SHELL = [
@@ -65,10 +65,8 @@ const OPTIONAL_SHELL = [
   '/js/modules/scroll-mode/switcher.js',
   '/js/vendor/sqlite-wasm/index.mjs',
   '/js/vendor/sqlite-wasm/sqlite3.wasm',
-  '/assets/icons/icon-512.png',
-  '/assets/icons/android/launchericon-512x512-maskable-v2.png',
-  '/assets/icons/ios/1024.png',
-  '/assets/icons/ios/180.png',
+  '/assets/icons/pwa/icon-512.png',
+  '/assets/icons/pwa/maskable-icon.png',
   '/assets/icons/icon-dark.svg',
   '/assets/icons/icon-light.svg',
   '/assets/icons/ui/closed-bible-icon.svg',
@@ -173,8 +171,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Focused Word';
   const options = {
     body: data.body || '',
-    icon: '/assets/icons/icon-192.png',
-    badge: '/assets/icons/icon-192.png',
+    icon: '/assets/icons/pwa/icon-192.png',
+    badge: '/assets/icons/pwa/icon-192.png',
     data: data.url ? { url: data.url } : undefined
   };
   event.waitUntil(self.registration.showNotification(title, options));
