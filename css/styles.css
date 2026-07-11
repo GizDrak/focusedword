@@ -1,6 +1,7 @@
 /* ========== CSS Quarantine ========== */
 :root {
   -webkit-tap-highlight-color: transparent;
+  --app-height: 100dvh;
   --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -490,11 +491,12 @@ input, textarea, select {
 
 html, body {
   background-color: var(--bg);
-  height: 100vh;
+  height: var(--app-height);
   width: 100%;
 }
 
 html.ios-device {
+  --app-height: 100vh;
   --safe-inset-bottom: 10px;
 }
 
@@ -506,7 +508,7 @@ body {
   color: var(--text-primary);
   background-color: var(--bg);
   padding: 0;
-  min-height: 100vh;
+  min-height: var(--app-height);
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -900,7 +902,7 @@ body.scroll-mode {
 body.scroll-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px - var(--safe-inset-bottom));
+  height: calc(var(--app-height) - 56px - var(--safe-inset-bottom));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -950,7 +952,7 @@ body.spotlight-mode {
 body.spotlight-mode main {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px - var(--safe-inset-bottom));
+  height: calc(var(--app-height) - 56px - var(--safe-inset-bottom));
   overflow: hidden;
   padding-bottom: 0;
 }
@@ -1268,7 +1270,7 @@ body.split-mode .desktop-chapter-bar {
 #content.swipe-mode {
   width: 100%;
   max-width: none;
-  height: 100vh;
+  height: var(--app-height);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2013,7 +2015,7 @@ body.split-mode.background-texture #panel-right {
 
 /* ========== Speed Word Display ========== */
 #content.speed-mode {
-  min-height: 100vh;
+  min-height: var(--app-height);
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -4458,7 +4460,7 @@ body.focus-mode main {
 }
 
 body.focus-mode.scroll-mode main {
-  height: 100vh;
+  height: var(--app-height);
 }
 
 body.focus-mode .bookmarks-modal,
@@ -4566,7 +4568,7 @@ body.focus-mode .focus-exit-btn:hover {
   right: 0;
   width: 300px;
   max-width: 85vw;
-  height: 100vh;
+  height: var(--app-height);
   background: var(--bg-surface);
   border-left: 1px solid var(--border);
   z-index: 210;
@@ -4956,14 +4958,14 @@ body.focus-mode .focus-exit-btn:hover {
 
   html,
   body {
-    min-height: 100vh;
+    min-height: var(--app-height);
     background-color: var(--bg);
   }
 
   html:not(.ios-device) body.scroll-mode main,
   html:not(.ios-device) body.spotlight-mode main,
   html:not(.ios-device) body.split-mode main {
-    height: calc(100vh - 56px - var(--app-bottom-safe-area));
+    height: calc(var(--app-height) - 56px - var(--app-bottom-safe-area));
   }
 
   html:not(.ios-device) .verse-progress {
@@ -6781,7 +6783,7 @@ body.focus-mode .changelog-overlay {
   }
 
   body.scroll-mode main {
-    height: calc(100vh - 48px - var(--safe-inset-bottom));
+    height: calc(var(--app-height) - 48px - var(--safe-inset-bottom));
     overflow: visible;
   }
 
@@ -6795,7 +6797,7 @@ body.focus-mode .changelog-overlay {
   }
 
   #content.swipe-mode {
-    height: 100vh;
+    height: var(--app-height);
   }
 
   #content.swipe-mode .verse-deck {
@@ -6807,7 +6809,7 @@ body.focus-mode .changelog-overlay {
   }
 
   #content.speed-mode {
-    min-height: 100vh;
+    min-height: var(--app-height);
   }
 
   .speed-word {
@@ -6886,7 +6888,7 @@ body.focus-mode .changelog-overlay {
   body.split-mode main {
     max-width: none;
     width: 100%;
-    height: calc(100vh - 56px - var(--safe-inset-bottom));
+    height: calc(var(--app-height) - 56px - var(--safe-inset-bottom));
     overflow: hidden;
     position: relative;
     padding: 0;

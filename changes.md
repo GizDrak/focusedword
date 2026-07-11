@@ -2,6 +2,37 @@
 
 ## v0.8.8
 
+### Android Icon Fix — Transparent Icons + Cache-Busting Maskable
+- **Root cause (icon)**: Android launcher uses the `any` purpose icon at the highest available resolution. The old manifest entries pointed to opaque `#232323` background PNGs. The square opaque shape was visibly cropped by Android's icon mask.
+- **Fix**: Manifest `any` icons now point to `assets/icons/icon-192.png` and `icon-512.png` (transparent backgrounds, already existed). The `maskable` entry uses a new `launchericon-512x512-maskable-v2.png` with `#111112` background (matching the dark theme nav surface color), with the icon content scaled to 70% and centered for the safe zone. The new filename forces Android to re-download rather than serving a stale cached icon.
+- **`theme_color`**: changed from `#0A0A0A` to `#111112` so the Android status bar and gesture navigation area match the bottom navigation background, eliminating the visible black strip.
+
+### Android Gesture Bar — Dynamic Viewport Height
+- **Root cause (gesture bar)**: The app used `100vh` for all layout height calculations. On Android Chrome with gesture navigation enabled, `100vh` includes the system gesture bar area (occupied by the back/home gesture strip). Since the app is in `display: standalone` mode, this extra space was left as a black gap below the bottom nav.
+- **Fix**: Introduced `--app-height: 100dvh` CSS variable on `:root`. All height declarations (`html`, `body`, `main` in every reading mode, swipe/speed containers, settings panel, standalone overrides) now use `var(--app-height)` instead of hardcoded `100vh`. On iOS, the variable is overridden to `100vh` to avoid the documented PWA cold-start viewport bug (`docs/ios-pwa.md` Section 2).
+- **`color-scheme` meta tag** added to improve Android system gesture area contrast.
+- **SW cache bumped to v51**; new icon URLs added to APP_SHELL.
+
+### Android Icon Fix — Restored Original Launcher Icons
+- **Root cause**: the previous commit added new manifest icon entries at 384x384 and 1024x1024 with `purpose: "any"` and `purpose: "maskable"`. Android prefers the largest/special-purpose icon available, picking the solid-background maskable variants over the original transparent launcher assets. The maskable icons were generated with `#0A0A0A` background vs the originals' `#232323`, creating a visible inner square.
+- **Fix**: manifest icons reverted to exactly the original pre-change set (48–192 any, 512 any + same-file maskable). All 384/1024/maskable-generated entries removed.
+- **Generated assets removed**: `launchericon-384x384.png`, `launchericon-384x384-maskable.png`, `launchericon-1024x1024.png`, `launchericon-1024x1024-maskable.png`, `launchericon-192x192-maskable.png`, and `scripts/gen-pwa-icons.ps1` removed from repo.
+- **iOS startup images**: hrefs fixed to point to `/assets/icons/ios/1024.png` instead of the deleted Android 1024 asset.
+
+### Offline Reliability — Service Worker Rewrite
+- **Navigation strategy changed from network-first (4s timeout) to cache-first** — the previous handler attempted a network fetch on every navigation and only fell back to cache after a 4-second timeout. Offline loads were delayed (or failed if the timeout hadn't elapsed). Now the cache is checked first for every same-origin request; served immediately if present, with a background network refresh for app-shell assets.
+- **Precached 28 local font files** — all bundled woff2 fonts (Inter, Roboto, Atkinson, Merriweather, Lora, Crimson Pro, IBM Plex Mono, Caveat, Lexend, Comic Neue) are now declared in APP_SHELL and cached at install time.
+- **Precached data files** — `bible_chapters.json` and `bible-wordlist.json` added to APP_SHELL so chapter titles and sync wordlist work offline.
+- **Google Fonts removed from HTML** — the `<link>` for fonts.googleapis.com/gstatic.com removed. All fonts are served from local woff2 files via CSS `@font-face`. Playfair Display headings fall back to Georgia/serif.
+- **`bible-database-cache` preserved during activation** — the activate handler now skips the `bible-database-cache` cache when deleting old caches, preventing the loss of previously downloaded Scripture databases during a service worker update.
+- **Cache version bumped to v50**.
+
+### iOS Bottom Nav — Closer to Screen Edge
+- **Root cause**: `env(safe-area-inset-bottom)` on iPhone returns ~34px for the home indicator gesture zone. The nav bar's `padding-bottom: env(...)` pushed buttons 34px above the screen bottom, leaving a visible gap.
+- **Fix**: Introduced `--safe-inset-bottom` CSS custom property (`:root` default = `env(safe-area-inset-bottom, 0px)`) with an iOS override (`html.ios-device` = `10px`). All nav heights and main content heights reference `var(--safe-inset-bottom)`, keeping layout in sync.
+- **Removed** `100svh`/`100dvh` fallbacks — body and all calc expressions use `100vh` only, avoiding the iOS PWA cold-start viewport bug.
+- **Results**: Nav background bleeds to edge-to-edge (no black chin strip), buttons sit ~10px above the screen bottom vs the previous ~34px gap.
+
 ### Split Mode Overhaul
 - **Right panel now supports verse selection** — tap, toggle, and long-press range selection all work in the right/bottom split panel alongside the main panel.
 - **Copy from right panel** uses the right panel translation abbreviation (e.g. selecting verses from NASB1995 copies `… NASB1995` instead of the left panel's abbreviation).

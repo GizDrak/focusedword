@@ -1,4 +1,6 @@
-const CACHE_NAME = 'focused-word-v49';
+const CACHE_NAME = 'focused-word-v51';
+const DB_CACHE = 'bible-database-cache';
+
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -60,15 +62,48 @@ const APP_SHELL = [
   '/js/vendor/sqlite-wasm/index.mjs',
   '/js/vendor/sqlite-wasm/sqlite3.wasm',
   '/manifest.json',
-  '/assets/icons/android/launchericon-192x192.png',
-  '/assets/icons/android/launchericon-512x512.png',
+  '/assets/icons/icon-192.png',
+  '/assets/icons/icon-512.png',
+  '/assets/icons/android/launchericon-512x512-maskable-v2.png',
   '/assets/icons/ios/1024.png',
   '/assets/icons/ios/180.png',
   '/assets/icons/icon-dark.svg',
   '/assets/icons/icon-light.svg',
   '/assets/icons/ui/closed-bible-icon.svg',
   '/assets/icons/ui/open-bible-icon.svg',
-  '/whats_new.md'
+  '/assets/favicon.svg',
+  '/whats_new.md',
+  '/assets/lists/bible-wordlist.json',
+  '/scripture/en/bible_chapters.json',
+  // Local fonts
+  '/assets/fonts/san/inter-v20-latin-regular.woff2',
+  '/assets/fonts/san/inter-v20-latin-italic.woff2',
+  '/assets/fonts/san/inter-v20-latin-700.woff2',
+  '/assets/fonts/san/roboto-v51-latin-regular.woff2',
+  '/assets/fonts/san/roboto-v51-latin-italic.woff2',
+  '/assets/fonts/san/roboto-v51-latin-700.woff2',
+  '/assets/fonts/san/atkinson-hyperlegible-v12-latin-regular.woff2',
+  '/assets/fonts/san/atkinson-hyperlegible-v12-latin-italic.woff2',
+  '/assets/fonts/san/atkinson-hyperlegible-v12-latin-700.woff2',
+  '/assets/fonts/serif/merriweather-v33-latin-regular.woff2',
+  '/assets/fonts/serif/merriweather-v33-latin-italic.woff2',
+  '/assets/fonts/serif/merriweather-v33-latin-700.woff2',
+  '/assets/fonts/serif/lora-v37-latin-regular.woff2',
+  '/assets/fonts/serif/lora-v37-latin-italic.woff2',
+  '/assets/fonts/serif/lora-v37-latin-700.woff2',
+  '/assets/fonts/serif/crimson-pro-v28-latin-regular.woff2',
+  '/assets/fonts/serif/crimson-pro-v28-latin-italic.woff2',
+  '/assets/fonts/serif/crimson-pro-v28-latin-700.woff2',
+  '/assets/fonts/mono/ibm-plex-mono-v20-latin-regular.woff2',
+  '/assets/fonts/mono/ibm-plex-mono-v20-latin-italic.woff2',
+  '/assets/fonts/mono/ibm-plex-mono-v20-latin-700.woff2',
+  '/assets/fonts/handwritten/caveat-v23-latin-regular.woff2',
+  '/assets/fonts/handwritten/caveat-v23-latin-700.woff2',
+  '/assets/fonts/display/comic-neue-v9-latin-regular.woff2',
+  '/assets/fonts/display/comic-neue-v9-latin-italic.woff2',
+  '/assets/fonts/display/comic-neue-v9-latin-700.woff2',
+  '/assets/fonts/display/lexend-v26-latin-regular.woff2',
+  '/assets/fonts/display/lexend-v26-latin-700.woff2'
 ];
 
 const APP_SHELL_CACHE_KEYS = new Set(APP_SHELL);
@@ -77,12 +112,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.allSettled(
-        APP_SHELL.map(url =>
-          cache.add(url).catch(() => {})
-        )
+        APP_SHELL.map(url => cache.add(url).catch(() => {}))
       );
-    }).catch((error) => {
-      console.error('Service Worker installation failed to cache files:', error);
     })
   );
 });
@@ -91,7 +122,11 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.filter((key) => {
+          if (key === CACHE_NAME) return false;
+          if (key === DB_CACHE) return false;
+          return true;
+        }).map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );
@@ -130,19 +165,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-function _isCacheFirst(path) {
-  return (
-    path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.svg') ||
-    path.endsWith('.png') || path.endsWith('.wasm') || path.endsWith('.json') ||
-    path.endsWith('.webp') || path.endsWith('.woff2') ||
-    /\/scripture\/en\/.*\.(db|sqlite|json)$/.test(path)
-  );
-}
-
-function _timeout(ms) {
-  return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
-}
-
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -151,40 +173,22 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  if (_isCacheFirst(path)) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) {
-          // Refresh cache in the background for app-shell assets
-          if (APP_SHELL_CACHE_KEYS.has(path)) {
-            fetch(event.request).then((r) => {
-              if (r.ok) caches.open(CACHE_NAME).then((c) => c.put(event.request, r));
-            }).catch(() => {});
-          }
-          return cached;
-        }
-        return fetch(event.request).then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        });
-      }).catch(() => fetch(event.request))
-    );
-    return;
-  }
-
-  // Network-first with 4s timeout for navigations and other requests
   event.respondWith(
-    Promise.race([
-      fetch(event.request).then((response) => {
+    caches.match(event.request).then((cached) => {
+      if (cached) {
+        if (APP_SHELL_CACHE_KEYS.has(path)) {
+          fetch(event.request).then((r) => {
+            if (r.ok) caches.open(CACHE_NAME).then((c) => c.put(event.request, r));
+          }).catch(() => {});
+        }
+        return cached;
+      }
+
+      return fetch(event.request).then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
-      }),
-      _timeout(4000)
-    ]).catch(() => {
-      return caches.match(event.request).then((cached) => {
-        if (cached) return cached;
+      }).catch(() => {
         if (event.request.mode === 'navigate') {
           return caches.match('/index.html');
         }
