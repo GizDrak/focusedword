@@ -16,7 +16,7 @@ window.CrossReferences = class CrossReferences {
     if (this._loading) return;
     this._loading = true;
     try {
-      this.db = await BibleDB.createDbFromBytes('/scripture/en/cross_references.db');
+      this.db = await BibleDB.createDbFromBytes('/scripture/cross_references.db');
       this._enabled = !!this.db;
     } catch (e) {
       console.error('CrossReferences.init failed:', e);

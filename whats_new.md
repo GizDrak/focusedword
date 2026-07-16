@@ -1,5 +1,25 @@
 # What's New in Focused Word
 
+## v0.9.0 — Reading Plans, Luminous UI & Offline Updates
+
+### Reading Plans
+Create personalized Bible reading plans and stay on track with a guided daily reading flow. Plans show your progress and reading streak, let you mark days complete, pause when needed, and sync across your devices.
+
+### Meet Luminous UI
+Try the new **Luminous** UI in Settings for a polished, glass-inspired reading experience with its own visual styling and floating navigation.
+
+### Meet Modern UI
+Try the new **Modern** UI in Settings for a clean, contemporary reading experience with a floating Bible control and refined bottom navigation. Notes and Plans now use the same compressed-panel behavior, with a centered Notes handle and controls that remain clear of the bottom navigation.
+
+### Clearer Settings & Startup
+- The appearance selector in Settings is now labeled **UI**.
+- Startup messages now appear on separate lines, making loading progress easier to read.
+
+### Better Offline Updates
+Modern UI assets are now included in the offline app shell, so installed apps receive the complete interface after updating.
+
+---
+
 ## v0.8.8 — Split Mode Upgraded, Smarter Selections
 
 Split mode gets some serious love in this release — the right panel can now do everything the main panel can.
@@ -13,7 +33,7 @@ Switching from split mode to speed reading or swipe reading works immediately, a
 When you tap "Add Note" from the selection toolbar, all selected verse text is now included — no more notes cut off at 500 characters.
 
 ### 📋 Copy Uses Clean Abbreviations
-Whether you use a repository-installed Bible or a bundled one, the abbreviation in copied citations will be the clean user-facing name (like `NASB1995`) instead of the internal database id (`NASB1995_v1`).
+Whether you use a repository-installed Bible or a bundled one, the abbreviation in copied citations will be the clean user-facing name instead of the internal database id.
 
 ### 👆 Verse Range Selection with Long-Press
 Enter verse selection mode by tapping a verse, then long-press another verse to select everything in between. Great for highlighting or copying a passage in one step. This works in both the main and split panels.

@@ -6,7 +6,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#111112">
   <meta name="color-scheme" content="dark light">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src *"><!-- connect-src * required — app allows user-configurable sync servers at any IP/URL -->
+  <!-- CSP delivered via HTTP header from server.js; meta-tag fallback removed for stronger header-only enforcement -->
   <meta name="apple-mobile-web-app-capable" content="yes">
 
   <meta name="apple-mobile-web-app-title" content="FocusedWord">
@@ -19,6 +19,9 @@
   <link rel="apple-touch-startup-image" href="/assets/icons/pwa/icon-512.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
   <link rel="apple-touch-startup-image" href="/assets/icons/pwa/icon-512.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)">
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="js/ui/skins/classic/skin.css">
+  <link rel="stylesheet" href="js/ui/skins/modern/skin.css">
+	<link rel="stylesheet" href="js/ui/skins/luminous/skin.css">
   <title>Focused Word</title>
 </head>
 <body>
@@ -28,7 +31,7 @@
     <div id="splash-screen" class="splash-screen">
       <div class="splash-content">
         <div class="splash-icon">
-          <img src="/assets/icons/icon-dark.svg" class="app-icon" alt="Focused Word" width="80" height="80">
+          <img src="/assets/icons/app/icon-dark.svg" class="app-icon" alt="Focused Word" width="80" height="80">
         </div>
         <h1 class="splash-title">Focused Word</h1>
         <div class="splash-loader">
@@ -47,7 +50,7 @@
         </div>
         <div id="chapter-header" class="chapter-header">
           <div class="chapter-emblem" id="chapter-emblem">
-            <img src="/assets/icons/icon-dark.svg" class="app-icon" alt="" width="40" height="40">
+            <img src="/assets/icons/app/icon-dark.svg" class="app-icon" alt="" width="40" height="40">
           </div>
           <h2 class="chapter-title" id="chapter-title">In the Beginning</h2>
           <p class="chapter-subtitle" id="chapter-subtitle">Genesis 1 &middot; 31 verses</p>
@@ -127,6 +130,16 @@
 
   <!-- ========== More Popup (above Tab 5) ========== -->
   <div id="more-popup" class="more-popup hidden">
+    <button class="more-item" id="more-install-app" data-action="install-app">
+      <span class="more-item-icon">
+        <svg viewBox="-32 -32 1088 1088" width="18" height="18" fill="currentColor">
+          <g transform="translate(0, 960) scale(1, -1)">
+            <path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM459.791 170.667v342.725l-149.237-149.237-48.242 48.242 224.619 224.619 27.765-27.765 196.854-196.854-48.242-48.242-149.237 149.237v-342.725z"/>
+          </g>
+        </svg>
+      </span>
+      <span class="more-item-label">Install App</span>
+    </button>
     <button class="more-item" data-action="settings">
       <span class="more-item-icon">
         <svg viewBox="-32 -32 1088 1088" width="18" height="18" fill="currentColor">
@@ -138,15 +151,15 @@
       <span class="more-item-label">Settings</span>
     </button>
     <div class="more-divider"></div>
-    <button class="more-item" id="more-install-app" data-action="install-app">
+    <button class="more-item" data-action="plans">
       <span class="more-item-icon">
         <svg viewBox="-32 -32 1088 1088" width="18" height="18" fill="currentColor">
           <g transform="translate(0, 960) scale(1, -1)">
-            <path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM459.791 170.667v342.725l-149.237-149.237-48.242 48.242 224.619 224.619 27.765-27.765 196.854-196.854-48.242-48.242-149.237 149.237v-342.725z"/>
+            <path d="M149.06 938.667h726.617c46.933 0 85.333-38.4 85.333-85.333v-699.734c0-46.933-38.4-85.333-85.333-85.333h-726.617c-46.933 0-85.333 38.4-85.333 85.333v699.734c0 46.933 38.4 85.333 85.333 85.333zM192.393 153.6h640v640h-640zM320.393 384h384v-64h-384zM320.393 533.333h256v-64h-256zM320.393 682.667h384v-64h-384z"/>
           </g>
         </svg>
       </span>
-      <span class="more-item-label">Install App</span>
+      <span class="more-item-label">Plans</span>
     </button>
     <button class="more-item" data-action="notes">
       <span class="more-item-icon">
@@ -210,6 +223,14 @@
 
   <!-- ========== Bottom Navigation ========== -->
   <nav id="bottom-nav" class="bottom-nav">
+    <div class="bottom-nav-bg">
+      <div class="nav-wing left"></div>
+      <svg class="bottom-nav-notch" viewBox="0 0 220 68" aria-hidden="true">
+        <path d="M 0,0 L 34,0 C 34,0 47.073,3.358 58.111,6.621 C 65.954,8.962 72.154,14.995 74.707,22.772 C 79.181,36.682 92.333,47 110,47 C 127.679,47 140.837,36.668 145.325,22.75 C 147.86,15.004 154.031,8.992 161.842,6.66 C 172.884,3.369 186,0 186,0 L 220,0 L 220,68 L 0,68 Z"/>
+        <path class="bottom-nav-notch-stroke" d="M 0,.5 L 34,.5 C 34,.5 47.762,4.386 59.286,7.929 C 66.584,10.459 72.3,16.224 74.768,23.543 C 79.347,37.312 92.445,47.5 110,47.5 C 127.665,47.5 140.817,37.184 145.314,23.282 C 147.867,15.51 154.063,9.481 161.902,7.142 C 172.932,3.857 186,.5 186,.5 L 220,.5"/>
+      </svg>
+      <div class="nav-wing right"></div>
+    </div>
     <button class="tab-item" data-tab="discover">
       <svg class="tab-icon" viewBox="-32 -32 1088 1088" width="22" height="22" fill="currentColor">
         <g transform="translate(0, 960) scale(1, -1)">
@@ -226,9 +247,16 @@
       </svg>
       <span class="tab-label">Mode</span>
     </button>
-    <button class="tab-item tab-bible active" data-tab="bible">
+    <button class="tab-item tab-bible tab-bible-spacer" data-tab="bible">
       <div class="tab-icon-wrapper">
-        <img class="tab-icon" src="assets/icons/ui/closed-bible-icon.svg" alt="Bible" width="32" height="32" draggable="false">
+        <svg class="tab-icon" viewBox="0 0 100 125" width="32" height="32" fill="currentColor" aria-hidden="true">
+          <g transform="matrix(1,0,0,1,0,12.497845)">
+            <path d="M22.85,85.15C23.839,85.876 25.033,86.268 26.26,86.27L30.43,86.27L30.43,90C30.429,90.398 30.665,90.761 31.03,90.92C31.157,90.971 31.293,90.999 31.43,91C31.678,90.999 31.917,90.907 32.1,90.74L35.63,87.51L39.16,90.74C39.452,91.009 39.877,91.08 40.24,90.92C40.601,90.758 40.833,90.396 40.83,90L40.83,86.27L78.48,86.27C78.611,86.268 78.74,86.241 78.86,86.19L78.98,86.11C79.042,86.086 79.099,86.053 79.15,86.01C79.218,85.939 79.275,85.858 79.32,85.77C79.365,85.682 79.32,85.77 79.38,85.69C79.431,85.563 79.459,85.427 79.46,85.29L79.46,10C79.46,9.451 79.009,9 78.46,9L25.55,9C22.692,9 20.34,11.352 20.34,14.21L20.34,80.72C20.345,82.532 21.298,84.214 22.85,85.15ZM38.85,87.69L36.33,85.38C36.146,85.207 35.903,85.111 35.65,85.11C35.401,85.113 35.162,85.21 34.98,85.38L32.45,87.69L32.45,76.08L38.85,76.08L38.85,87.69ZM40.85,84.27L40.85,76.08L74.4,76.08C72.31,78.394 72.31,81.956 74.4,84.27L40.85,84.27ZM77.48,84C76.952,83.788 76.473,83.472 76.07,83.07C75.289,82.293 74.85,81.236 74.85,80.135C74.85,78.435 75.897,76.9 77.48,76.28L77.48,84ZM32.34,11L77.48,11L77.48,74L32.34,74L32.34,11ZM22.34,14.21C22.34,12.449 23.789,11 25.55,11L30.34,11L30.34,74.08L26.26,74.08C24.807,74.083 23.407,74.633 22.34,75.62L22.34,14.21ZM26.26,76.08L30.43,76.08L30.43,84.27L26.26,84.27C25.216,84.269 24.217,83.839 23.5,83.08C22.75,82.298 22.334,81.254 22.34,80.17C22.339,80.14 22.339,80.109 22.339,80.079C22.339,77.915 24.096,76.123 26.26,76.08Z" style="fill-rule:nonzero;"/>
+          </g>
+          <g transform="matrix(1,0,0,1,0,12.497845)">
+            <path d="M65,29L57.66,29L57.66,20.5C57.66,19.951 57.209,19.5 56.66,19.5L51,19.5C50.451,19.5 50,19.951 50,20.5L50,29L42.68,29C42.131,29 41.68,29.451 41.68,30L41.68,35.64C41.68,36.189 42.131,36.64 42.68,36.64L50,36.64L50,58.43C50,58.979 50.451,59.43 51,59.43L56.64,59.43C57.189,59.43 57.64,58.979 57.64,58.43L57.64,36.64L65,36.64C65.549,36.64 66,36.189 66,35.64L66,30C66,29.451 65.549,29 65,29ZM64,34.64L56.66,34.64C56.111,34.64 55.66,35.091 55.66,35.64L55.66,57.43L52,57.43L52,35.64C52,35.091 51.549,34.64 51,34.64L43.68,34.64L43.68,31L51,31C51.549,31 52,30.549 52,30L52,21.5L55.64,21.5L55.64,30C55.64,30.549 56.091,31 56.64,31L64,31L64,34.64Z" style="fill-rule:nonzero;"/>
+          </g>
+        </svg>
       </div>
       <span class="tab-label">Bible</span>
     </button>
@@ -249,6 +277,21 @@
       <span class="tab-label">More</span>
     </button>
   </nav>
+
+  <!-- ========== Floating Bible Button ========== -->
+  <div class="bible-float" data-tab="bible" role="button" tabindex="0" aria-label="Bible">
+    <div class="bible-float-circle">
+      <svg class="bible-float-icon" viewBox="0 0 100 125" width="28" height="28" fill="currentColor" aria-hidden="true">
+        <g transform="matrix(1,0,0,1,0,12.497845)">
+          <path d="M22.85,85.15C23.839,85.876 25.033,86.268 26.26,86.27L30.43,86.27L30.43,90C30.429,90.398 30.665,90.761 31.03,90.92C31.157,90.971 31.293,90.999 31.43,91C31.678,90.999 31.917,90.907 32.1,90.74L35.63,87.51L39.16,90.74C39.452,91.009 39.877,91.08 40.24,90.92C40.601,90.758 40.833,90.396 40.83,90L40.83,86.27L78.48,86.27C78.611,86.268 78.74,86.241 78.86,86.19L78.98,86.11C79.042,86.086 79.099,86.053 79.15,86.01C79.218,85.939 79.275,85.858 79.32,85.77C79.365,85.682 79.32,85.77 79.38,85.69C79.431,85.563 79.459,85.427 79.46,85.29L79.46,10C79.46,9.451 79.009,9 78.46,9L25.55,9C22.692,9 20.34,11.352 20.34,14.21L20.34,80.72C20.345,82.532 21.298,84.214 22.85,85.15ZM38.85,87.69L36.33,85.38C36.146,85.207 35.903,85.111 35.65,85.11C35.401,85.113 35.162,85.21 34.98,85.38L32.45,87.69L32.45,76.08L38.85,76.08L38.85,87.69ZM40.85,84.27L40.85,76.08L74.4,76.08C72.31,78.394 72.31,81.956 74.4,84.27L40.85,84.27ZM77.48,84C76.952,83.788 76.473,83.472 76.07,83.07C75.289,82.293 74.85,81.236 74.85,80.135C74.85,78.435 75.897,76.9 77.48,76.28L77.48,84ZM32.34,11L77.48,11L77.48,74L32.34,74L32.34,11ZM22.34,14.21C22.34,12.449 23.789,11 25.55,11L30.34,11L30.34,74.08L26.26,74.08C24.807,74.083 23.407,74.633 22.34,75.62L22.34,14.21ZM26.26,76.08L30.43,76.08L30.43,84.27L26.26,84.27C25.216,84.269 24.217,83.839 23.5,83.08C22.75,82.298 22.334,81.254 22.34,80.17C22.339,80.14 22.339,80.109 22.339,80.079C22.339,77.915 24.096,76.123 26.26,76.08Z" style="fill-rule:nonzero;"/>
+        </g>
+        <g transform="matrix(1,0,0,1,0,12.497845)">
+          <path d="M65,29L57.66,29L57.66,20.5C57.66,19.951 57.209,19.5 56.66,19.5L51,19.5C50.451,19.5 50,19.951 50,20.5L50,29L42.68,29C42.131,29 41.68,29.451 41.68,30L41.68,35.64C41.68,36.189 42.131,36.64 42.68,36.64L50,36.64L50,58.43C50,58.979 50.451,59.43 51,59.43L56.64,59.43C57.189,59.43 57.64,58.979 57.64,58.43L57.64,36.64L65,36.64C65.549,36.64 66,36.189 66,35.64L66,30C66,29.451 65.549,29 65,29ZM64,34.64L56.66,34.64C56.111,34.64 55.66,35.091 55.66,35.64L55.66,57.43L52,57.43L52,35.64C52,35.091 51.549,34.64 51,34.64L43.68,34.64L43.68,31L51,31C51.549,31 52,30.549 52,30L52,21.5L55.64,21.5L55.64,30C55.64,30.549 56.091,31 56.64,31L64,31L64,34.64Z" style="fill-rule:nonzero;"/>
+        </g>
+      </svg>
+      <span class="bible-float-label">Bible</span>
+    </div>
+  </div>
 
   <!-- ========== Highlight Toolbar (right-side panel) ========== -->
   <div id="highlight-toolbar" class="highlight-toolbar hidden">
@@ -281,18 +324,27 @@
       <button id="settings-close" class="icon-btn" aria-label="Close settings"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
     </div>
     <div class="settings-body">
-      <!-- Display -->
+      <!-- Appearance -->
       <div class="settings-section">
-        <button class="section-header" aria-expanded="false" data-section="display">
-          <span>Display</span>
+        <button class="section-header" aria-expanded="false" data-section="appearance">
+          <span>Appearance</span>
           <svg class="section-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
             <path d="M4 6l4 4 4-4"/>
           </svg>
         </button>
         <div class="section-body">
           <div class="setting-row">
+            <span>UI</span>
+            <select id="settings-ui-skin">
+              <option value="classic">Classic</option>
+              <option value="modern">Modern</option>
+              <option value="luminous">Luminous</option>
+            </select>
+          </div>
+          <div class="setting-row">
             <span>Theme</span>
             <select id="settings-theme">
+<option value="skin">Default</option>
 <option value="dark">Dark</option>
 <option value="light">Light</option>
 <option value="sepia">Sepia</option>
@@ -305,11 +357,11 @@
 <option value="clay">Clay</option>
             </select>
           </div>
-          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
-            <span>Accent</span>
-            <div class="accent-swatches" id="settings-accents"></div>
-          </div>
           <div class="setting-row">
+            <span>Accent</span>
+            <div id="settings-accent-wrap" class="custom-select-wrap"></div>
+          </div>
+          <div class="setting-row" id="settings-row-background-texture">
             <label class="toggle-label-wrapper" for="settings-background-texture">
               <span class="toggle-text">Background Texture</span>
               <input type="checkbox" id="settings-background-texture" class="toggle-checkbox">
@@ -330,7 +382,8 @@
         <div class="section-body">
           <div class="setting-row">
             <span>Font</span>
-            <select id="settings-font">
+            <select id="settings-font" class="pw-input">
+              <option value="skin">Default</option>
               <optgroup label="Sans-serif">
                 <option value="inter">Inter</option>
                 <option value="roboto">Roboto</option>
@@ -353,33 +406,68 @@
               </optgroup>
             </select>
           </div>
-          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+          <div class="setting-row setting-row--slider">
             <div style="display:flex;justify-content:space-between;">
               <span>Font Size</span>
               <span id="settings-font-size-label" class="strength-label">13pt</span>
             </div>
             <input type="range" id="settings-font-size" min="10" max="24" step="1" value="13">
           </div>
-          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+          <div class="setting-row setting-row--slider">
             <div style="display:flex;justify-content:space-between;">
               <span>Line Spacing</span>
               <span id="settings-line-spacing-label" class="strength-label">1.8</span>
             </div>
             <input type="range" id="settings-line-spacing" min="1.0" max="3.0" step="0.1" value="1.8">
           </div>
-          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+          <div class="setting-row setting-row--slider">
             <div style="display:flex;justify-content:space-between;">
               <span>Letter Spacing</span>
               <span id="settings-letter-spacing-label" class="strength-label">0.005</span>
             </div>
             <input type="range" id="settings-letter-spacing" min="-0.02" max="0.1" step="0.005" value="0.005">
           </div>
-          <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:0.4rem;">
+          <div class="setting-row setting-row--slider">
             <div style="display:flex;justify-content:space-between;">
               <span>Margins</span>
               <span id="settings-margins-label" class="strength-label">1.0</span>
             </div>
             <input type="range" id="settings-margins" min="0" max="2.0" step="0.25" value="1.0">
+          </div>
+          <div class="setting-row">
+            <span>Chapter Header Alignment</span>
+            <select id="settings-chapter-header-alignment" class="pw-input">
+              <option value="skin">Default</option>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <span>Section Heading Alignment</span>
+            <select id="settings-section-heading-alignment" class="pw-input">
+              <option value="skin">Default</option>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <span>Verse Text Alignment</span>
+            <select id="settings-verse-text-alignment" class="pw-input">
+              <option value="skin">Default</option>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <span>Verse Number Placement</span>
+            <select id="settings-verse-number-placement" class="pw-input">
+              <option value="skin">Default</option>
+              <option value="inline">Inline</option>
+              <option value="gutter">Gutter</option>
+            </select>
           </div>
         </div>
       </div>
@@ -400,10 +488,12 @@
               <span class="toggle-pill"></span>
             </label>
           </div>
-          <div class="setting-row" id="swipe-max-verses-row" style="display:none;">
-            <span>Max Verses per Card</span>
+          <div class="setting-row setting-row--slider" id="swipe-max-verses-row" style="display:none;">
+            <div style="display:flex;justify-content:space-between;">
+              <span>Max Verses per Card</span>
+              <span id="settings-swipe-max-verses-label" class="strength-label">4</span>
+            </div>
             <input type="range" id="settings-swipe-max-verses" min="1" max="8" step="1" value="4">
-            <span id="settings-swipe-max-verses-label" class="strength-label">4</span>
           </div>
           <div class="setting-row">
             <label class="toggle-label-wrapper" for="settings-red-letter">
@@ -457,10 +547,12 @@
               <span class="toggle-pill"></span>
             </label>
           </div>
-          <div class="setting-row settings-strength-row">
-            <span>Bionic Strength</span>
+          <div class="setting-row setting-row--slider">
+            <div style="display:flex;justify-content:space-between;">
+              <span>Bionic Strength</span>
+              <span id="settings-strength-label" class="strength-label">45%</span>
+            </div>
             <input type="range" id="settings-strength" min="0.10" max="0.90" step="0.05" value="0.45">
-            <span id="settings-strength-label" class="strength-label">45%</span>
           </div>
         </div>
       </div>
@@ -561,7 +653,7 @@
 
       <div class="settings-version">
         <a href="#" id="view-changelog" class="settings-changelog-link">What's New</a>
-        <span class="settings-version-label">v0.8.7</span>
+        <span class="settings-version-label">v0.9.0</span>
         <button id="view-debug-log" class="debug-gear-btn" aria-label="Debug Log">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
@@ -642,23 +734,6 @@
     </div>
   </div>
 
-  <!-- ========== Bookmarks Modal (legacy) ========== -->
-  <div id="bookmarks-backdrop" class="bookmarks-backdrop"></div>
-  <div id="bookmarks-modal" class="bookmarks-modal" role="dialog" aria-modal="true" aria-label="Library">
-    <div class="bookmarks-header">
-      <h2>Library</h2>
-      <button id="bookmarks-close" class="icon-btn" aria-label="Close"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
-    </div>
-    <div class="bookmarks-tabs">
-      <button id="bookmarks-tab-bm" class="bookmarks-tab active">Bookmarks</button>
-      <button id="bookmarks-tab-hl" class="bookmarks-tab">Highlights</button>
-      <button id="bookmarks-tab-notes" class="bookmarks-tab">Notes</button>
-    </div>
-    <div class="bookmarks-body" id="bookmarks-body">
-      <div class="bookmarks-empty">No bookmarks yet. Select text to create one.</div>
-    </div>
-  </div>
-
   <!-- ========== Cross-References Side Panel ========== -->
   <div id="crossref-overlay" class="crossref-overlay" role="presentation"></div>
   <div id="crossref-panel" class="crossref-panel" role="dialog" aria-modal="true" aria-label="Cross References">
@@ -713,58 +788,70 @@
   </div>
 
   <script src="js/core/config.js"></script>
-  <script src="js/utils/uuid.js"></script>
-  <script src="js/utils/html.js"></script>
-  <script src="js/utils/bionic.js"></script>
+  <script src="js/data/uuid.js"></script>
+  <script src="js/data/html.js"></script>
+  <script src="js/data/bionic.js"></script>
   <script src="js/data/book-map.js"></script>
-  <script src="js/data/db.js"></script>
+  <script src="js/data/bible-db.js"></script>
   <script src="js/core/debug.js"></script>
-  <script src="js/core/idb-service.js"></script>
-  <script src="js/utils/tag-cache-utils.js"></script>
-  <script src="js/utils/legacy-migration.js"></script>
-  <script src="js/core/state-store.js"></script>
+  <script src="js/data/idb-service.js"></script>
+  <script src="js/notes/tag-cache-utils.js"></script>
+  <script src="js/data/legacy-migration.js"></script>
+  <script src="js/data/state-store.js"></script>
+  <script src="js/ui/skin-system.js"></script>
+  <script src="js/ui/skins/modern/skin.js"></script>
+	<script src="js/ui/skins/luminous/skin.js"></script>
   <script src="js/core/bridge.js"></script>
-  <script src="js/core/view-manager.js"></script>
-  <script src="js/core/render-manager.js"></script>
-  <script src="js/core/sync-service.js"></script>
-  <script src="js/core/verse-manager.js"></script>
+  <script src="js/navigation/view-manager.js"></script>
+  <script src="js/navigation/render-manager.js"></script>
+  <script src="js/text/url-validator.js"></script>
+  <script src="js/sync/sync-service.js"></script>
+  <script src="js/domain/verse-manager.js"></script>
   <script src="js/data/selection.js"></script>
-  <script src="js/modules/chapter-summary.js"></script>
-  <script src="js/modules/renderers/base.js"></script>
-  <script src="js/modules/renderers/swipe.js"></script>
-  <script src="js/modules/renderers/spotlight.js"></script>
-  <script src="js/modules/renderers/speed.js"></script>
-  <script src="js/modules/renderers/scroll.js"></script>
-  <script src="js/modules/navigation.js"></script>
-  <script src="js/modules/color-theme.js"></script>
-  <script src="js/modules/typography.js"></script>
-  <script src="js/modules/settings.js"></script>
-  <script src="js/modules/settings-sync-ui.js"></script>
-  <script src="js/modules/install-prompt.js"></script>
-  <script src="js/modules/search.js"></script>
-  <script src="js/modules/bookmarks-ui.js"></script>
-  <script src="js/modules/interaction-manager.js"></script>
+  <script src="js/app/chapter-summary.js"></script>
+  <script src="js/reading/renderers/base.js"></script>
+  <script src="js/reading/renderers/swipe.js"></script>
+  <script src="js/reading/renderers/spotlight.js"></script>
+  <script src="js/reading/renderers/speed.js"></script>
+  <script src="js/reading/renderers/scroll.js"></script>
+  <script src="js/navigation/navigation.js"></script>
+  <script src="js/settings/color-theme.js"></script>
+  <script src="js/settings/typography.js"></script>
+  <script src="js/settings/settings.js"></script>
+  <script src="js/settings/settings-sync-ui.js"></script>
+  <script src="js/app/install-prompt.js"></script>
+  <script src="js/reading/search.js"></script>
+  <script src="js/bookmarks/bookmarks-ui.js"></script>
+  <script src="js/reading/interaction-manager.js"></script>
   <script src="js/data/highlight-store.js"></script>
   <script src="js/data/note-store.js"></script>
-  <script src="js/modules/highlight-manager.js"></script>
+  <script src="js/text/highlight-manager.js"></script>
   <script src="js/data/cross-references.js"></script>
-  <script src="js/modules/cross-refs-ui.js"></script>
-  <script src="js/modules/footnotes-ui.js"></script>
-  <script src="js/modules/scroll-mode/band-engine.js"></script>
-  <script src="js/modules/scroll-mode/char-resolver.js"></script>
-  <script src="js/modules/scroll-mode/line-estimator.js"></script>
-  <script src="js/modules/scroll-mode/highlight-renderer.js"></script>
-  <script src="js/modules/scroll-mode/block-resolver.js"></script>
-  <script src="js/modules/scroll-mode/reading-tracker.js"></script>
-  <script src="js/modules/scroll-mode/switcher.js"></script>
-  <script src="js/utils/markdown-parser.js"></script>
-  <script src="js/utils/tag-search.js"></script>
-  <script src="js/utils/token-renderer.js"></script>
-  <script src="js/utils/simple-editor.js"></script>
-  <script src="js/modules/notes-ui.js"></script>
-  <script src="js/modules/split-mode.js"></script>
-  <script src="js/core/scripture-repository-service.js"></script>
-  <script src="js/modules/scripture-repos-ui.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/cross-refs/cross-refs-ui.js"></script>
+  <script src="js/footnotes/footnotes-ui.js"></script>
+  <script src="js/reading/scroll-mode/band-engine.js"></script>
+  <script src="js/reading/scroll-mode/char-resolver.js"></script>
+  <script src="js/reading/scroll-mode/line-estimator.js"></script>
+  <script src="js/reading/scroll-mode/highlight-renderer.js"></script>
+  <script src="js/reading/scroll-mode/block-resolver.js"></script>
+  <script src="js/reading/scroll-mode/reading-tracker.js"></script>
+  <script src="js/reading/scroll-mode/switcher.js"></script>
+  <script src="js/text/markdown-parser.js"></script>
+  <script src="js/notes/tag-search.js"></script>
+  <script src="js/text/token-renderer.js"></script>
+  <script src="js/notes/simple-editor.js"></script>
+  <script src="js/notes/notes-ui.js"></script>
+  <script src="js/app/split-mode.js"></script>
+  <script src="js/repository/scripture-repository-service.js"></script>
+  <script src="js/repository/scripture-repos-ui.js"></script>
+  <script src="js/plans/passage-ref.js"></script>
+  <script src="js/plans/book-groups.js"></script>
+  <script src="js/plans/predefined-loader.js"></script>
+  <script src="js/plans/plan-generator.js"></script>
+  <script src="js/plans/plan-scheduler.js"></script>
+  <script src="js/plans/reading-log.js"></script>
+  <script src="js/plans/plans-ui.js"></script>
+  <script src="js/plans/home-plan-widget.js"></script>
+  <script src="js/app/app.js"></script>
 </body>
 </html>

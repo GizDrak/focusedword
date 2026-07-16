@@ -1,0 +1,1255 @@
+/* client/js/ui/skins/luminous/skin.css */
+/* Complete Luminous skin: base structure + visual redesign. */
+
+/* Luminous structural foundation, derived from the complete Classic skin. */
+/* This section preserves the complete layout and behavior of the base skin.
+   Visual overrides are applied in the Luminous layer below. */
+
+/* Retain Luminous-specific scroll padding */
+[data-ui-skin="luminous"] body.scroll-mode .verse-container {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+/* ========== Chapter Header ========== */
+[data-ui-skin="luminous"] .chapter-header {
+  text-align: var(--text-chapter-header-align, center);
+}
+
+[data-ui-skin="luminous"] .verse-num {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  margin-right: 0.55em;
+  display: inline-block;
+  min-width: 1.5rem;
+  text-align: right;
+  vertical-align: text-top;
+  position: relative;
+  top: 0.2em;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.85;
+}
+
+[data-ui-skin="luminous"] .block-poetry {
+  margin: 0.6em 0.3em;
+  padding: 0.6em 1em;
+  border: 1px solid var(--accent-color-dim, rgba(208, 169, 108, 0.35));
+  background: color-mix(in srgb, var(--luminous-accent) 6%, transparent);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+[data-ui-skin="luminous"] .section-heading,
+[data-ui-skin="luminous"] .token-section-heading {
+  color: var(--accent-color);
+  font-family: var(--verse-font-family);
+  font-size: calc(var(--verse-font-size) * 0.92);
+  line-height: var(--verse-line-height);
+  font-weight: 600;
+  text-align: var(--text-section-heading-align, center);
+  letter-spacing: var(--verse-letter-spacing);
+  text-wrap: balance;
+  opacity: 0.85;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-ui-skin="luminous"] .bottom-nav-bg {
+  display: none;
+}
+
+@keyframes bibleGlow {
+  0% {
+    box-shadow: 0 0 12px var(--accent-color-glow);
+  }
+  100% {
+    box-shadow: 0 0 28px var(--accent-color-glow-strong), 0 0 50px color-mix(in srgb, var(--luminous-accent) 10%, transparent);
+  }
+}
+
+/* ========== Focus Mode ========== */
+[data-ui-skin="luminous"] body.focus-mode .verse-progress {
+  display: none;
+}
+
+[data-ui-skin="luminous"] body.focus-mode .verse-text {
+  line-height: 2.2;
+}
+
+[data-ui-skin="luminous"] body.focus-mode .verse-container {
+  text-align: center;
+}
+
+[data-ui-skin="luminous"] body.focus-mode .verse-container.focused {
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-ui-skin="luminous"] body.focus-mode .verse-num {
+  opacity: 0.4;
+}
+
+[data-ui-skin="luminous"] body.focus-mode .token-section-heading {
+  opacity: 0.5;
+}
+
+[data-ui-skin="luminous"] .hpw-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+[data-ui-skin="luminous"] .hpw-close-btn:hover {
+  background: var(--verse-focus-bg);
+  color: var(--text-primary);
+}
+
+/* Existing Luminous semantic-component overrides */
+html[data-ui-skin="luminous"] {
+  color-scheme: dark;
+  /* Dark-mode base values — overridden below for light themes */
+  --luminous-bg-base: #080808;
+  --luminous-bg-elevated-base: #121212;
+  --luminous-surface-base: rgba(12, 12, 12, 0.78);
+  --luminous-surface-strong-base: rgba(12, 12, 12, 0.94);
+  --luminous-surface-hover-base: rgba(12, 12, 12, 0.78);
+  --luminous-text-color: #F7F3FF;
+  --luminous-text-soft-color: #D8D0E8;
+  --luminous-text-muted-color: #9E93B8;
+  --luminous-shadow-value: 0 18px 55px rgba(0,0,0,.38);
+  --luminous-shadow-color: rgba(0,0,0,.5);
+  --luminous-shadow-deep-value: 0 22px 60px rgba(0,0,0,0.42);
+  --luminous-body-start: color-mix(in srgb, var(--accent-color) 3%, #080808);
+  --luminous-body-mid: #080808;
+  --luminous-body-end: #090909;
+  --luminous-reading-toolbar-bg: rgba(12,12,12,.76);
+  --luminous-bottom-nav-bg: rgba(12,12,12,.92);
+  --luminous-passage-nav-bg: rgba(12,12,12,.72);
+  --luminous-highlight-toolbar-bg: rgba(12,12,12,.92);
+  --luminous-search-backdrop: rgba(0,0,0,.68);
+  --luminous-text-shadow: 0 1px 1px rgba(0,0,0,0.14);
+}
+
+/* Light-mode theme overrides */
+[data-ui-skin="luminous"][data-theme="sepia"],
+[data-ui-skin="luminous"][data-theme="light"],
+[data-ui-skin="luminous"][data-theme="icy-wind"],
+[data-ui-skin="luminous"][data-theme="clay"] {
+  color-scheme: light;
+  --luminous-bg-base: var(--bg);
+  --luminous-bg-elevated-base: #FFFFFF;
+  --luminous-surface-base: rgba(255, 255, 255, 0.78);
+  --luminous-surface-strong-base: rgba(255, 255, 255, 0.94);
+  --luminous-surface-hover-base: rgba(255, 255, 255, 0.9);
+  --luminous-text-color: #1A1A2E;
+  --luminous-text-soft-color: #3A3A5C;
+  --luminous-text-muted-color: #7A7A9E;
+  --luminous-shadow-value: 0 18px 55px rgba(0,0,0,.12);
+  --luminous-shadow-color: rgba(0,0,0,.2);
+  --luminous-shadow-deep-value: 0 22px 60px rgba(0,0,0,0.12);
+  --luminous-body-start: color-mix(in srgb, var(--accent-color) 1%, var(--bg));
+  --luminous-body-mid: var(--bg);
+  --luminous-body-end: color-mix(in srgb, black 4%, var(--bg));
+  --luminous-reading-toolbar-bg: rgba(255,255,255,.76);
+  --luminous-bottom-nav-bg: rgba(255,255,255,.92);
+  --luminous-passage-nav-bg: rgba(255,255,255,.72);
+  --luminous-highlight-toolbar-bg: rgba(255,255,255,.92);
+  --luminous-search-backdrop: rgba(0,0,0,.32);
+  --luminous-text-shadow: 0 1px 1px rgba(255,255,255,0.14);
+}
+
+/* Light theme Bible tab text/icon needs dark color, not white */
+[data-ui-skin="luminous"][data-theme="sepia"] .luminous-bottom-navigation-tab--primary,
+[data-ui-skin="luminous"][data-theme="light"] .luminous-bottom-navigation-tab--primary,
+[data-ui-skin="luminous"][data-theme="icy-wind"] .luminous-bottom-navigation-tab--primary,
+[data-ui-skin="luminous"][data-theme="clay"] .luminous-bottom-navigation-tab--primary {
+  color: var(--luminous-text);
+}
+[data-ui-skin="luminous"][data-theme="sepia"] #bottom-nav .tab-bible.active .tab-icon-wrapper,
+[data-ui-skin="luminous"][data-theme="light"] #bottom-nav .tab-bible.active .tab-icon-wrapper,
+[data-ui-skin="luminous"][data-theme="icy-wind"] #bottom-nav .tab-bible.active .tab-icon-wrapper,
+[data-ui-skin="luminous"][data-theme="clay"] #bottom-nav .tab-bible.active .tab-icon-wrapper {
+  color: var(--luminous-text);
+}
+
+html[data-ui-skin="luminous"] body {
+  background:
+    radial-gradient(circle at 88% 4%, color-mix(in srgb, var(--accent-color) 18%, transparent), transparent 26rem),
+    radial-gradient(circle at 14% 34%, color-mix(in srgb, var(--accent-color) 10%, transparent), transparent 30rem),
+    linear-gradient(180deg, var(--luminous-body-start) 0%, var(--luminous-body-mid) 60%, var(--luminous-body-end) 100%);
+  color: var(--luminous-text);
+}
+
+html[data-ui-skin="luminous"] body.background-texture {
+  background:
+    radial-gradient(circle at 88% 4%, color-mix(in srgb, var(--accent-color) 18%, transparent), transparent 26rem),
+    radial-gradient(circle at 14% 34%, color-mix(in srgb, var(--accent-color) 10%, transparent), transparent 30rem),
+    linear-gradient(180deg, var(--luminous-body-start) 0%, var(--luminous-body-mid) 60%, var(--luminous-body-end) 100%),
+    var(--paper-texture);
+  background-size: auto, auto, auto, contain;
+  background-repeat: repeat;
+  background-blend-mode: normal, normal, normal, screen;
+}
+
+/* Chapter summary */
+[data-ui-skin="luminous"] .luminous-chapter-summary-title {
+  color: var(--luminous-text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.25rem, 7vw, 4.25rem);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -.035em;
+  text-shadow: 0 2px 26px rgba(0,0,0,.34);
+}
+
+[data-ui-skin="luminous"] .luminous-chapter-summary-subtitle {
+  color: var(--luminous-text-muted);
+}
+
+[data-ui-skin="luminous"] .luminous-chapter-summary-emblem {
+  display: none;
+}
+
+/* Reading toolbar */
+[data-ui-skin="luminous"] .luminous-reading-toolbar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.035), transparent),
+    var(--luminous-reading-toolbar-bg);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+}
+
+[data-ui-skin="luminous"] .luminous-reading-toolbar-label {
+  color: var(--luminous-text);
+  font-weight: 750;
+}
+
+[data-ui-skin="luminous"] .luminous-reading-toolbar-crossrefs,
+[data-ui-skin="luminous"] .luminous-reading-toolbar-tag-results {
+  border-color: var(--luminous-border);
+  color: var(--luminous-text-soft);
+  background: transparent;
+}
+
+/* Section headings */
+[data-ui-skin="luminous"] .section-heading-container {
+  margin-top: 1.3rem;
+  margin-bottom: 0.65rem;
+}
+
+[data-ui-skin="luminous"] .luminous-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  justify-content: var(--text-section-heading-justify, flex-start);
+  color: var(--luminous-accent-bright);
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+[data-ui-skin="luminous"] .luminous-section-heading__icon + .luminous-section-heading__text {
+  margin-left: .72rem;
+}
+
+[data-ui-skin="luminous"] .luminous-section-heading__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--luminous-accent-bright);
+  filter: drop-shadow(0 0 10px var(--ui-accent-glow));
+}
+
+[data-ui-skin="luminous"] .luminous-heading-crossref {
+  color: var(--luminous-text-muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+/* Verse markers */
+[data-ui-skin="luminous"] .luminous-verse-number {
+  color: var(--luminous-accent-bright);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .72em;
+  font-weight: 850;
+  text-shadow: 0 0 14px var(--ui-accent-glow);
+}
+
+[data-ui-skin="luminous"] .luminous-footnote-caller,
+[data-ui-skin="luminous"] .luminous-crossref-indicator,
+[data-ui-skin="luminous"] .luminous-inline-icon {
+  color: var(--luminous-accent-bright);
+}
+
+/* Passage navigation */
+[data-ui-skin="luminous"] .luminous-passage-navigation-action {
+  border: 1px solid var(--luminous-border);
+  color: var(--luminous-text);
+  background: var(--luminous-passage-nav-bg);
+  box-shadow: 0 12px 30px rgba(0,0,0,.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-ui-skin="luminous"] .luminous-passage-navigation-label {
+  color: var(--luminous-text-muted);
+}
+
+/* Reading plan */
+[data-ui-skin="luminous"] .luminous-reading-plan-card {
+  border: 1px solid var(--luminous-border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.035), transparent),
+    var(--luminous-surface-strong);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,.46),
+    inset 0 1px 0 rgba(255,255,255,.045);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+
+[data-ui-skin="luminous"] .luminous-reading-plan-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--luminous-accent-bright) 35%, transparent), transparent);
+}
+
+[data-ui-skin="luminous"] .luminous-reading-plan-title {
+  color: var(--luminous-text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+}
+
+[data-ui-skin="luminous"] .luminous-reading-plan-passages {
+  color: var(--luminous-text-muted);
+}
+
+[data-ui-skin="luminous"] .luminous-reading-plan-action {
+  border: 1px solid color-mix(in srgb, var(--luminous-accent-bright) 28%, transparent);
+  color: #fff;
+  background: linear-gradient(135deg, var(--luminous-accent), color-mix(in srgb, var(--luminous-accent) 80%, black));
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--luminous-accent) 30%, transparent), inset 0 1px 0 rgba(255,255,255,.18);
+  font-weight: 800;
+}
+
+[data-ui-skin="luminous"] .luminous-reading-plan-dismiss {
+  border: 1px solid var(--luminous-border);
+  color: var(--luminous-text-soft);
+  background: rgba(255,255,255,.035);
+}
+
+/* Bottom navigation */
+[data-ui-skin="luminous"] .luminous-bottom-navigation {
+  border-top: 1px solid var(--luminous-border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.02), transparent),
+    var(--luminous-bottom-nav-bg);
+  box-shadow: 0 -18px 50px rgba(0,0,0,.35);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab {
+  color: color-mix(in srgb, var(--ui-accent) 55%, #555);
+}
+
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab--active {
+  color: var(--luminous-accent-bright);
+}
+
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab--primary {
+  color: #F5F0FF;
+}
+
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab--primary::before {
+  content: "";
+  position: absolute;
+  inset: .35rem 50% auto auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--ui-accent), color-mix(in srgb, var(--ui-accent) 80%, black));
+  box-shadow: 0 0 28px var(--ui-accent-glow);
+  transform: translateX(50%);
+  z-index: -1;
+}
+/* Hide glow rectangle inside the floating pill — Safari clipping bug on iOS
+   and the pill's icon-wrapper background handles the visual accent. */
+[data-ui-skin="luminous"] #bottom-nav .luminous-bottom-navigation-tab--primary::before {
+  display: none;
+}
+
+/* Highlight toolbar */
+[data-ui-skin="luminous"] .luminous-highlight-toolbar {
+  border: 1px solid var(--luminous-border);
+  background: var(--luminous-highlight-toolbar-bg);
+  box-shadow: var(--luminous-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+[data-ui-skin="luminous"] .luminous-highlight-swatch {
+  border: 2px solid rgba(255,255,255,.22);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+}
+
+[data-ui-skin="luminous"] .luminous-highlight-action {
+  color: var(--luminous-text-soft);
+}
+
+/* Hover states */
+[data-ui-skin="luminous"] .luminous-passage-navigation-action:hover,
+[data-ui-skin="luminous"] .luminous-reading-plan-dismiss:hover,
+[data-ui-skin="luminous"] .luminous-highlight-action:hover {
+  color: var(--luminous-accent-bright);
+  border-color: var(--luminous-border-strong);
+}
+
+/* Focus */
+[data-ui-skin="luminous"] :focus-visible {
+  outline: 2px solid var(--luminous-accent-bright);
+  outline-offset: 3px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-skin="luminous"] *,
+  [data-ui-skin="luminous"] *::before,
+  [data-ui-skin="luminous"] *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ========================================================================== */
+/* Luminous visual layer                                                       */
+/* ========================================================================== */
+
+html[data-ui-skin="luminous"] {
+  --luminous-panel: color-mix(in srgb, var(--bg-card, var(--luminous-surface-strong-base)) 86%, transparent);
+  --luminous-panel-solid: color-mix(in srgb, var(--bg-card, var(--luminous-bg-elevated-base)) 96%, var(--luminous-bg-elevated-base));
+  --luminous-hairline: color-mix(in srgb, var(--accent-color, #8b5cf6) 22%, transparent);
+  --luminous-violet: var(--accent-color, #8b5cf6);
+  --luminous-violet-bright: color-mix(in srgb, var(--accent-color, #8b5cf6) 76%, white);
+  --luminous-shadow-deep: var(--luminous-shadow-deep-value);
+}
+
+/* Keep the application chrome visually continuous. */
+[data-ui-skin="luminous"] main,
+[data-ui-skin="luminous"] #landscape-layout,
+[data-ui-skin="luminous"] #content {
+  background: transparent;
+}
+
+/* Immersive scripture column */
+[data-ui-skin="luminous"] .verse-text {
+  color: var(--luminous-text, var(--text-primary));
+  text-shadow: var(--luminous-text-shadow);
+}
+
+[data-ui-skin="luminous"] .verse-container {
+  border: 1px solid transparent;
+}
+
+[data-ui-skin="luminous"] .verse-container.focused,
+[data-ui-skin="luminous"] #content.spotlight-mode .verse-container.active-verse,
+[data-ui-skin="luminous"] body.split-mode #panel-right-body.spotlight-mode .verse-container.active-verse {
+  border-color: var(--luminous-hairline);
+  background:
+    linear-gradient(90deg, var(--luminous-accent-soft), color-mix(in srgb, var(--luminous-accent) 3.5%, transparent));
+  box-shadow:
+    inset 2px 0 0 var(--luminous-violet),
+    0 10px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* Preserve inline paragraph behavior while giving focused text a soft mark. */
+[data-ui-skin="luminous"] body.paragraph-mode .verse-container.focused {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+}
+
+[data-ui-skin="luminous"] body.paragraph-mode .verse-container.focused .verse-text {
+  background: var(--luminous-accent-soft);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Refined block content */
+[data-ui-skin="luminous"] .block-poetry {
+  border-color: var(--luminous-hairline);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--luminous-accent) 8%, transparent), color-mix(in srgb, var(--luminous-accent) 2.5%, transparent));
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--luminous-accent) 55%, transparent);
+}
+
+[data-ui-skin="luminous"] .token-cross-ref,
+[data-ui-skin="luminous"] .section-heading .section-refs .usfm-ref {
+  color: var(--luminous-violet-bright);
+  text-decoration-color: color-mix(in srgb, var(--luminous-accent-bright) 52%, transparent);
+}
+
+/* Header closer to the concept image */
+[data-ui-skin="luminous"] .chapter-header {
+  padding-top: clamp(2rem, 6vw, 4rem);
+  padding-bottom: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+[data-ui-skin="luminous"] .chapter-title,
+[data-ui-skin="luminous"] .luminous-chapter-summary-title {
+  max-width: 17ch;
+  margin-inline: auto;
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-size: clamp(2.15rem, 6.5vw, 4.35rem);
+  font-weight: 650;
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+  text-transform: none;
+  text-wrap: balance;
+}
+
+[data-ui-skin="luminous"] .chapter-subtitle,
+[data-ui-skin="luminous"] .luminous-chapter-summary-subtitle {
+  margin-top: 0.85rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+/* Section-heading renderer and legacy fallback */
+[data-ui-skin="luminous"] .luminous-section-heading,
+[data-ui-skin="luminous"] .token-section-heading,
+[data-ui-skin="luminous"] .section-heading {
+  color: var(--luminous-violet-bright);
+}
+
+[data-ui-skin="luminous"] .luminous-section-heading {
+  text-align: var(--text-section-heading-align, left);
+}
+
+[data-ui-skin="luminous"] .luminous-heading-crossref,
+[data-ui-skin="luminous"] .token-section-heading-ref {
+  color: var(--luminous-text-muted, var(--marker-color));
+  opacity: 0.78;
+}
+
+/* Swipe mode: luminous glass cards */
+[data-ui-skin="luminous"] #content.swipe-mode .verse-deck .verse-container::before {
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.05), transparent 45%),
+    var(--luminous-panel-solid);
+  opacity: 0.92;
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+}
+
+[data-ui-skin="luminous"] #content.swipe-mode .verse-deck .verse-container {
+  border-color: var(--luminous-hairline);
+  box-shadow: var(--luminous-shadow-deep), 0 0 36px color-mix(in srgb, var(--luminous-accent) 8%, transparent);
+}
+
+[data-ui-skin="luminous"] #content.swipe-mode .verse-deck .verse-container.card--current {
+  border-color: color-mix(in srgb, var(--luminous-violet) 66%, white);
+  box-shadow:
+    0 0 32px color-mix(in srgb, var(--luminous-accent) 22%, transparent),
+    var(--luminous-shadow-deep);
+}
+
+/* Speed mode */
+[data-ui-skin="luminous"] #speed-controls,
+[data-ui-skin="luminous"] .speed-word {
+  border-color: var(--luminous-hairline);
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.045), transparent 48%),
+    var(--luminous-panel);
+  box-shadow: var(--luminous-shadow-deep);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+}
+
+[data-ui-skin="luminous"] .speed-preset {
+  border-color: var(--luminous-hairline);
+  background: rgba(255,255,255,0.035);
+}
+
+/* Top progress pill */
+[data-ui-skin="luminous"] .verse-progress,
+[data-ui-skin="luminous"] .luminous-reading-toolbar {
+  left: 50%;
+  right: auto;
+  width: min(calc(100% - 1.5rem), 680px);
+  border: 1px solid var(--luminous-hairline);
+  border-top: 0;
+  border-radius: 0 0 16px 16px;
+  color: var(--luminous-text, white);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), transparent),
+    rgba(39, 20, 82, 0.94);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.35), 0 0 28px color-mix(in srgb, var(--luminous-accent) 16%, transparent);
+  transform: translate(-50%, -100%);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+[data-ui-skin="luminous"] .verse-progress.visible {
+  transform: translate(-50%, 0);
+}
+
+[data-ui-skin="luminous"] .verse-progress-label,
+[data-ui-skin="luminous"] .crossref-bar-text,
+[data-ui-skin="luminous"] .crossref-bar-ref,
+[data-ui-skin="luminous"] .trb-title,
+[data-ui-skin="luminous"] .trb-item-title,
+[data-ui-skin="luminous"] .trb-item-ref,
+[data-ui-skin="luminous"] .trb-item-text {
+  color: var(--luminous-text, white);
+}
+
+/* Navigation controls */
+[data-ui-skin="luminous"] .chapter-bottom-nav {
+  border-top-color: var(--luminous-hairline);
+}
+
+[data-ui-skin="luminous"] .chapter-bottom-arrow,
+[data-ui-skin="luminous"] .desktop-chapter-bar,
+[data-ui-skin="luminous"] .luminous-passage-navigation-action {
+  border-color: var(--luminous-hairline);
+  color: var(--luminous-text-soft, var(--text-secondary));
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.045), transparent),
+    var(--luminous-panel);
+  box-shadow: 0 12px 34px rgba(0,0,0,0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-ui-skin="luminous"] .desktop-chapter-bar:hover,
+[data-ui-skin="luminous"] .chapter-bottom-arrow:hover {
+  color: var(--luminous-violet-bright);
+  border-color: color-mix(in srgb, var(--luminous-violet) 55%, transparent);
+}
+
+/* Bottom nav */
+[data-ui-skin="luminous"] #bottom-nav,
+[data-ui-skin="luminous"] .luminous-bottom-navigation {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.025), transparent),
+    rgba(10, 7, 24, 0.93);
+  border-top-color: var(--luminous-hairline);
+  box-shadow: 0 -18px 48px rgba(0,0,0,0.34);
+  backdrop-filter: blur(22px) saturate(125%);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+}
+
+[data-ui-skin="luminous"] .tab-item.active,
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab--active {
+  color: var(--luminous-violet-bright);
+}
+
+[data-ui-skin="luminous"] .tab-bible .tab-icon-wrapper {
+  border-color: var(--luminous-hairline);
+  background: var(--luminous-panel-solid);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.34);
+}
+
+[data-ui-skin="luminous"] .tab-bible.active .tab-icon-wrapper {
+  border-color: transparent;
+  color: white;
+  background: linear-gradient(145deg, var(--luminous-accent), color-mix(in srgb, var(--luminous-accent) 80%, black));
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--luminous-accent) 48%, transparent),
+    0 12px 28px rgba(0,0,0,0.32);
+}
+
+/* Reading plan card: supports both API class and current internal markup */
+[data-ui-skin="luminous"] #home-plan-widget,
+[data-ui-skin="luminous"] .luminous-reading-plan-card {
+  margin: 10px 12px;
+}
+
+[data-ui-skin="luminous"] .hpw-content,
+[data-ui-skin="luminous"] .luminous-reading-plan-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--luminous-hairline);
+  border-radius: 18px;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.05), transparent 42%),
+    var(--luminous-panel-solid);
+  box-shadow: var(--luminous-shadow-deep), inset 0 1px rgba(255,255,255,0.04);
+  backdrop-filter: blur(20px) saturate(125%);
+  -webkit-backdrop-filter: blur(20px) saturate(125%);
+}
+
+[data-ui-skin="luminous"] .hpw-icon {
+  color: var(--luminous-violet-bright);
+  filter: drop-shadow(0 0 10px var(--ui-accent-glow));
+}
+
+[data-ui-skin="luminous"] .hpw-plan-name,
+[data-ui-skin="luminous"] .luminous-reading-plan-title {
+  color: var(--luminous-text, var(--text-primary));
+  font-weight: 750;
+}
+
+[data-ui-skin="luminous"] .hpw-passages,
+[data-ui-skin="luminous"] .luminous-reading-plan-passages {
+  color: var(--luminous-text-muted, var(--text-secondary));
+}
+
+[data-ui-skin="luminous"] .hpw-read-btn,
+[data-ui-skin="luminous"] .luminous-reading-plan-action {
+  color: white;
+  background: linear-gradient(135deg, var(--luminous-accent), color-mix(in srgb, var(--luminous-accent) 80%, black));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--luminous-accent) 28%, transparent);
+}
+
+[data-ui-skin="luminous"] .hpw-close-btn,
+[data-ui-skin="luminous"] .luminous-reading-plan-dismiss {
+  color: var(--luminous-text-muted, var(--text-muted));
+}
+
+/* Toolbars and overlays */
+[data-ui-skin="luminous"] .action-bar,
+[data-ui-skin="luminous"] .highlight-toolbar,
+[data-ui-skin="luminous"] .luminous-highlight-toolbar,
+[data-ui-skin="luminous"] .discover-panel {
+  border-color: var(--luminous-hairline);
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.045), transparent),
+    var(--luminous-panel-solid);
+  box-shadow: var(--luminous-shadow-deep);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+}
+
+[data-ui-skin="luminous"] .discover-header {
+  border-bottom-color: var(--luminous-hairline);
+}
+
+[data-ui-skin="luminous"] .discover-header input[type="search"] {
+  border-color: var(--luminous-hairline);
+  color: var(--luminous-text, var(--text-primary));
+  background: rgba(255,255,255,0.035);
+}
+
+[data-ui-skin="luminous"] .discover-results .search-result-item {
+  border-bottom-color: var(--luminous-hairline);
+}
+
+[data-ui-skin="luminous"] .discover-results .search-result-ref {
+  color: var(--luminous-violet-bright);
+}
+
+/* Avoid permanent animation while retaining the glow. */
+[data-ui-skin="luminous"] .tab-bible.active .tab-icon-wrapper {
+  animation: none;
+}
+
+@media (max-width: 600px) {
+  [data-ui-skin="luminous"] .chapter-title,
+  [data-ui-skin="luminous"] .luminous-chapter-summary-title {
+    max-width: 14ch;
+  }
+
+  [data-ui-skin="luminous"] .chapter-header {
+    padding-inline: 1rem;
+  }
+}
+/* ==========================================================================
+   Expanded API components
+   ========================================================================== */
+
+[data-ui-skin="luminous"] .luminous-app-body,
+[data-ui-skin="luminous"] .luminous-app-surface,
+[data-ui-skin="luminous"] .luminous-content-area {
+  color: var(--luminous-text);
+}
+
+[data-ui-skin="luminous"] .luminous-app-surface,
+[data-ui-skin="luminous"] .luminous-content-area {
+  background: transparent;
+}
+
+/* Popup menus */
+[data-ui-skin="luminous"] #mode-popup,
+[data-ui-skin="luminous"] #more-popup,
+[data-ui-skin="luminous"] .luminous-mode-popup,
+[data-ui-skin="luminous"] .luminous-more-popup {
+  border: 1px solid var(--luminous-border);
+  background:
+    linear-gradient(150deg, rgba(255,255,255,.055), transparent 45%),
+    var(--luminous-surface-strong);
+  box-shadow: var(--luminous-shadow);
+  backdrop-filter: blur(22px) saturate(128%);
+  -webkit-backdrop-filter: blur(22px) saturate(128%);
+}
+
+[data-ui-skin="luminous"] .luminous-mode-menu,
+[data-ui-skin="luminous"] .luminous-more-menu {
+  background: transparent;
+}
+
+[data-ui-skin="luminous"] .luminous-mode-menu-item,
+[data-ui-skin="luminous"] .luminous-more-menu-item {
+  color: var(--luminous-text-soft);
+  border-color: transparent;
+  transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+
+[data-ui-skin="luminous"] .luminous-mode-menu-item:hover,
+[data-ui-skin="luminous"] .luminous-more-menu-item:hover {
+  color: var(--luminous-text);
+  background: var(--luminous-accent-soft);
+}
+
+[data-ui-skin="luminous"] .luminous-mode-menu-item--active {
+  color: var(--luminous-accent-bright);
+  border-color: var(--luminous-border);
+  background: var(--luminous-accent-soft);
+  box-shadow: inset 2px 0 0 var(--luminous-accent);
+}
+
+/* Action toolbar */
+[data-ui-skin="luminous"] .luminous-action-toolbar {
+  border: 1px solid var(--luminous-border);
+  background: var(--luminous-surface-strong);
+  box-shadow: var(--luminous-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+[data-ui-skin="luminous"] .luminous-action-button {
+  color: var(--luminous-text-soft);
+}
+
+[data-ui-skin="luminous"] .luminous-action-button:hover {
+  color: var(--luminous-text);
+  background: var(--luminous-accent-soft);
+}
+
+/* Search */
+[data-ui-skin="luminous"] .luminous-search-backdrop,
+[data-ui-skin="luminous"] .luminous-crossref-overlay {
+  background: var(--luminous-search-backdrop);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+[data-ui-skin="luminous"] .luminous-search-panel {
+  border: 1px solid var(--luminous-border);
+  background: var(--luminous-surface-strong);
+  box-shadow: 0 28px 90px var(--luminous-shadow-color);
+}
+
+[data-ui-skin="luminous"] .luminous-search-header {
+  border-bottom-color: var(--luminous-border);
+}
+
+[data-ui-skin="luminous"] .luminous-search-input,
+[data-ui-skin="luminous"] .luminous-translation-dropdown {
+  color: var(--luminous-text);
+  border-color: var(--luminous-border);
+  background: rgba(255,255,255,.04);
+}
+
+[data-ui-skin="luminous"] .luminous-search-input:focus,
+[data-ui-skin="luminous"] .luminous-translation-dropdown:focus {
+  border-color: var(--luminous-border-strong);
+  box-shadow: 0 0 0 3px var(--luminous-accent-soft);
+}
+
+[data-ui-skin="luminous"] .luminous-search-result {
+  color: var(--luminous-text-soft);
+  border-bottom-color: var(--luminous-border);
+}
+
+[data-ui-skin="luminous"] .luminous-search-result:hover {
+  background: var(--luminous-accent-soft);
+}
+
+[data-ui-skin="luminous"] .luminous-search-result-ref {
+  color: var(--luminous-accent-bright);
+}
+
+[data-ui-skin="luminous"] .luminous-search-result-text,
+[data-ui-skin="luminous"] .luminous-search-empty {
+  color: var(--luminous-text-soft);
+}
+
+/* Settings and library */
+[data-ui-skin="luminous"] #settings-panel,
+[data-ui-skin="luminous"] #notes-panel,
+[data-ui-skin="luminous"] #plans-panel,
+[data-ui-skin="luminous"] .luminous-settings-panel,
+[data-ui-skin="luminous"] .luminous-library-panel,
+[data-ui-skin="luminous"] .luminous-notes-panel,
+[data-ui-skin="luminous"] .luminous-plans-panel,
+[data-ui-skin="luminous"] .luminous-crossref-panel {
+  color: var(--luminous-text);
+  border-color: var(--luminous-border);
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.035), transparent 38%),
+    var(--luminous-bg-elevated);
+}
+
+/* Compressed panels match nav pill width */
+[data-ui-skin="luminous"] .notes-panel.compressed,
+[data-ui-skin="luminous"] #plans-panel.compressed {
+  width: min(calc(100% - 24px), 620px);
+  height: 48px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 72px);
+  border-radius: 999px;
+  border: 1px solid var(--luminous-border);
+  background: var(--luminous-surface-strong);
+  box-shadow: var(--luminous-shadow);
+  overflow: hidden;
+}
+
+[data-ui-skin="luminous"] .luminous-settings-section-header,
+[data-ui-skin="luminous"] .luminous-library-header,
+[data-ui-skin="luminous"] .luminous-crossref-header {
+  color: var(--luminous-text);
+  border-bottom-color: var(--luminous-border);
+  background: rgba(255,255,255,.018);
+}
+
+[data-ui-skin="luminous"] .luminous-setting-row {
+  border-bottom-color: color-mix(in srgb, var(--luminous-border) 70%, transparent);
+}
+
+[data-ui-skin="luminous"] .luminous-library-tab {
+  color: var(--luminous-text-muted);
+  border-color: transparent;
+}
+
+[data-ui-skin="luminous"] .luminous-library-tab.active {
+  color: var(--luminous-accent-bright);
+  border-color: var(--luminous-accent);
+  background: var(--luminous-accent-soft);
+}
+
+[data-ui-skin="luminous"] .luminous-library-body,
+[data-ui-skin="luminous"] .luminous-crossref-body {
+  color: var(--luminous-text-soft);
+}
+
+[data-ui-skin="luminous"] .luminous-accent-swatch {
+  border-color: rgba(255,255,255,.18);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+}
+
+[data-ui-skin="luminous"] .luminous-accent-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px var(--luminous-accent-soft);
+}
+
+/* Install surfaces and pickers */
+[data-ui-skin="luminous"] .luminous-install-banner,
+[data-ui-skin="luminous"] .luminous-install-sheet,
+[data-ui-skin="luminous"] .luminous-bookmark-set-picker {
+  color: var(--luminous-text);
+  border-color: var(--luminous-border);
+  background: var(--luminous-surface-strong);
+  box-shadow: var(--luminous-shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+[data-ui-skin="luminous"] .luminous-install-sheet-header {
+  border-bottom-color: var(--luminous-border);
+}
+
+[data-ui-skin="luminous"] .luminous-install-banner-body,
+[data-ui-skin="luminous"] .luminous-install-sheet-body {
+  color: var(--luminous-text-soft);
+}
+
+/* Splash and errors */
+[data-ui-skin="luminous"] .luminous-splash-screen {
+  color: var(--luminous-text);
+  background:
+    radial-gradient(circle at 50% 32%, var(--luminous-accent-soft), transparent 24rem),
+    var(--luminous-bg);
+}
+
+[data-ui-skin="luminous"] .luminous-error-message {
+  color: #FFD6DE;
+  border-color: rgba(244, 114, 182, .28);
+  background: rgba(88, 28, 52, .55);
+}
+
+/* Speed controls */
+[data-ui-skin="luminous"] .luminous-speed-controls {
+  border-color: var(--luminous-border);
+  background: var(--luminous-surface);
+  box-shadow: var(--luminous-shadow);
+}
+
+[data-ui-skin="luminous"] .luminous-speed-control-row {
+  color: var(--luminous-text-soft);
+}
+
+/* Data-layer components */
+[data-ui-skin="luminous"] [data-ui-component="library-item"],
+[data-ui-skin="luminous"] [data-ui-component="selection-card"],
+[data-ui-skin="luminous"] [data-ui-component="dialog"],
+[data-ui-skin="luminous"] [data-ui-component="sync-onboarding"],
+[data-ui-skin="luminous"] [data-ui-component="scripture-repo-panel"],
+[data-ui-skin="luminous"] [data-ui-component="footnote-popup"],
+[data-ui-skin="luminous"] [data-ui-component="changelog-panel"],
+[data-ui-skin="luminous"] [data-ui-component="debug-log-panel"] {
+  color: var(--luminous-text);
+  border-color: var(--luminous-border);
+  background:
+    linear-gradient(155deg, rgba(255,255,255,.04), transparent 44%),
+    var(--luminous-surface-strong);
+  box-shadow: var(--luminous-shadow);
+}
+
+[data-ui-skin="luminous"] [data-ui-component="library-item"]:hover {
+  background: var(--luminous-surface-hover);
+}
+
+[data-ui-skin="luminous"] [data-ui-component="bookmark-indicator"] {
+  color: var(--luminous-accent-bright);
+  filter: drop-shadow(0 0 8px var(--ui-accent-glow));
+}
+
+[data-ui-skin="luminous"] [data-ui-component="verse-selection"] {
+  background: var(--luminous-accent-soft);
+  box-shadow: inset 2px 0 0 var(--luminous-accent);
+}
+
+/* Desktop passage navigation semantic class */
+[data-ui-skin="luminous"] .luminous-desktop-passage-nav {
+  color: var(--luminous-text-muted);
+  border-color: var(--luminous-border);
+  background: var(--luminous-surface);
+}
+
+[data-ui-skin="luminous"] .luminous-desktop-passage-nav:hover {
+  color: var(--luminous-accent-bright);
+  border-color: var(--luminous-border-strong);
+}
+
+/* ==========================================================================
+   Floating pill chrome
+   ========================================================================== */
+
+[data-ui-skin="luminous"] #verse-progress,
+[data-ui-skin="luminous"] .verse-progress,
+[data-ui-skin="luminous"] .luminous-reading-toolbar {
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  right: auto;
+  width: min(calc(100% - 24px), 680px);
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--luminous-text);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.012)),
+    color-mix(in srgb, var(--luminous-surface-strong) 92%, transparent);
+  box-shadow:
+    0 14px 38px rgba(0,0,0,.38),
+    0 0 30px var(--ui-accent-glow),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  transform: translate(-50%, calc(-100% - 18px));
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  overflow: hidden;
+}
+
+[data-ui-skin="luminous"] #verse-progress.visible,
+[data-ui-skin="luminous"] .verse-progress.visible,
+[data-ui-skin="luminous"] .luminous-reading-toolbar.visible {
+  transform: translate(-50%, 0);
+}
+
+[data-ui-skin="luminous"] #verse-progress::before,
+[data-ui-skin="luminous"] .verse-progress::before,
+[data-ui-skin="luminous"] .luminous-reading-toolbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 78% 0%, color-mix(in srgb, var(--ui-accent) 16%, transparent), transparent 42%),
+    linear-gradient(90deg, transparent, rgba(255,255,255,.025), transparent);
+}
+
+[data-ui-skin="luminous"] #verse-progress.show-references,
+[data-ui-skin="luminous"] #verse-progress.show-tag-results,
+[data-ui-skin="luminous"] .verse-progress.show-references,
+[data-ui-skin="luminous"] .verse-progress.show-tag-results,
+[data-ui-skin="luminous"] .luminous-reading-toolbar.show-references,
+[data-ui-skin="luminous"] .luminous-reading-toolbar.show-tag-results {
+  border-radius: 24px;
+  overflow: visible;
+  padding: 14px 18px;
+}
+
+[data-ui-skin="luminous"] #verse-progress.show-references::before,
+[data-ui-skin="luminous"] #verse-progress.show-tag-results::before,
+[data-ui-skin="luminous"] .verse-progress.show-references::before,
+[data-ui-skin="luminous"] .verse-progress.show-tag-results::before,
+[data-ui-skin="luminous"] .luminous-reading-toolbar.show-references::before,
+[data-ui-skin="luminous"] .luminous-reading-toolbar.show-tag-results::before {
+  display: none;
+}
+
+[data-ui-skin="luminous"] #bottom-nav,
+[data-ui-skin="luminous"] .luminous-bottom-navigation {
+  left: 50%;
+  right: auto;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  width: min(calc(100% - 24px), 620px);
+  height: 64px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-top: none;
+  border-radius: 999px;
+  background-color: transparent;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.01)),
+    color-mix(in srgb, var(--luminous-surface-strong) 94%, transparent);
+  box-shadow:
+    0 -14px 32px rgba(0,0,0,.18),
+    0 0 30px color-mix(in srgb, var(--ui-accent-glow) 75%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.055);
+  transform: translateX(-50%);
+  backdrop-filter: blur(24px) saturate(135%);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+  overflow: hidden;
+}
+
+[data-ui-skin="luminous"] #bottom-nav::before,
+[data-ui-skin="luminous"] .luminous-bottom-navigation::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 50% 110%, color-mix(in srgb, var(--ui-accent) 13%, transparent), transparent 52%),
+    linear-gradient(90deg, transparent, rgba(255,255,255,.024), transparent);
+}
+
+/* Android: don't add extra margin above the safe area — prevents pill from
+   floating too high on devices with large system navigation bars. */
+html.android-device[data-ui-skin="luminous"] #bottom-nav,
+html.android-device[data-ui-skin="luminous"] .luminous-bottom-navigation {
+  bottom: max(10px, env(safe-area-inset-bottom, 10px));
+}
+@media (max-width: 520px) {
+  html.android-device[data-ui-skin="luminous"] #bottom-nav,
+  html.android-device[data-ui-skin="luminous"] .luminous-bottom-navigation {
+    bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  }
+}
+
+[data-ui-skin="luminous"] #bottom-nav .tab-item,
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 6px;
+  border-radius: 18px;
+  z-index: 1;
+}
+
+[data-ui-skin="luminous"] #bottom-nav .tab-item:hover,
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab:hover {
+  background: rgba(255,255,255,.035);
+}
+
+[data-ui-skin="luminous"] #bottom-nav .tab-item.active:not(.tab-bible),
+[data-ui-skin="luminous"] .luminous-bottom-navigation-tab--active:not(.luminous-bottom-navigation-tab--primary) {
+  color: var(--luminous-accent-bright);
+  background: var(--luminous-accent-soft);
+}
+
+[data-ui-skin="luminous"] #bottom-nav .tab-bible {
+  transform: none;
+}
+
+[data-ui-skin="luminous"] #bottom-nav .tab-bible .tab-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  border: 0;
+  background: rgba(255,255,255,.035);
+}
+
+[data-ui-skin="luminous"] #bottom-nav .tab-bible.active .tab-icon-wrapper {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(145deg, var(--ui-accent), color-mix(in srgb, var(--ui-accent) 78%, black));
+  box-shadow:
+    0 0 22px var(--ui-accent-glow),
+    0 8px 18px rgba(0,0,0,.28);
+}
+
+[data-ui-skin="luminous"] #bottom-nav .tab-bible .tab-icon {
+  width: 28px;
+  height: 28px;
+}
+
+[data-ui-skin="luminous"] body.focus-mode {
+  padding-bottom: 0;
+}
+
+[data-ui-skin="luminous"] body.scroll-mode main,
+[data-ui-skin="luminous"] body.spotlight-mode main {
+  height: var(--app-height);
+}
+
+/* Luminous floating pill nav doesn't take fixed space, so scroll content
+   needs extra bottom padding to avoid being hidden behind the pill. */
+[data-ui-skin="luminous"] body.scroll-mode #content,
+[data-ui-skin="luminous"] body.spotlight-mode #content {
+  padding-bottom: calc(64px + var(--safe-inset-bottom) + 16px);
+}
+
+@media (max-width: 520px) {
+  [data-ui-skin="luminous"] #verse-progress,
+  [data-ui-skin="luminous"] .verse-progress,
+  [data-ui-skin="luminous"] .luminous-reading-toolbar {
+    width: calc(100% - 16px);
+  }
+
+  [data-ui-skin="luminous"] #bottom-nav,
+  [data-ui-skin="luminous"] .luminous-bottom-navigation {
+    width: calc(100% - 16px);
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  [data-ui-skin="luminous"] #bottom-nav .tab-item,
+  [data-ui-skin="luminous"] .luminous-bottom-navigation-tab {
+    padding-inline: 3px;
+  }
+
+  [data-ui-skin="luminous"] #bottom-nav .tab-label {
+    font-size: .56rem;
+  }
+}
