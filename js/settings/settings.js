@@ -137,6 +137,9 @@ window.SettingsModule = class SettingsModule {
       { id: 'blush',       label: 'Blush',       color: '#F2A0A0' },
       { id: 'rose',        label: 'Rose',        color: '#E38080' },
       { id: 'soft-red',    label: 'Soft Red',    color: '#D06060' },
+      { id: 'crimson',     label: 'Crimson',     color: '#C64C4C' },
+      { id: 'rust',        label: 'Rust',        color: '#C14141' },
+      { id: 'garnet',      label: 'Garnet',      color: '#BC3636' },
       { id: 'firebrick',   label: 'Firebrick',   color: '#B22222' },
       { id: 'rich-red',    label: 'Rich Red',    color: '#C61414' },
       { id: 'bright-red',  label: 'Bright Red',  color: '#DA0A0A' },
@@ -152,7 +155,7 @@ window.SettingsModule = class SettingsModule {
     if (container.parentElement) {
       container.parentElement.style.display = enabled ? '' : 'none';
     }
-    const current = this.bridge.state.get('redLetterColor') || '#B22222';
+    const current = this.bridge.state.get('redLetterColor') || '#BC3636';
     container.innerHTML = '';
     for (const s of SettingsModule.redLetterShades) {
       const btn = document.createElement('button');
@@ -172,7 +175,7 @@ window.SettingsModule = class SettingsModule {
   }
 
   _applyRedLetterColor() {
-    const color = this.bridge.state.get('redLetterColor') || '#B22222';
+    const color = this.bridge.state.get('redLetterColor') || '#BC3636';
     document.documentElement.style.setProperty('--wj-color', color);
   }
 
@@ -569,7 +572,7 @@ window.SettingsModule = class SettingsModule {
       focusMode: false,
       swipeAnimDir: 'vertical',
       redLetter: true,
-      redLetterColor: '#B22222',
+      redLetterColor: '#BC3636',
       footnotes: true,
       chapterTitle: true,
       sectionHeadings: true,

@@ -72,8 +72,23 @@ window.App = class App {
         const xref = bridge.get('cross-refs-ui');
         if (xref) xref.close();
       }
+      const redLetter = resolve('redLetter');
+      if (redLetter !== undefined) {
+        state.set('redLetter', redLetter);
+      }
+      const redLetterColor = resolve('redLetterColor');
+      if (redLetterColor) {
+        state.set('redLetterColor', redLetterColor);
+        document.documentElement.style.setProperty('--wj-color', redLetterColor);
+      }
       const settingsMod = bridge.get('settings');
-      if (settingsMod) settingsMod._applyTextSettings();
+      if (settingsMod) {
+        settingsMod._applyTextSettings();
+        const checkbox = document.getElementById('settings-red-letter');
+        if (checkbox) checkbox.checked = redLetter === true;
+        if (settingsMod._renderRedLetterSwatches) settingsMod._renderRedLetterSwatches();
+        if (settingsMod._applyRedLetterColor) settingsMod._applyRedLetterColor();
+      }
     };
 
     document.addEventListener('ui:skin-changed', applySkinPrefs);

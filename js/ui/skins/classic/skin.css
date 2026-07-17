@@ -599,7 +599,7 @@
 }
 
 [data-ui-skin="classic"] .verse-text .wj {
-  color: var(--wj-color, #B22222);
+  color: var(--wj-color, #BC3636);
   font-weight: 500;
 }
 
@@ -738,7 +738,7 @@
   font-weight: 700;
   color: var(--marker-color);
   cursor: pointer;
-  vertical-align: 0.1em;
+  vertical-align: super;
   line-height: 1;
   display: inline-block;
   user-select: none;
@@ -751,6 +751,12 @@
 
 [data-ui-skin="classic"] .footnote-caller:hover {
   background: var(--accent-color-glow);
+}
+
+[data-ui-skin="classic"] .poetry-line .footnote-caller {
+  text-indent: 0;
+  margin: -0.15em 0;
+  vertical-align: 0.25em;
 }
 
 /* ========== Token-Based Rendering (New Format) ========== */

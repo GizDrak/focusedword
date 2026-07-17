@@ -1566,7 +1566,7 @@ body.split-mode .desktop-chapter-bar {
 }
 
 .verse-text .wj {
-  color: var(--wj-color, #B22222);
+  color: var(--wj-color, #BC3636);
   font-weight: 500;
 }
 
@@ -1732,7 +1732,7 @@ html[data-verse-number-placement="gutter"] body:not(.paragraph-mode) .verse-cont
   font-weight: 700;
   color: var(--marker-color);
   cursor: pointer;
-  vertical-align: 0.1em;
+  vertical-align: super;
   line-height: 1;
   display: inline-block;
   user-select: none;
@@ -1745,6 +1745,12 @@ html[data-verse-number-placement="gutter"] body:not(.paragraph-mode) .verse-cont
 
 .footnote-caller:hover {
   background: var(--accent-color-glow);
+}
+
+.poetry-line .footnote-caller {
+  text-indent: 0;
+  margin: -0.15em 0;
+  vertical-align: 0.25em;
 }
 
 /* ========== Token-Based Rendering (New Format) ========== */
@@ -1917,6 +1923,10 @@ html[data-verse-number-placement="gutter"] body:not(.paragraph-mode) .verse-cont
 html[data-verse-number-placement="gutter"] body:not(.paragraph-mode) #content.spotlight-mode .verse-container {
   padding-left: 3.2rem;
 }
+html[data-verse-number-placement="gutter"] body:not(.paragraph-mode) #content.spotlight-mode .verse-container.section-heading-container {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
 #content.spotlight-mode .verse-container.active-verse {
   background-color: var(--spotlight-highlight);
 }
@@ -1972,6 +1982,10 @@ body.split-mode #panel-right-body.spotlight-mode .verse-container:hover {
 }
 html[data-verse-number-placement="gutter"] body:not(.paragraph-mode).split-mode #panel-right-body.spotlight-mode .verse-container {
   padding-left: 3.2rem;
+}
+html[data-verse-number-placement="gutter"] body:not(.paragraph-mode).split-mode #panel-right-body.spotlight-mode .verse-container.section-heading-container {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 body.split-mode #panel-right-body.spotlight-mode .verse-container.active-verse {
   background-color: var(--spotlight-highlight);
@@ -5330,7 +5344,7 @@ body.focus-mode .focus-exit-btn:hover {
 }
 
 .footnote-popup-body .wj {
-  color: var(--wj-color, #B22222);
+  color: var(--wj-color, #BC3636);
 }
 
 /* ========== Changelog Panel ========== */

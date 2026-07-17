@@ -48,7 +48,7 @@ window.StateStore = class StateStore {
       lineSpacing: 1.8,
       letterSpacing: 0.005,
       redLetter: true,
-      redLetterColor: '#B22222',
+      redLetterColor: '#BC3636',
       crossRefs: false,
       footnotes: true,
       chapterTitle: true,
