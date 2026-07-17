@@ -473,7 +473,7 @@ window.BaseRenderer = class BaseRenderer {
     }
   }
 
-  trapFocus(container, triggerEl) {
+  trapFocus(container, triggerEl, focusEl) {
     const focusable = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -487,7 +487,7 @@ window.BaseRenderer = class BaseRenderer {
       }
     };
     container.addEventListener('keydown', handler);
-    setTimeout(() => first?.focus(), 50);
+    setTimeout(() => (focusEl || first)?.focus(), 50);
     return () => {
       container.removeEventListener('keydown', handler);
       triggerEl?.focus();

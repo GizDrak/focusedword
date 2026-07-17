@@ -867,7 +867,7 @@
 
 [data-ui-skin="modern"] .settings-header {
   border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 12%, transparent);
-  padding: 1rem 1.25rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 1rem) calc(env(safe-area-inset-right, 0px) + 1.25rem) 1rem 1.25rem;
 }
 
 [data-ui-skin="modern"] .settings-header h2 {

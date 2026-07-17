@@ -5,6 +5,10 @@
   --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+*:focus-visible {
+  outline: none !important;
+}
+
 @supports (height: 100dvh) and (not (-webkit-touch-callout: none)) {
   :root {
     --app-height: 100dvh;
@@ -4709,7 +4713,7 @@ body.focus-mode .focus-exit-btn:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 1rem) calc(env(safe-area-inset-right, 0px) + 1.25rem) 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
 }
 

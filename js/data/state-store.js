@@ -23,8 +23,8 @@ window.StateStore = class StateStore {
     this._data = {
       bionic: false,
       bionicStrength: 0.45,
-      theme: 'dark',
-      accent: 'gold',
+      theme: 'skin',
+      accent: 'skin',
       currentBook: 1,
       currentChapter: 1,
       currentVerse: 1,

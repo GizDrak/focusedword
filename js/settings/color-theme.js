@@ -27,6 +27,21 @@ window.ColorTheme = class ColorTheme {
     ];
   }
 
+  static get themeAccentMap() {
+    return {
+      dark: 'gold',
+      sepia: 'amber',
+      light: 'gold',
+      'midnight-ink': 'sapphire',
+      'icy-wind': 'icy',
+      'forest-reader': 'emerald',
+      nord: 'ice',
+      rosewood: 'rose',
+      galaxy: 'purple',
+      clay: 'slate'
+    };
+  }
+
   static getSetColors() {
     return [
       { label: 'Purple', color: '#7C3AED' },

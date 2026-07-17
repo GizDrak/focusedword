@@ -248,7 +248,7 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-overlay').classList.add('open');
     const base = this.bridge.get('base-renderer');
     if (base) {
-      this._cleanupFocus = base.trapFocus(document.getElementById('settings-panel'), document.querySelector('.tab-item[data-tab="bible"]'));
+      this._cleanupFocus = base.trapFocus(document.getElementById('settings-panel'), document.querySelector('.tab-item[data-tab="bible"]'), document.querySelector('#settings-panel .section-header'));
     }
   }
 
@@ -272,21 +272,11 @@ window.SettingsModule = class SettingsModule {
     this.bridge.state.set('theme', name);
     const resolved = this._resolveTheme(name);
     document.documentElement.dataset.theme = resolved;
-    const accentMap = {
-      dark: 'gold',
-      sepia: 'amber',
-      light: 'gold',
-      'midnight-ink': 'sapphire',
-      'icy-wind': 'icy',
-      'forest-reader': 'emerald',
-      nord: 'ice',
-      rosewood: 'rose',
-      galaxy: 'purple',
-      clay: 'slate'
-    };
     const saved = this.bridge.state.get('accent');
     if (!saved || saved === 'skin') {
-      const defaultAccent = accentMap[name] || 'gold';
+      const defaultAccent = name === 'skin'
+        ? (window.UISkins ? (UISkins.resolvePreference('accent') || 'gold') : 'gold')
+        : (ColorTheme.themeAccentMap[name] || 'gold');
       const ct = this.bridge.get('color-theme');
       if (ct) {
         ct.apply(defaultAccent);
@@ -560,8 +550,8 @@ window.SettingsModule = class SettingsModule {
     const state = this.bridge.state;
     document.body.classList.remove('focus-mode');
     state.batch({
-      theme: 'dark',
-      accent: 'gold',
+      theme: 'skin',
+      accent: 'skin',
       fontFamily: 'skin',
       fontSize: 1.083,
       margins: 1.0,
@@ -587,8 +577,12 @@ window.SettingsModule = class SettingsModule {
       verseNumberPlacement: 'skin'
     });
     const ct = this.bridge.get('color-theme');
-    if (ct) ct.apply('gold');
-    document.documentElement.dataset.theme = 'dark';
+    const resolvedTheme = this._resolveTheme('skin');
+    document.documentElement.dataset.theme = resolvedTheme;
+    const resolvedAccent = window.UISkins
+      ? (UISkins.resolvePreference('accent') || 'gold')
+      : 'gold';
+    if (ct) ct.apply(resolvedAccent);
     this._syncUIFromState();
     this._applyRedLetterColor();
     this.bridge.emit('render:refresh');

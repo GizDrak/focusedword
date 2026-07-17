@@ -49,14 +49,23 @@ window.App = class App {
       }
       const storedAccent = state.get('accent');
       const useSkinAccent = !storedAccent || storedAccent === 'skin';
+      const resolveAccent = () => {
+        if (!useSkinAccent) return storedAccent;
+        const rawTheme = state.get('theme');
+        if (rawTheme && rawTheme !== 'skin') {
+          const resolvedTheme = resolve('theme');
+          return window.ColorTheme?.themeAccentMap[resolvedTheme] || skinDefault('accent');
+        }
+        return skinDefault('accent');
+      };
       if (ct) {
-        const accent = useSkinAccent ? skinDefault('accent') : storedAccent;
+        const accent = resolveAccent();
         if (accent) {
           ct.apply(accent);
           if (useSkinAccent) state.set('accent', 'skin');
         }
       } else {
-        const accent = useSkinAccent ? skinDefault('accent') : storedAccent;
+        const accent = resolveAccent();
         if (accent) {
           document.documentElement.dataset.accent = accent;
           if (useSkinAccent) state.set('accent', 'skin');

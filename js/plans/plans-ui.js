@@ -630,7 +630,7 @@ window.PlansUI = class PlansUI {
 
     const nav = this.bridge.get('navigation');
     if (nav) {
-      await nav.loadChapter(targetUnit.book_id, targetUnit.chapter);
+      await nav.navigateTo(targetUnit.book_id, targetUnit.chapter, targetUnit.verse_start || targetUnit.verse || 1);
     }
   }
 
@@ -725,7 +725,7 @@ window.PlansUI = class PlansUI {
     const unit = this._todayUnits[index];
     if (unit) {
       const nav = this.bridge.get('navigation');
-      if (nav) await nav.loadChapter(unit.book_id, unit.chapter);
+      if (nav) await nav.navigateTo(unit.book_id, unit.chapter, unit.verse_start || unit.verse || 1);
     }
   }
 
