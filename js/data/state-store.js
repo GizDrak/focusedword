@@ -66,7 +66,7 @@ window.StateStore = class StateStore {
     };
     this._isApplyingServerState = false;
     this._idbReady = false;
-    this.moduleTimestamps = { settings: 0, reading: 0, bookmarks: 0, highlights: 0, notes: 0, plans: 0, noteCategories: 0, bookmarkSets: 0, repositories: 0, readingLog: 0 };
+    this.moduleTimestamps = { settings: 0, reading: 0, bookmarks: 0, highlights: 0, notes: 0, plans: 0, noteCategories: 0, bookmarkSets: 0, repositories: 0, readingLog: 0, navigationHistory: 0 };
     this._tagCountCache = null;
     this.bookmarks = [];
     this.highlights = [];
@@ -188,7 +188,7 @@ window.StateStore = class StateStore {
 
   setModuleTimestamp(module) {
     if (this._isApplyingServerState) return;
-    if (['bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'bookmarkSets', 'repositories', 'readingLog'].includes(module)) {
+    if (['bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'bookmarkSets', 'repositories', 'readingLog', 'navigationHistory'].includes(module)) {
       this.moduleTimestamps[module] = Date.now();
       this._saveTimestamps();
     }
@@ -216,6 +216,7 @@ window.StateStore = class StateStore {
         if (typeof parsed.repositories === 'number') this.moduleTimestamps.repositories = parsed.repositories;
         if (typeof parsed.planProgress === 'number') this.moduleTimestamps.planProgress = parsed.planProgress;
         if (typeof parsed.readingLog === 'number') this.moduleTimestamps.readingLog = parsed.readingLog;
+        if (typeof parsed.navigationHistory === 'number') this.moduleTimestamps.navigationHistory = parsed.navigationHistory;
       }
     } catch (e) {}
   }
@@ -431,7 +432,7 @@ window.StateStore = class StateStore {
   }
 
   _idbStoreName(key) {
-    const map = { noteCategories: 'note_categories', bookmarkSets: 'bookmark_sets', bookmarks: 'bookmarks', highlights: 'highlights', notes: 'notes', plans: 'plans', readingLog: 'reading_log' };
+    const map = { noteCategories: 'note_categories', bookmarkSets: 'bookmark_sets', bookmarks: 'bookmarks', highlights: 'highlights', notes: 'notes', plans: 'plans', readingLog: 'reading_log', navigationHistory: 'navigation_history' };
     return map[key] || key;
   }
 

@@ -15,6 +15,14 @@ window.NavigationModule = class NavigationModule {
   async init() {
     this.booksCache = await this.bridge.db.getBooks();
     this._initEventListeners();
+    this.bridge.on('nav:chapter-loaded', () => {
+      if (this._recordNextNavigation) {
+        this._recordNextNavigation = false;
+        const s = this.bridge.state;
+        const nh = this.bridge.get('navigation-history');
+        if (nh) nh.record(s.get('currentBook'), s.get('currentChapter'), s.get('currentVerse'), s.get('currentBookName'));
+      }
+    });
   }
 
   _initEventListeners() {
@@ -97,7 +105,14 @@ window.NavigationModule = class NavigationModule {
       if (!tab) return;
       document.querySelectorAll('.nav-testament-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      this.renderBookList(tab.dataset.testament);
+      if (tab.dataset.testament === 'recent') {
+        this.openSheet('recent');
+      } else if (!document.getElementById('nav-view-books').classList.contains('hidden')) {
+        this.renderBookList(tab.dataset.testament);
+      } else {
+        this.openSheet('books');
+        this.renderBookList(tab.dataset.testament);
+      }
     });
 
     this.bridge.on('nav:advance-chapter', (payload) => {
@@ -137,6 +152,7 @@ window.NavigationModule = class NavigationModule {
   }
 
   async loadNextChapter(autoAdvance) {
+    this._recordNextNavigation = true;
     const state = this.bridge.state;
     const bookId = state.get('currentBook');
     const book = this.booksCache.find(b => b.id === bookId);
@@ -159,6 +175,7 @@ window.NavigationModule = class NavigationModule {
   }
 
   async loadPrevChapter() {
+    this._recordNextNavigation = true;
     const state = this.bridge.state;
     const bookId = state.get('currentBook');
     const book = this.booksCache.find(b => b.id === bookId);
@@ -176,6 +193,7 @@ window.NavigationModule = class NavigationModule {
   }
 
   async navigateTo(bookId, chapter, verse) {
+    this._recordNextNavigation = true;
     const state = this.bridge.state;
     state.batch({
       currentBook: bookId,
@@ -237,6 +255,46 @@ window.NavigationModule = class NavigationModule {
       item.addEventListener('click', () => this.navigateTo(bookId, chapter, i));
       grid.appendChild(item);
     }
+  }
+
+  renderRecentView() {
+    const container = document.getElementById('nav-recent-list');
+    if (!container) return;
+    const nh = this.bridge.get('navigation-history');
+    const entries = nh ? nh.getRecent() : [];
+    container.innerHTML = '';
+
+    if (!entries.length) {
+      container.innerHTML = '<div class="nav-empty-state">No recent locations yet.</div>';
+      const clearBtn = document.getElementById('nav-recent-clear');
+      if (clearBtn) clearBtn.style.display = 'none';
+      return;
+    }
+
+    for (const entry of entries) {
+      const item = document.createElement('button');
+      item.className = 'nav-recent-item';
+      const bookName = entry.bookName || `Book ${entry.book}`;
+      const label = `${window.HTMLEscape(bookName)} ${entry.chapter}:${entry.verse}`;
+      item.innerHTML = `<span class="nav-recent-ref">${label}</span><span class="nav-recent-time">${this._timeAgo(entry.visited_at)}</span>`;
+      item.addEventListener('click', () => this.navigateTo(entry.book, entry.chapter, entry.verse));
+      container.appendChild(item);
+    }
+
+    const clearBtn = document.getElementById('nav-recent-clear');
+    if (clearBtn) clearBtn.style.display = '';
+  }
+
+  _timeAgo(ts) {
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return `${Math.floor(days / 30)}mo ago`;
   }
 
   renderTranslationView() {
@@ -312,6 +370,7 @@ window.NavigationModule = class NavigationModule {
     document.getElementById('nav-view-books').classList.add('hidden');
     document.getElementById('nav-view-chapters').classList.add('hidden');
     document.getElementById('nav-view-verses').classList.add('hidden');
+    document.getElementById('nav-view-recent')?.classList.add('hidden');
 
     const testamentTabs = document.getElementById('nav-testament-tabs');
     const breadcrumb = document.getElementById('nav-breadcrumb');
@@ -320,10 +379,21 @@ window.NavigationModule = class NavigationModule {
       testamentTabs.classList.remove('hidden');
       breadcrumb.innerHTML = '';
       breadcrumb.classList.add('hidden');
-      if (view === 'translation') this.renderTranslationView();
+      if (view === 'translation') {
+        this.renderTranslationView();
+        document.querySelectorAll('.nav-testament-tab').forEach(t => t.classList.remove('active'));
+        const otTab = document.querySelector('.nav-testament-tab[data-testament="ot"]');
+        if (otTab) otTab.classList.add('active');
+      }
       const activeTestament = document.querySelector('.nav-testament-tab.active')?.dataset.testament || 'ot';
       this.renderBookList(activeTestament);
       document.getElementById('nav-view-books').classList.remove('hidden');
+    } else if (view === 'recent') {
+      testamentTabs.classList.remove('hidden');
+      breadcrumb.innerHTML = '';
+      breadcrumb.classList.add('hidden');
+      document.getElementById('nav-view-recent')?.classList.remove('hidden');
+      this.renderRecentView();
     } else if (view === 'chapters') {
       testamentTabs.classList.add('hidden');
       const book = this.booksCache.find(b => b.id === bookId);
@@ -336,6 +406,7 @@ window.NavigationModule = class NavigationModule {
       document.getElementById('nav-view-chapters').classList.remove('hidden');
       this.renderChapterGrid(bookId);
     } else if (view === 'verses') {
+      testamentTabs.classList.add('hidden');
       const book = this.booksCache.find(b => b.id === bookId);
       breadcrumb.innerHTML =
         `<button class="nav-crumb" data-view="books">Books</button>` +

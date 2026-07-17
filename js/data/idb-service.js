@@ -84,6 +84,15 @@ window.IDBService = class IDBService {
             rlStore.createIndex('updated_at', 'updated_at', { unique: false });
           }
         }
+
+        if (e.oldVersion < 8) {
+          if (!db.objectStoreNames.contains('navigation_history')) {
+            const nhStore = db.createObjectStore('navigation_history', { keyPath: 'id' });
+            nhStore.createIndex('deleted', 'deleted', { unique: false });
+            nhStore.createIndex('updated_at', 'updated_at', { unique: false });
+            nhStore.createIndex('visited_at', 'visited_at', { unique: false });
+          }
+        }
       };
       req.onsuccess = (e) => { this._db = e.target.result; resolve(); };
       req.onerror = () => reject(req.error);

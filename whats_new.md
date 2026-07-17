@@ -1,5 +1,18 @@
 # What's New in Focused Word
 
+## v0.9.1 — Navigation History & Bug Fixes
+
+### 🕐 Navigation History
+The book selector now has a **Recent** tab next to Old and New Testament. It shows your last 50 visited chapters with time-ago labels, so you can quickly jump back to where you were reading. Navigation history syncs across your devices and can be cleared with one tap.
+
+### 🔧 Bug Fixes
+- Reading navigation is more reliable — verses no longer get skipped when advancing through a chapter.
+- Popup panels now keep focus trapped properly, so tab cycling won't escape to the page behind.
+- Safe-area padding is corrected on notched phones and devices with gesture bars.
+- Accent color and skin settings initialize correctly on first launch.
+
+---
+
 ## v0.9.0 — Reading Plans, Luminous UI & Offline Updates
 
 ### Reading Plans

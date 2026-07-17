@@ -124,6 +124,7 @@ window.ReadingGuideBar = class ReadingGuideBar {
     if (unit) {
       const nav = this.bridge.get('navigation');
       if (nav) {
+        nav._recordNextNavigation = true;
         await nav.loadChapter(unit.book_id, unit.chapter);
       }
     }

@@ -165,6 +165,8 @@ window.App = class App {
 
     const navigation = new window.NavigationModule(bridge);
     bridge.register('navigation', navigation);
+    const navigationHistory = new window.NavigationHistory(bridge);
+    bridge.register('navigation-history', navigationHistory);
     const settings = new window.SettingsModule(bridge);
     bridge.register('settings', settings);
     const colorTheme = new window.ColorTheme(bridge);
@@ -187,6 +189,7 @@ window.App = class App {
     _splash('Preparing…');
     await bridge.selection.init();
     await navigation.init();
+    await navigationHistory.init();
     settings.init();
     settings._applyTextSettings();
 

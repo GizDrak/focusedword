@@ -170,7 +170,7 @@ window.SyncService = class SyncService {
   }
 
   _buildSyncBody(raw) {
-    const MODULE_NAMES = ['settings', 'reading', 'bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'bookmarkSets', 'repositories', 'readingLog'];
+    const MODULE_NAMES = ['settings', 'reading', 'bookmarks', 'highlights', 'notes', 'plans', 'noteCategories', 'bookmarkSets', 'repositories', 'readingLog', 'navigationHistory'];
     const SERVER_NAME = { noteCategories: 'catagory' };
     const body = { modules: {} };
     for (const mod of MODULE_NAMES) {

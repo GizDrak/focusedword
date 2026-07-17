@@ -257,7 +257,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
           <h2>Enable Focused Sync</h2>
         </div>
         <div class="sync-onboarding-body">
-          <p>Keep your reading progress, bookmarks, notes, and settings synced across all your devices. Focused Sync is an opt-in service. Data is encrypted in transit (TLS) but the sync server can read the synced content.</p>
+          <p>Keep your reading progress, bookmarks, notes, and settings synced across all your devices. Focused Sync is an opt-in service.</p>
           <div class="sync-onboarding-lists">
             <div class="sync-onboarding-list">
                <h4>What is shared with the server:</h4>
@@ -271,7 +271,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
                 <li>Note categories</li>
                 <li>Bookmark sets</li>
                 <li>Repository URLs</li>
-                <li>Sync key (sent in the request URL)</li>
+                <li>Recent navigation locations</li>
               </ul>
             </div>
             <div class="sync-onboarding-list">
@@ -423,6 +423,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
     const bookmarkSets = await state.getAllForSync('bookmarkSets');
     const repos = await window.idb.getAllRepositories();
     const readingLog = await state.getAllForSync('readingLog');
+    const navigationHistory = await state.getAllForSync('navigationHistory');
 
     const _maxTs = (items) => items.length > 0
       ? Math.max(...items.map(i => i.updated_at || i.createdAt || 0))
@@ -435,6 +436,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
     const noteCategoriesTs = Math.max(_maxTs(noteCategories), state.moduleTimestamps.noteCategories);
     const bookmarkSetsTs = Math.max(_maxTs(bookmarkSets), state.moduleTimestamps.bookmarkSets);
     const readingLogTs = Math.max(_maxTs(readingLog), state.moduleTimestamps.readingLog);
+    const navigationHistoryTs = Math.max(_maxTs(navigationHistory), state.moduleTimestamps.navigationHistory);
 
     return {
       settings: {
@@ -515,6 +517,10 @@ window.SyncSettingsUI = class SyncSettingsUI {
       readingLog: {
         data: readingLog,
         updated_at: readingLogTs
+      },
+      navigationHistory: {
+        data: navigationHistory,
+        updated_at: navigationHistoryTs
       }
     };
   }
@@ -691,6 +697,22 @@ window.SyncSettingsUI = class SyncSettingsUI {
           rl._emit('reading-log-synced');
         }
       }
+      if (modules.navigationHistory && Array.isArray(modules.navigationHistory.data)) {
+        const localHistory = await this.bridge.state.getAllForSync('navigationHistory');
+        await this.bridge.state.mergeArrays(localHistory, modules.navigationHistory.data, 'navigationHistory');
+        if (modules.navigationHistory.updated_at) {
+          this.bridge.state.moduleTimestamps.navigationHistory = Math.max(this.bridge.state.moduleTimestamps.navigationHistory, modules.navigationHistory.updated_at);
+          this.bridge.state._saveTimestamps();
+        }
+        const nh = this.bridge.get('navigation-history');
+        if (nh) {
+          nh._entries = await window.idb.getAll('navigation_history');
+          if (document.getElementById('nav-view-recent')?.classList.contains('hidden') === false) {
+            const nav = this.bridge.get('navigation');
+            if (nav) nav.renderRecentView();
+          }
+        }
+      }
     } finally {
       this.bridge.state._isApplyingServerState = false;
     }
@@ -750,6 +772,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
         if (remoteData.verse) {
           window.verseManager.setIntentional(remoteData.verse);
         }
+        nav._recordNextNavigation = true;
         await nav.loadChapter(remoteData.book, remoteData.chapter);
       }
     });

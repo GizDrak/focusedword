@@ -3137,7 +3137,7 @@ input[type="range"]::-moz-range-thumb {
   position: relative;
 }
 
-.nav-testament-tab:first-child {
+.nav-testament-tab:not(:last-child) {
   border-right: 1px solid var(--border);
 }
 
@@ -3145,6 +3145,89 @@ input[type="range"]::-moz-range-thumb {
   background: var(--accent-color);
   color: #0A0A0A;
   font-weight: 600;
+}
+
+.nav-testament-tab[data-testament="recent"] {
+  flex: none;
+  width: 68px;
+  padding: 0;
+}
+
+/* Recent View */
+.nav-recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nav-recent-clear-btn {
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.nav-recent-clear-btn:hover {
+  background: var(--hover-bg, rgba(128,128,128,0.1));
+}
+
+.nav-recent-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0;
+}
+
+.nav-recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.nav-recent-item:active,
+.nav-recent-item:hover {
+  background: var(--hover-bg, rgba(128,128,128,0.1));
+}
+
+.nav-recent-ref {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-recent-time {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-left: 0.5rem;
+}
+
+.nav-empty-state {
+  padding: 2rem 0.75rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
 /* Book List */

@@ -653,7 +653,7 @@
 
       <div class="settings-version">
         <a href="#" id="view-changelog" class="settings-changelog-link">What's New</a>
-        <span class="settings-version-label">v0.9.0</span>
+        <span class="settings-version-label">v0.9.1</span>
         <button id="view-debug-log" class="debug-gear-btn" aria-label="Debug Log">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
@@ -775,6 +775,9 @@
     <div class="nav-testament-tabs" id="nav-testament-tabs">
       <button class="nav-testament-tab active" data-testament="ot">Old Testament</button>
       <button class="nav-testament-tab" data-testament="nt">New Testament</button>
+      <button class="nav-testament-tab" data-testament="recent" aria-label="Recent">
+        <svg viewBox="0 0 80 80" width="14" height="14" fill="currentColor"><circle cx="40" cy="40" r="26" stroke="currentColor" stroke-width="3.5" fill="none"/><polyline points="40,24 40,42 54,50" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
     <div id="nav-view-books" class="nav-view">
       <div id="nav-book-list" class="nav-book-list"></div>
@@ -784,6 +787,13 @@
     </div>
     <div id="nav-view-verses" class="nav-view hidden">
       <div id="nav-verse-grid" class="nav-grid"></div>
+    </div>
+    <div id="nav-view-recent" class="nav-view hidden">
+      <div class="nav-recent-header">
+        <span>Recent Locations</span>
+        <button id="nav-recent-clear" class="nav-recent-clear-btn">Clear</button>
+      </div>
+      <div id="nav-recent-list" class="nav-recent-list"></div>
     </div>
   </div>
 
@@ -814,6 +824,7 @@
   <script src="js/reading/renderers/spotlight.js"></script>
   <script src="js/reading/renderers/speed.js"></script>
   <script src="js/reading/renderers/scroll.js"></script>
+  <script src="js/navigation/navigation-history.js"></script>
   <script src="js/navigation/navigation.js"></script>
   <script src="js/settings/color-theme.js"></script>
   <script src="js/settings/typography.js"></script>
