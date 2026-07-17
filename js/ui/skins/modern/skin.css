@@ -86,6 +86,7 @@
 [data-section-heading-align="left"][data-ui-skin="modern"] .sh-pill-center {
   display: flex;
   justify-content: flex-start;
+  flex: 1 1 100%;
 }
 
 [data-section-heading-align="left"][data-ui-skin="modern"] .sh-pill-center::before {
@@ -103,6 +104,7 @@
 [data-section-heading-align="right"][data-ui-skin="modern"] .sh-pill-center {
   display: flex;
   justify-content: flex-end;
+  flex: 1 1 100%;
 }
 
 [data-section-heading-align="right"][data-ui-skin="modern"] .sh-pill-center::after {
@@ -162,6 +164,10 @@
 
 [data-ui-skin="modern"] .sh-pill-container + .verse-container {
   padding-top: 0;
+}
+
+[data-ui-skin="modern"] .verse-text {
+  font-size: var(--verse-font-size);
 }
 
 [data-ui-skin="modern"] #content.swipe-mode .verse-deck .heading-card .sh-pill {

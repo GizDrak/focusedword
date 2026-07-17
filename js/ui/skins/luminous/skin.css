@@ -7,7 +7,7 @@
 
 /* Retain Luminous-specific scroll padding */
 [data-ui-skin="luminous"] body.scroll-mode .verse-container {
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem var(--verse-padding-x);
   border-radius: 0.375rem;
 }
 
@@ -460,6 +460,7 @@ html[data-ui-skin="luminous"] {
 [data-ui-skin="luminous"] .verse-text {
   color: var(--luminous-text, var(--text-primary));
   text-shadow: var(--luminous-text-shadow);
+  font-size: var(--verse-font-size);
 }
 
 [data-ui-skin="luminous"] .verse-container {
