@@ -5076,11 +5076,11 @@ body.focus-mode .crossref-overlay {
 
 .wordstudy-panel {
   position: fixed;
-  top: clamp(8px, 3vh, 30px);
+  top: max(clamp(8px, 3vh, 30px), env(safe-area-inset-top, 0px));
   left: 50%;
   width: calc(100% - 48px);
   max-width: 1068px;
-  max-height: calc(100svh - clamp(16px, 6vh, 60px));
+  max-height: calc(100svh - clamp(16px, 6vh, 60px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   background:
     radial-gradient(circle at 30% 8%, rgba(255,255,255,0.035), transparent 31%),
     linear-gradient(145deg, #18191a 0%, #111213 100%);
@@ -5133,7 +5133,7 @@ body.focus-mode .crossref-overlay {
 
 .wordstudy-header {
   position: absolute;
-  top: 22px;
+  top: max(22px, calc(env(safe-area-inset-top, 0px) + 8px));
   right: 22px;
   z-index: 2;
 }
