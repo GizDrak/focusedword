@@ -5094,6 +5094,7 @@ body.focus-mode .crossref-overlay {
   box-shadow: 0 20px 60px rgba(0,0,0,0.58), inset 0 1px rgba(255,255,255,0.02);
   color: #f4f4f2;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .highlight-toolbar.is-anchored {
@@ -5133,7 +5134,7 @@ body.focus-mode .crossref-overlay {
 
 .wordstudy-header {
   position: absolute;
-  top: max(22px, calc(env(safe-area-inset-top, 0px) + 8px));
+  top: max(22px, calc(env(safe-area-inset-top, 0px) + 16px));
   right: 22px;
   z-index: 2;
 }
