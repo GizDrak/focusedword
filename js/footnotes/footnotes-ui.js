@@ -1,6 +1,8 @@
 window.FootnotesUI = class FootnotesUI {
   constructor(bridge) {
     this.bridge = bridge;
+    this._previousFocus = null;
+    this._cleanupFocus = null;
   }
 
   init() {
@@ -22,11 +24,15 @@ window.FootnotesUI = class FootnotesUI {
 
     document.getElementById('footnote-popup-close').addEventListener('click', () => this.close());
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') this.close();
+      if (e.key === 'Escape' && this._previousFocus !== null) {
+        e.stopPropagation();
+        this.close();
+      }
     });
   }
 
   async _showFootnote(callerEl) {
+    this._previousFocus = document.activeElement;
     const footnoteText = callerEl.dataset.footnoteText;
 
     const verseContainer = callerEl.closest('.verse-container');
@@ -48,17 +54,33 @@ window.FootnotesUI = class FootnotesUI {
   }
 
   _showContent(html, ref) {
+    const overlay = document.getElementById('footnote-overlay');
+    const popup = document.getElementById('footnote-popup');
     const body = document.getElementById('footnote-popup-body');
     const title = document.getElementById('footnote-popup-title');
     body.innerHTML = html;
     title.textContent = `Footnote \u2014 ${ref}`;
-    document.getElementById('footnote-overlay').classList.remove('hidden');
-    document.getElementById('footnote-popup').classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    popup.classList.remove('hidden');
+    popup.removeAttribute('aria-hidden');
+    const closeBtn = document.getElementById('footnote-popup-close');
+    const base = this.bridge.get('base-renderer');
+    if (base) this._cleanupFocus = base.trapFocus(popup, null);
+    if (closeBtn) setTimeout(() => closeBtn.focus(), 50);
   }
 
   close() {
-    document.getElementById('footnote-overlay').classList.add('hidden');
-    document.getElementById('footnote-popup').classList.add('hidden');
-    document.getElementById('footnote-popup-body').innerHTML = '';
+    const overlay = document.getElementById('footnote-overlay');
+    const popup = document.getElementById('footnote-popup');
+    const body = document.getElementById('footnote-popup-body');
+    overlay.classList.add('hidden');
+    popup.classList.add('hidden');
+    popup.setAttribute('aria-hidden', 'true');
+    body.innerHTML = '';
+    if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
+    if (this._previousFocus && this._previousFocus.isConnected) {
+      this._previousFocus.focus({ preventScroll: true });
+    }
+    this._previousFocus = null;
   }
 };

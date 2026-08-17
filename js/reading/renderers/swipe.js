@@ -233,7 +233,10 @@ window.SwipeRenderer = class SwipeRenderer {
       el.dataset.verse = card.verses[0].verse;
       for (const vData of card.verses) {
           if (vData.tokens) {
-          const verseEl = new window.TokenRenderer(this.bridge)._renderVerseTokens(vData.verse, vData.tokens, bionic, strength, settings || this.base._getSettings());
+          const wc = vData.raw ? vData.raw.wordClassSpans : null;
+          const ws = vData.raw ? vData.raw.wordStudySpans : null;
+          const cr = vData.raw ? vData.raw.clearReadingSpans : null;
+          const verseEl = new window.TokenRenderer(this.bridge)._renderVerseTokens(vData.verse, vData.tokens, bionic, strength, settings || this.base._getSettings(), wc, ws, cr);
           if (verseEl) {
             while (verseEl.firstChild) {
               el.appendChild(verseEl.firstChild);
@@ -258,7 +261,10 @@ window.SwipeRenderer = class SwipeRenderer {
 
     let el;
     if (card.tokens) {
-      el = new window.TokenRenderer(this.bridge)._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings());
+      const wc = card.raw ? card.raw.wordClassSpans : null;
+      const ws = card.raw ? card.raw.wordStudySpans : null;
+      const cr = card.raw ? card.raw.clearReadingSpans : null;
+      el = new window.TokenRenderer(this.bridge)._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings(), wc, ws, cr);
     }
     if (!el) {
       el = document.createElement('div');
@@ -376,6 +382,21 @@ window.SwipeRenderer = class SwipeRenderer {
     if (card.type === 'verse' || card.type === 'paragraph') {
       this.base.updateProgress(this._getCardVerse(card));
     }
+  }
+
+  goToVerse(verses, verseNum) {
+    if (!this._cards.length) return;
+    const cardIdx = this._cards.findIndex(c => {
+      if (c.type === 'verse') return c.verse === verseNum;
+      if (c.type === 'paragraph') return c.verses.some(v => v.verse === verseNum);
+      return false;
+    });
+    if (cardIdx < 0) return;
+    this.currentCardIndex = cardIdx;
+    this._showHeader = false;
+    this._cleanupAnimation();
+    const state = this.bridge.state;
+    this._renderCurrent(state.get('bionic'), state.get('bionicStrength'));
   }
 
   advance(verses, direction) {

@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#111112">
   <meta name="color-scheme" content="dark light">
@@ -18,10 +18,11 @@
   <link rel="apple-touch-startup-image" href="/assets/icons/pwa/icon-512.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
   <link rel="apple-touch-startup-image" href="/assets/icons/pwa/icon-512.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
   <link rel="apple-touch-startup-image" href="/assets/icons/pwa/icon-512.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=3">
   <link rel="stylesheet" href="js/ui/skins/classic/skin.css">
   <link rel="stylesheet" href="js/ui/skins/modern/skin.css">
 	<link rel="stylesheet" href="js/ui/skins/luminous/skin.css">
+  <link rel="stylesheet" href="js/ui/skins/minimal/skin.css">
   <title>Focused Word</title>
 </head>
 <body>
@@ -45,8 +46,8 @@
     <div id="landscape-layout">
       <div id="content" style="display:none">
         <div class="translation-dropdown-wrap" id="panel-left-translation-wrap">
-          <button class="translation-dropdown-btn" id="panel-left-translation-btn" aria-label="Select translation"></button>
-          <div class="translation-dropdown" id="panel-left-translation-dropdown"></div>
+          <button class="translation-dropdown-btn" id="panel-left-translation-btn" aria-label="Select translation" popovertarget="panel-left-translation-dropdown" aria-controls="panel-left-translation-dropdown" aria-expanded="false"></button>
+          <div class="translation-dropdown" id="panel-left-translation-dropdown" popover="auto" aria-label="Left panel translation"></div>
         </div>
         <div id="chapter-header" class="chapter-header">
           <div class="chapter-emblem" id="chapter-emblem">
@@ -58,8 +59,8 @@
       </div>
       <div id="panel-right" class="panel-right">
         <div class="translation-dropdown-wrap" id="panel-right-translation-wrap">
-          <button class="translation-dropdown-btn" id="panel-right-translation-btn" aria-label="Select translation"></button>
-          <div class="translation-dropdown" id="panel-right-translation-dropdown"></div>
+          <button class="translation-dropdown-btn" id="panel-right-translation-btn" aria-label="Select translation" popovertarget="panel-right-translation-dropdown" aria-controls="panel-right-translation-dropdown" aria-expanded="false"></button>
+          <div class="translation-dropdown" id="panel-right-translation-dropdown" popover="auto" aria-label="Right panel translation"></div>
         </div>
         <div class="panel-body" id="panel-right-body"></div>
       </div>
@@ -98,7 +99,7 @@
   </div>
 
   <!-- ========== Mode Popup (above Tab 2) ========== -->
-  <div id="mode-popup" class="mode-popup hidden">
+  <div id="mode-popup" class="mode-popup hidden" popover="auto" aria-label="Reading mode">
       <div class="mode-grid">
         <button class="mode-item" data-action="scroll">
           <span class="mode-icon"><svg viewBox="-32 -32 1088 1088" width="24" height="24" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 849.624h0.445c88.97-0.101 161.067-72.198 161.169-161.159v-512.455c-0.101-88.97-72.198-161.067-161.159-161.169h-0.455c-88.97 0.101-161.067 72.198-161.169 161.159v512.455c0.101 88.97 72.198 161.067 161.159 161.169h0.010zM512.445 81.624c52.108 0.051 94.335 42.278 94.386 94.381v512.45c-0.051 52.108-42.278 94.335-94.381 94.386h-0.45c-52.108-0.051-94.335-42.278-94.386-94.381v-512.45c0.051-52.108 42.278-94.335 94.381-94.386h0.005zM655.182 274.403l-29.919 59.704 152.086 76.088v44.522l-152.042 75.687 29.785 59.748 188.995-94.253v-126.753zM369.308 274.358l-189.44 94.698v126.842l189.663 94.253 29.562-59.748-152.442-75.687v-44.522l152.487-76.266zM1024 399.064h-213.259v66.783h213.259zM213.259 399.064h-213.259v66.783h213.259z"/></g></svg></span>
@@ -129,7 +130,7 @@
     </div>
 
   <!-- ========== More Popup (above Tab 5) ========== -->
-  <div id="more-popup" class="more-popup hidden">
+  <div id="more-popup" class="more-popup hidden" popover="auto" aria-label="More options">
     <button class="more-item" id="more-install-app" data-action="install-app">
       <span class="more-item-icon">
         <svg viewBox="-32 -32 1088 1088" width="18" height="18" fill="currentColor">
@@ -171,11 +172,23 @@
       </span>
       <span class="more-item-label">Notes</span>
     </button>
+    <button class="more-item hidden" id="more-word-class-key" data-action="word-class-key">
+      <span class="more-item-icon">?</span>
+      <span class="more-item-label">Word Class Colors</span>
+    </button>
+    <button class="more-item hidden" id="more-word-study" data-action="word-study-mode">
+      <span class="more-item-icon">W</span>
+      <span class="more-item-label">Word Study</span>
+    </button>
+    <button class="more-item hidden" id="more-clear-reading" data-action="clear-reading">
+      <span class="more-item-icon">C</span>
+      <span class="more-item-label">Clear Reading</span>
+    </button>
   </div>
 
   <!-- ========== Discover Search Overlay ========== -->
   <div id="discover-backdrop" class="discover-backdrop hidden"></div>
-  <div id="discover-panel" class="discover-panel hidden">
+  <div id="discover-panel" class="discover-panel hidden" popover="auto" aria-label="Search verses">
     <div class="discover-header">
       <input type="search" id="discover-input" placeholder="Search verses..." autocomplete="off" aria-label="Search verses">
     </div>
@@ -231,7 +244,7 @@
       </svg>
       <div class="nav-wing right"></div>
     </div>
-    <button class="tab-item" data-tab="discover">
+    <button class="tab-item" data-tab="discover" popovertarget="discover-panel" aria-controls="discover-panel" aria-expanded="false">
       <svg class="tab-icon" viewBox="-32 -32 1088 1088" width="22" height="22" fill="currentColor">
         <g transform="translate(0, 960) scale(1, -1)">
           <path d="M385.609 938.667c212.966 0 385.609-172.643 385.609-385.609s-172.643-385.609-385.609-385.609c-212.966 0-385.609 172.643-385.609 385.609v0c0.262 212.861 172.748 385.347 385.584 385.609h0.025zM385.609 236.391c174.891 0 316.668 141.777 316.668 316.668s-141.777 316.668-316.668 316.668c-174.891 0-316.668-141.777-316.668-316.668v0c0.261-174.786 141.882-316.407 316.643-316.668h0.025zM975.282-85.333l-372.74 372.74 48.718 48.718 372.74-372.74zM560.718 518.588h-350.679v68.941h350.679zM420.079 377.949h-68.941v350.679h68.941z"/>
@@ -239,7 +252,7 @@
       </svg>
       <span class="tab-label">Search</span>
     </button>
-    <button class="tab-item" data-tab="mode">
+    <button class="tab-item" data-tab="mode" popovertarget="mode-popup" aria-controls="mode-popup" aria-expanded="false">
       <svg class="tab-icon" viewBox="-32 -32 1088 1088" width="22" height="22" fill="currentColor">
         <g transform="translate(0, 960) scale(1, -1)">
           <path d="M429.768 691.438c-1.497-0.097-3.246-0.152-5.007-0.152-19.696 0-37.777 6.909-51.954 18.436l0.151-0.119c-14.947 14.939-24.192 35.581-24.192 58.383 0 2.408 0.103 4.792 0.305 7.148l-0.021-0.307c0 90.486 73.354 163.84 163.84 163.84s163.84-73.354 163.84-163.84v0c0.409-2.919 0.642-6.291 0.642-9.718 0-40.793-33.069-73.862-73.862-73.862-2.893 0-5.747 0.166-8.553 0.49l0.342-0.032c-11.887 0-24.353 1.158-37.621 2.404-14.47 1.38-29.429 2.76-44.789 2.76s-30.586-1.469-45.234-2.938c-13.312-1.247-26.001-2.493-37.888-2.493zM417.747 759.422c3.044-0.789 6.538-1.242 10.138-1.242 0.647 0 1.29 0.015 1.929 0.044l-0.091-0.003c8.904 0 19.723 1.069 31.388 2.226 15.449 1.514 32.991 3.25 51.734 3.25s35.617-1.647 51.066-3.072c11.62-1.113 22.617-2.137 31.165-2.137 0.635-0.034 1.379-0.053 2.127-0.053 3.784 0 7.454 0.49 10.949 1.411l-0.299-0.067c1.229 3.771 1.938 8.11 1.938 12.615 0 0.84-0.025 1.675-0.073 2.503l0.005-0.114c0 53.603-43.454 97.057-97.057 97.057s-97.057-43.454-97.057-97.057v0c-0.023-0.534-0.037-1.159-0.037-1.788 0-4.853 0.796-9.52 2.263-13.878l-0.090 0.306zM430.481 161.629c11.887 0 24.353-1.158 37.621-2.404 14.47-1.38 29.429-2.76 44.789-2.76s30.319 1.425 44.789 2.76c13.357 1.247 25.734 2.404 37.621 2.404 2.464 0.291 5.318 0.458 8.211 0.458 40.793 0 73.862-33.069 73.862-73.862 0-3.427-0.233-6.799-0.685-10.102l0.043 0.384c0-90.486-73.354-163.84-163.84-163.84s-163.84 73.354-163.84 163.84v0c-0.409 2.919-0.642 6.291-0.642 9.718 0 40.793 33.069 73.862 73.862 73.862 2.893 0 5.747-0.166 8.553-0.49l-0.342 0.032zM512.89 89.637c-18.477 0-35.617 1.647-51.066 3.072-11.62 1.113-22.617 2.137-31.165 2.137-0.634 0.033-1.376 0.053-2.123 0.053-3.786 0-7.457-0.49-10.954-1.411l0.299 0.067c-1.229-3.771-1.938-8.11-1.938-12.615 0-0.84 0.025-1.675 0.073-2.503l-0.005 0.114c0-53.603 43.454-97.057 97.057-97.057s97.057 43.454 97.057 97.057v0c0.043 0.712 0.068 1.545 0.068 2.383 0 4.507-0.709 8.848-2.020 12.918l0.083-0.298c-3.199 0.853-6.872 1.343-10.66 1.343-0.745 0-1.486-0.019-2.221-0.056l0.103 0.004c-8.904 0-19.723-1.024-31.165-2.137-15.805-1.425-32.946-3.072-51.423-3.072zM861.050 590.507c90.486 0 163.84-73.354 163.84-163.84s-73.354-163.84-163.84-163.84v0c-1.986-0.171-4.298-0.268-6.632-0.268-22.575 0-43.026 9.097-57.886 23.826l0.006-0.006c-12.527 18.432-20.001 41.177-20.001 65.668 0 10.604 1.401 20.88 4.028 30.655l-0.188-0.824c1.38 14.47 2.76 29.429 2.76 44.789s-1.469 30.586-2.938 45.234c-2.503 9.015-3.941 19.367-3.941 30.055 0 24.205 7.378 46.687 20.008 65.319l-0.262-0.409c14.939 14.789 35.497 23.926 58.189 23.926 2.414 0 4.804-0.103 7.165-0.306l-0.307 0.021zM861.050 329.61c53.603 0 97.057 43.454 97.057 97.057s-43.454 97.057-97.057 97.057v0c-0.717 0.043-1.554 0.067-2.398 0.067-4.662 0-9.151-0.741-13.355-2.112l0.304 0.086c-0.604-5.298-0.949-11.439-0.949-17.66 0-9.075 0.734-17.978 2.145-26.654l-0.127 0.949c1.514-15.449 3.25-32.991 3.25-51.734s-1.647-35.617-3.072-51.066c-1.252-7.618-1.967-16.398-1.967-25.345 0-6.616 0.391-13.141 1.151-19.552l-0.075 0.776c3.759-1.234 8.086-1.946 12.579-1.946 0.885 0 1.763 0.028 2.633 0.082l-0.119-0.006zM163.84 590.507c2.029 0.177 4.39 0.278 6.775 0.278 22.711 0 43.284-9.152 58.233-23.969l-0.006 0.006c12.369-18.223 19.747-40.705 19.747-64.91 0-10.688-1.439-21.040-4.133-30.873l0.191 0.818c-1.425-14.603-2.938-29.696-2.938-45.234s1.469-30.586 2.938-45.234c2.503-9.015 3.941-19.367 3.941-30.055 0-24.205-7.378-46.687-20.008-65.319l0.262 0.409c-14.943-14.811-35.516-23.963-58.227-23.963-2.385 0-4.746 0.101-7.079 0.299l0.304-0.021c-90.486 0-163.84 73.354-163.84 163.84s73.354 163.84 163.84 163.84v0zM179.289 521.765c-3.9 1.285-8.389 2.026-13.051 2.026-0.844 0-1.682-0.024-2.513-0.072l0.115 0.005c-53.603 0-97.057-43.454-97.057-97.057s43.454-97.057 97.057-97.057v0c0.717-0.043 1.554-0.067 2.398-0.067 4.662 0 9.151 0.741 13.355 2.112l-0.304-0.086c0.604 5.298 0.949 11.439 0.949 17.66 0 9.075-0.734 17.978-2.145 26.654l0.127-0.949c-1.514 15.449-3.25 32.991-3.25 51.734s1.736 36.285 3.25 51.734c1.284 7.727 2.018 16.63 2.018 25.705 0 6.221-0.345 12.361-1.016 18.403l0.067-0.744zM174.525 544.293l-63.043 22.261c43.853 122.864 138.924 217.936 258.811 260.858l2.977 0.93 22.261-63.043c-103.895-36.74-184.266-117.112-220.232-218.503l-0.774-2.503zM652.6 25.615l-22.261 63.043c103.788 36.748 184.080 117.040 220.053 218.326l0.775 2.502 63.043-22.261c-43.853-122.864-138.924-217.936-258.811-260.858l-2.977-0.93zM373.626 25.17c-122.864 43.853-217.936 138.924-260.858 258.811l-0.93 2.977 63.043 22.261c36.748-103.788 117.040-184.080 218.326-220.053l2.502-0.775zM851.256 543.848c-36.748 103.788-117.040 184.080-218.326 220.053l-2.502 0.775 22.261 63.043c122.864-43.853 217.936-138.924 260.858-258.811l0.93-2.977zM512.89 590.507c90.486 0 163.84-73.354 163.84-163.84s-73.354-163.84-163.84-163.84c-90.486 0-163.84 73.354-163.84 163.84v0c0.101 90.446 73.394 163.739 163.83 163.84h0.010zM512.89 329.61c53.603 0 97.057 43.454 97.057 97.057s-43.454 97.057-97.057 97.057c-53.603 0-97.057-43.454-97.057-97.057v0c0.051-53.583 43.474-97.007 97.053-97.057h0.005z"/>
@@ -268,7 +281,7 @@
       </svg>
       <span class="tab-label">Library</span>
     </button>
-    <button class="tab-item" data-tab="more">
+    <button class="tab-item" data-tab="more" popovertarget="more-popup" aria-controls="more-popup" aria-expanded="false">
       <svg class="tab-icon" viewBox="-439 -32 1120 1088" width="22" height="22" fill="currentColor">
         <g transform="translate(0, 960) scale(1, -1)">
           <path d="M121.060 938.667c66.859 0 121.060-54.2 121.060-121.060s-54.2-121.060-121.060-121.060c-66.859 0-121.060 54.2-121.060 121.060v0c0.078 66.828 54.231 120.982 121.052 121.060h0.007zM121.060 764.815c29.157 0 52.793 23.636 52.793 52.793s-23.636 52.793-52.793 52.793c-29.157 0-52.793-23.636-52.793-52.793v0c0.026-29.146 23.647-52.767 52.79-52.793h0.003zM121.060 547.727c66.859 0 121.060-54.2 121.060-121.060s-54.2-121.060-121.060-121.060c-66.859 0-121.060 54.2-121.060 121.060v0c0.078 66.828 54.231 120.982 121.052 121.060h0.007zM121.060 373.874c29.157 0 52.793 23.636 52.793 52.793s-23.636 52.793-52.793 52.793c-29.157 0-52.793-23.636-52.793-52.793v0c0.026-29.146 23.647-52.767 52.79-52.793h0.003zM121.060 156.786c66.859 0 121.060-54.2 121.060-121.060s-54.2-121.060-121.060-121.060c-66.859 0-121.060 54.2-121.060 121.060v0c0.078 66.828 54.231 120.982 121.052 121.060h0.007zM121.060-17.066c29.157 0 52.793 23.636 52.793 52.793s-23.636 52.793-52.793 52.793c-29.157 0-52.793-23.636-52.793-52.793v0c0.026-29.146 23.647-52.767 52.79-52.793h0.003z"/>
@@ -277,6 +290,15 @@
       <span class="tab-label">More</span>
     </button>
   </nav>
+
+  <!-- ========== Verse Rail (Minimal skin) ========== -->
+  <div id="verse-rail" class="verse-rail" aria-label="Verse progress">
+    <div class="verse-rail-header">
+      <span id="verse-rail-label" class="verse-rail-label"></span>
+      <span id="verse-rail-verse" class="verse-rail-verse"></span>
+    </div>
+    <div id="verse-rail-track" class="verse-rail-track"></div>
+  </div>
 
   <!-- ========== Floating Bible Button ========== -->
   <div class="bible-float" data-tab="bible" role="button" tabindex="0" aria-label="Bible">
@@ -294,21 +316,21 @@
   </div>
 
   <!-- ========== Highlight Toolbar (right-side panel) ========== -->
-  <div id="highlight-toolbar" class="highlight-toolbar hidden">
+  <div id="highlight-toolbar" class="highlight-toolbar hidden" popover="manual" role="toolbar" aria-label="Selection actions">
     <button class="hl-swatch" data-color="#FFD700" style="background:#FFD700" title="Yellow" aria-label="Yellow highlight"></button>
     <button class="hl-swatch" data-color="#48BB78" style="background:#48BB78" title="Green" aria-label="Green highlight"></button>
     <button class="hl-swatch" data-color="#63B3ED" style="background:#63B3ED" title="Blue" aria-label="Blue highlight"></button>
     <button class="hl-swatch" data-color="#ED8936" style="background:#ED8936" title="Orange" aria-label="Orange highlight"></button>
     <button class="hl-swatch" data-color="#9F7AEA" style="background:#9F7AEA" title="Purple" aria-label="Purple highlight"></button>
     <button class="hl-swatch" data-color="#F56565" style="background:#F56565" title="Red" aria-label="Red highlight"></button>
-    <button class="hl-action hl-action-danger" id="btn-remove-hl" title="Remove"><svg viewBox="-32 -32 1088 1088" width="12" height="12" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
+    <button class="hl-action hl-action-danger" id="btn-remove-hl" title="Remove highlight" aria-label="Remove highlight"><svg viewBox="-32 -32 1088 1088" width="12" height="12" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
     <div class="ht-sep"></div>
-    <button class="hl-action" id="btn-bookmark" title="Bookmark">🔖</button>
-    <button class="hl-action" id="btn-copy" title="Copy">📋</button>
-    <button class="hl-action" id="btn-note" title="Add Note">📝</button>
+    <button class="hl-action" id="btn-bookmark" title="Bookmark" aria-label="Bookmark">🔖</button>
+    <button class="hl-action" id="btn-copy" title="Copy" aria-label="Copy verse">📋</button>
+    <button class="hl-action" id="btn-note" title="Add Note" aria-label="Add Note">📝</button>
   </div>
 
-  <div id="bookmark-set-picker" class="bookmark-set-picker hidden">
+  <div id="bookmark-set-picker" class="bookmark-set-picker hidden" popover="auto" aria-label="Bookmark sets">
     <div class="bsp-header">Save to set</div>
     <div class="bsp-options" id="bsp-options"></div>
   </div>
@@ -317,8 +339,8 @@
   <button id="focus-exit-btn" class="focus-exit-btn" aria-label="Exit Focus Mode">Exit Focus</button>
 
   <!-- ========== Settings Panel ========== -->
-  <div id="settings-overlay" class="settings-overlay" role="presentation"></div>
-  <div id="settings-panel" class="settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
+  <div id="settings-overlay" class="settings-overlay" role="presentation" aria-hidden="true"></div>
+  <div id="settings-panel" class="settings-panel" role="dialog" aria-modal="true" aria-label="Settings" aria-hidden="true" inert>
     <div class="settings-header">
       <h2>Settings</h2>
       <button id="settings-close" class="icon-btn" aria-label="Close settings"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
@@ -336,9 +358,10 @@
           <div class="setting-row">
             <span>UI</span>
             <select id="settings-ui-skin">
-              <option value="classic">Classic</option>
               <option value="modern">Modern</option>
+              <option value="classic">Classic</option>
               <option value="luminous">Luminous</option>
+              <option value="minimal">Minimal</option>
             </select>
           </div>
           <div class="setting-row">
@@ -557,6 +580,46 @@
         </div>
       </div>
 
+      <!-- Study -->
+      <div class="settings-section">
+        <button class="section-header" aria-expanded="false" data-section="study">
+          <span>Study</span>
+          <svg class="section-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 6l4 4 4-4"/>
+          </svg>
+        </button>
+          <div class="section-body">
+            <div class="setting-row study-word-classes-row">
+              <label class="toggle-label-wrapper" for="settings-word-classes">
+                <span class="toggle-text">Word Classes</span>
+                <span class="wc-loading" id="wc-loading" aria-live="polite"><span class="wc-spinner"></span> Loading…</span>
+                <button type="button" class="study-info-btn" id="study-info-word-classes" title="About Word Classes" aria-label="About Word Classes">i</button>
+                <input type="checkbox" id="settings-word-classes" class="toggle-checkbox">
+                <span class="toggle-pill"></span>
+              </label>
+            </div>
+            <div class="setting-row study-word-classes-row" style="margin-top:0.3rem;">
+              <label class="toggle-label-wrapper" for="settings-word-study">
+                <span class="toggle-text">Word Study</span>
+                <span class="ws-loading" id="ws-loading" aria-live="polite"><span class="wc-spinner"></span> Loading DBs…</span>
+                <button type="button" class="study-info-btn" id="study-info-word-study" title="About Word Study" aria-label="About Word Study">i</button>
+                <input type="checkbox" id="settings-word-study" class="toggle-checkbox">
+                <span class="toggle-pill"></span>
+              </label>
+            </div>
+            <div class="setting-row study-word-classes-row" style="margin-top:0.3rem;">
+              <label class="toggle-label-wrapper" for="settings-clear-reading">
+                <span class="toggle-text">Clear Reading</span>
+                <span class="cr-loading" id="cr-loading" aria-live="polite"><span class="wc-spinner"></span> Loading…</span>
+                <button type="button" class="study-info-btn" id="study-info-clear-reading" title="About Clear Reading" aria-label="About Clear Reading">i</button>
+                <input type="checkbox" id="settings-clear-reading" class="toggle-checkbox">
+                <span class="toggle-pill"></span>
+              </label>
+            </div>
+            <div id="study-category-colors"></div>
+          </div>
+      </div>
+
       <!-- Sync -->
       <div class="settings-section">
         <button class="section-header" aria-expanded="false" data-section="sync">
@@ -652,8 +715,14 @@
       </div>
 
       <div class="settings-version">
-        <a href="#" id="view-changelog" class="settings-changelog-link">What's New</a>
-        <span class="settings-version-label">v0.9.1</span>
+        <div class="settings-version-links">
+          <a href="#" id="view-changelog" class="settings-changelog-link">What's New</a>
+          <span class="settings-version-sep">•</span>
+          <a href="#" id="view-license" class="settings-changelog-link">License</a>
+          <span class="settings-version-sep">•</span>
+          <a href="#" id="view-credits" class="settings-changelog-link">Credits</a>
+        </div>
+        <span class="settings-version-label">v0.9.6</span>
         <button id="view-debug-log" class="debug-gear-btn" aria-label="Debug Log">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
@@ -664,20 +733,50 @@
   </div>
 
   <!-- ========== Changelog Panel ========== -->
-  <div id="changelog-overlay" class="changelog-overlay"></div>
-  <div id="changelog-panel" class="changelog-panel">
+  <div id="changelog-overlay" class="changelog-overlay" aria-hidden="true"></div>
+  <div id="changelog-panel" class="changelog-panel" role="dialog" aria-modal="true" aria-labelledby="changelog-title" inert aria-hidden="true">
     <div class="changelog-header">
-      <h2>What's New</h2>
+      <h2 id="changelog-title">What's New</h2>
       <button id="changelog-close" class="icon-btn" aria-label="Close"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
     </div>
     <div id="changelog-body" class="changelog-body"></div>
   </div>
 
-  <!-- ========== Debug Log Panel ========== -->
-  <div id="debuglog-overlay" class="changelog-overlay"></div>
-  <div id="debuglog-panel" class="changelog-panel">
+  <!-- ========== License Panel ========== -->
+  <div id="license-overlay" class="changelog-overlay" aria-hidden="true"></div>
+  <div id="license-panel" class="changelog-panel" role="dialog" aria-modal="true" aria-labelledby="license-title" inert aria-hidden="true">
     <div class="changelog-header">
-      <h2>Debug Log</h2>
+      <h2 id="license-title">License</h2>
+      <button id="license-close" class="icon-btn" aria-label="Close"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
+    </div>
+    <div id="license-body" class="changelog-body"></div>
+  </div>
+
+  <!-- ========== Credits Panel ========== -->
+  <div id="credits-overlay" class="changelog-overlay" aria-hidden="true"></div>
+  <div id="credits-panel" class="changelog-panel" role="dialog" aria-modal="true" aria-labelledby="credits-title" inert aria-hidden="true">
+    <div class="changelog-header">
+      <h2 id="credits-title">Credits</h2>
+      <button id="credits-close" class="icon-btn" aria-label="Close"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
+    </div>
+    <div id="credits-body" class="changelog-body"></div>
+  </div>
+
+  <!-- ========== Study Information Panel ========== -->
+  <div id="wckey-overlay" class="popup-overlay hidden" aria-hidden="true"></div>
+  <div id="wckey-panel" class="popup-panel hidden" role="dialog" aria-modal="true" aria-labelledby="wckey-title" inert aria-hidden="true">
+    <div class="popup-header">
+      <h2 id="wckey-title">Study</h2>
+      <button id="wckey-close" class="icon-btn" title="Close" aria-label="Close Study information">✕</button>
+    </div>
+    <div id="wckey-body" class="popup-body"></div>
+  </div>
+
+  <!-- ========== Debug Log Panel ========== -->
+  <div id="debuglog-overlay" class="changelog-overlay" aria-hidden="true"></div>
+  <div id="debuglog-panel" class="changelog-panel" role="dialog" aria-modal="true" aria-labelledby="debuglog-title" inert aria-hidden="true">
+    <div class="changelog-header">
+      <h2 id="debuglog-title">Debug Log</h2>
       <button id="debuglog-clear" class="btn-danger" style="font-size:0.8rem;padding:0.25rem 0.6rem">Clear</button>
       <button id="debuglog-close" class="icon-btn" aria-label="Close"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
     </div>
@@ -692,8 +791,8 @@
   </div>
 
   <!-- ========== Scripture Repos Popup ========== -->
-  <div id="sr-popup-overlay" class="sr-popup-overlay"></div>
-  <div id="sr-popup-panel" class="sr-popup-panel" role="dialog" aria-modal="true" aria-label="Repository Translations">
+  <div id="sr-popup-overlay" class="sr-popup-overlay" aria-hidden="true"></div>
+  <div id="sr-popup-panel" class="sr-popup-panel" role="dialog" aria-modal="true" aria-label="Repository Translations" aria-hidden="true" inert>
     <div class="sr-popup-header">
       <h2 id="sr-popup-title">Repository</h2>
       <button id="sr-popup-close" class="icon-btn" aria-label="Close"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
@@ -718,8 +817,8 @@
   </div>
 
   <!-- ========== Library Panel (slide-up) ========== -->
-  <div id="library-backdrop" class="library-backdrop"></div>
-  <div id="library-panel" class="library-panel" role="dialog" aria-modal="true" aria-label="Library">
+  <div id="library-backdrop" class="library-backdrop" aria-hidden="true"></div>
+  <div id="library-panel" class="library-panel" role="dialog" aria-modal="true" aria-label="Library" aria-hidden="true" inert>
     <div class="library-header">
       <h2>Library</h2>
       <button id="library-close" class="icon-btn" aria-label="Close"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
@@ -735,13 +834,25 @@
   </div>
 
   <!-- ========== Cross-References Side Panel ========== -->
-  <div id="crossref-overlay" class="crossref-overlay" role="presentation"></div>
-  <div id="crossref-panel" class="crossref-panel" role="dialog" aria-modal="true" aria-label="Cross References">
+  <div id="crossref-overlay" class="crossref-overlay" role="presentation" aria-hidden="true"></div>
+  <div id="crossref-panel" class="crossref-panel" role="dialog" aria-modal="true" aria-label="Cross References" aria-hidden="true" inert>
     <div class="crossref-header">
       <span id="crossref-title">Cross References</span>
       <button id="crossref-close" class="icon-btn" aria-label="Close cross-references"><svg viewBox="-32 -32 1088 1088" width="14" height="14" fill="currentColor"><g transform="translate(0, 960) scale(1, -1)"><path d="M512 938.667c282.674-0.127 511.777-229.308 511.777-512 0-141.273-57.217-269.182-149.741-361.818l0.005 0.005c-93.237-96.47-223.79-156.365-368.331-156.365-282.77 0-512 229.23-512 512 0 144.485 59.848 274.992 156.107 368.082l0.143 0.137c92.141 92.633 219.696 149.961 360.641 149.961 0.492 0 0.984-0.001 1.476-0.002h-0.076zM512-17.066c245.067 0 443.733 198.666 443.733 443.733s-198.666 443.733-443.733 443.733c-245.067 0-443.733-198.666-443.733-443.733v0c0.285-244.952 198.78-443.448 443.705-443.733h0.028zM319.033 185.458l-48.242 48.242 434.176 434.176 48.242-48.242zM704.967 185.458l-434.176 434.176 48.242 48.242 434.176-434.176z"/></g></svg></button>
     </div>
     <div class="crossref-body" id="crossref-body"></div>
+  </div>
+
+  <!-- ========== Word Study Top Sheet ========== -->
+  <div id="wordstudy-overlay" class="wordstudy-overlay" role="presentation" aria-hidden="true"></div>
+  <div id="wordstudy-panel" class="wordstudy-panel" role="dialog" aria-modal="true" aria-label="Word Study" aria-hidden="true" inert>
+    <div class="wordstudy-header">
+      <span id="wordstudy-title">Word Study</span>
+      <button id="wordstudy-close" class="icon-btn" aria-label="Close word study">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="wordstudy-body" id="wordstudy-body"></div>
   </div>
 
   <!-- ========== Footnotes Popup ========== -->
@@ -755,12 +866,12 @@
   </div>
 
   <!-- ========== Navigation Bottom Sheet ========== -->
-  <div id="nav-backdrop" class="nav-backdrop" role="presentation"></div>
-  <div id="nav-sheet" class="nav-sheet" role="dialog" aria-modal="true" aria-label="Navigate Bible">
+  <div id="nav-backdrop" class="nav-backdrop" role="presentation" aria-hidden="true"></div>
+  <div id="nav-sheet" class="nav-sheet" role="dialog" aria-modal="true" aria-label="Navigate Bible" aria-hidden="true" inert>
     <div class="nav-sheet-header">
       <div class="nav-translation-wrap">
-        <button id="nav-translation-btn" class="nav-translation-btn">Select Bible</button>
-        <div id="nav-translation-menu" class="nav-translation-menu"></div>
+         <button id="nav-translation-btn" class="nav-translation-btn" popovertarget="nav-translation-menu" aria-controls="nav-translation-menu" aria-expanded="false">Select Bible</button>
+         <div id="nav-translation-menu" class="nav-translation-menu" popover="auto" aria-label="Bible translations"></div>
       </div>
       <button id="nav-install-more" class="icon-btn" aria-label="Install translations" style="flex:none;">
         <svg viewBox="-32 -32 1088 1088" width="16" height="16" fill="currentColor">
@@ -803,14 +914,18 @@
   <script src="js/data/bionic.js"></script>
   <script src="js/data/book-map.js"></script>
   <script src="js/data/bible-db.js"></script>
+  <script src="js/data/word-class-service.js"></script>
   <script src="js/core/debug.js"></script>
   <script src="js/data/idb-service.js"></script>
   <script src="js/notes/tag-cache-utils.js"></script>
   <script src="js/data/legacy-migration.js"></script>
-  <script src="js/data/state-store.js"></script>
-  <script src="js/ui/skin-system.js"></script>
+   <script src="js/data/state-store.js"></script>
+   <script src="js/core/dialog-service.js"></script>
+   <script src="js/core/popover-service.js"></script>
+   <script src="js/ui/skin-system.js"></script>
   <script src="js/ui/skins/modern/skin.js"></script>
 	<script src="js/ui/skins/luminous/skin.js"></script>
+  <script src="js/ui/skins/minimal/skin.js"></script>
   <script src="js/core/bridge.js"></script>
   <script src="js/navigation/view-manager.js"></script>
   <script src="js/navigation/render-manager.js"></script>
@@ -838,6 +953,8 @@
   <script src="js/data/note-store.js"></script>
   <script src="js/text/highlight-manager.js"></script>
   <script src="js/data/cross-references.js"></script>
+  <script src="js/data/word-study-service.js"></script>
+  <script src="js/word-study/word-study-ui.js"></script>
   <script src="js/cross-refs/cross-refs-ui.js"></script>
   <script src="js/footnotes/footnotes-ui.js"></script>
   <script src="js/reading/scroll-mode/band-engine.js"></script>

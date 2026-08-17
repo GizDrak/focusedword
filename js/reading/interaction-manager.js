@@ -36,6 +36,7 @@ window.InteractionManager = class InteractionManager {
     for (const container of selectionContainers) {
       container.addEventListener('pointerdown', (e) => this._onPointerDown(e));
       container.addEventListener('pointerup', (e) => this._onPointerUp(e));
+      container.addEventListener('click', (e) => this._onWordStudyClick(e), true);
       container.addEventListener('selectstart', (e) => {
         if (this.selectionMode) e.preventDefault();
       });
@@ -121,6 +122,7 @@ window.InteractionManager = class InteractionManager {
     if (this._multiVerseRange) {
       if (Date.now() - this._selectionCreatedTime < 150) return;
       if (e.target.closest('.highlight-toolbar')) return;
+      if (e.target.closest('#wckey-panel')) return;
       this._dismissWordSelection();
       return;
     }
@@ -129,6 +131,7 @@ window.InteractionManager = class InteractionManager {
 
     if (Date.now() - this._selectionCreatedTime < 150) return;
     if (e.target.closest('.temp-selection') || e.target.closest('.highlight-toolbar')) return;
+    if (e.target.closest('#wckey-panel')) return;
     this._dismissWordSelection();
   }
 
@@ -172,6 +175,7 @@ window.InteractionManager = class InteractionManager {
     if (dx < 10 && dy < 10) {
       const verseContainer = e.target.closest('.verse-container:not(.section-heading-container)');
       if (verseContainer) {
+        if (this._wordStudyMode) return;
         if (e.target.closest('.footnote-caller') ||
             e.target.closest('.crossref-indicator') ||
             e.target.closest('.token-cross-ref') ||
@@ -473,6 +477,71 @@ window.InteractionManager = class InteractionManager {
 
   clearTempSelection() {
     this.clearSelection();
+  }
+
+  get _wordStudyMode() {
+    return this.bridge.state && this.bridge.state.get('wordStudyMode');
+  }
+
+  _onWordStudyClick(e) {
+    if (!this._wordStudyMode) return;
+    const target = this._resolveWordStudyTarget(e);
+    if (!target) return;
+    const verseContainer = target.closest('.verse-container:not(.section-heading-container)');
+    if (!verseContainer) return;
+    e.stopPropagation();
+    e.preventDefault();
+    e._wordStudyHandled = true;
+    this._handleWordStudyTap(verseContainer, target);
+  }
+
+  _resolveWordStudyTarget(e) {
+    let el = null;
+    if (e.composedPath) {
+      for (const p of e.composedPath()) {
+        if (p.nodeType !== 1) continue;
+        if (p.classList && p.classList.contains('word-study-target')) { el = p; break; }
+      }
+    }
+    if (!el && e.target && e.target.closest) {
+      el = e.target.closest('.word-study-target');
+    }
+    if (!el && e.target && typeof e.target.getAttribute === 'function' && e.target.getAttribute('data-wp')) {
+      el = e.target;
+    }
+    if (!el && e.clientX !== undefined && e.clientY !== undefined) {
+      const fp = document.elementFromPoint(e.clientX, e.clientY);
+      if (fp) el = fp.closest('.word-study-target');
+    }
+    return el;
+  }
+
+  _handleWordStudyTap(verseContainer, target) {
+    const wordPosition = parseInt(target.dataset.wp || target.getAttribute('data-wp'), 10);
+    if (!wordPosition) return;
+
+    const verseNumEl = verseContainer.querySelector('.verse-num');
+    if (!verseNumEl) return;
+
+    const verseNum = parseInt(verseNumEl.textContent, 10);
+    if (!verseNum) return;
+
+    const nav = this.bridge.get('navigation');
+    const verseData = nav && nav.currentVerses.find(v => v.verse === verseNum);
+    if (!verseData) return;
+
+    const bookCode = verseData.book_code || '';
+    const chapter = this.bridge.state.get('currentChapter');
+    const verseId = `${bookCode}.${chapter}.${verseNum}`;
+
+    const tokenId = target.dataset.tokenId || target.getAttribute('data-token-id') || null;
+
+    this.bridge.emit('wordstudy:show', {
+      verseId,
+      wordPosition,
+      tokenId,
+      rect: target.getBoundingClientRect(),
+    });
   }
 }
 

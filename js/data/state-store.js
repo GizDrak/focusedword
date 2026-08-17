@@ -18,7 +18,9 @@ window.StateStore = class StateStore {
       'chapterHeaderAlignment', 'sectionHeadingAlignment', 'verseTextAlignment',
       'verseNumberPlacement',
       'currentTranslation',
-      'currentBook', 'currentChapter', 'currentVerse', 'currentBookName'
+      'currentBook', 'currentChapter', 'currentVerse', 'currentBookName',
+      'wordClasses', 'wordClassAxisSettings',
+      'wordStudyEnabled', 'wordStudyMode'
     ]);
     this._data = {
       bionic: false,
@@ -58,7 +60,14 @@ window.StateStore = class StateStore {
       paragraphMode: false,
       swipeMaxVerses: 4,
       backgroundTexture: true,
-      uiSkin: 'classic',
+      uiSkin: 'modern',
+      wordClasses: false,
+      wordClassAxisSettings: null,
+      wordStudyEnabled: false,
+      wordStudyMode: false,
+      clearReadingEnabled: false,
+      clearReadingMode: 'off',
+      clearReadingToggles: { content: true, pronoun: true, connector: true, relation: true, article: true, negation: true },
       chapterHeaderAlignment: 'skin',
       sectionHeadingAlignment: 'skin',
       verseTextAlignment: 'skin',
@@ -501,6 +510,7 @@ window.StateStore = class StateStore {
 
   _persist(key) {
     try {
+      if (key === 'clearReadingMode' || key === 'clearReadingToggles') return;
       if (key === 'currentBook' || key === 'currentChapter' || key === 'currentVerse' || key === 'currentBookName') {
         this._saveProgress();
       } else {
@@ -567,6 +577,9 @@ window.StateStore = class StateStore {
         'focused-word:section-heading-alignment': 'sectionHeadingAlignment',
         'focused-word:verse-text-alignment': 'verseTextAlignment',
         'focused-word:verse-number-placement': 'verseNumberPlacement',
+        'focused-word:word-classes': 'wordClasses',
+        'focused-word:word-class-axis-settings': 'wordClassAxisSettings',
+        'focused-word:word-study-enabled': 'wordStudyEnabled',
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);
@@ -582,6 +595,10 @@ window.StateStore = class StateStore {
             localStorage.removeItem(storageKey);
           }
         }
+      }
+      if (!localStorage.getItem('focused-word:palette-migrated')) {
+        localStorage.removeItem('focused-word:word-class-colors');
+        localStorage.setItem('focused-word:palette-migrated', '1');
       }
       const progress = localStorage.getItem('focused-word:progress');
       if (progress) {

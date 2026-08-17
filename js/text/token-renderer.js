@@ -7,7 +7,7 @@ window.TokenRenderer = class TokenRenderer {
   renderChapter(verses, bionic, strength, settings) {
     const frag = document.createDocumentFragment();
     for (const v of verses) {
-      const el = this._renderVerseTokens(v.verse, v.tokens, bionic, strength, settings);
+      const el = this._renderVerseTokens(v.verse, v.tokens, bionic, strength, settings, v.wordClassSpans, v.wordStudySpans, v.clearReadingSpans);
       if (!el) continue;
       let child = el.firstChild;
       while (child) {
@@ -23,7 +23,7 @@ window.TokenRenderer = class TokenRenderer {
     return frag;
   }
 
-  _renderVerseTokens(verseNum, tokens, bionic, strength, settings) {
+  _renderVerseTokens(verseNum, tokens, bionic, strength, settings, wordClassSpans, wordStudySpans, clearReadingSpans) {
     if (!tokens || !tokens.length) return null;
     settings = Object.assign({ redLetter: true, footnotes: true, sectionHeadings: true, poetryFormatting: true, paragraphBreaks: false, paragraphMode: false }, settings);
 
@@ -83,10 +83,11 @@ window.TokenRenderer = class TokenRenderer {
         case 'line_break':      this._renderLineBreak(token, ctx); break;
         case 'section_heading': this._renderSectionHeading(token, ctx); break;
         case 'text':            this._renderText(token, ctx); break;
-        case 'style_start':     this._renderStyleStart(token, ctx); break;
-        case 'style_end':       this._renderStyleEnd(token, ctx); break;
+        case 'style_start':     this._renderStyleStart(token, ctx, tokens, i); break;
+        case 'style_end':       this._renderStyleEnd(token, ctx, tokens, i); break;
         case 'footnote':        this._renderFootnote(token, ctx, tokens, i); break;
         case 'cross_ref':       this._renderCrossRef(token, ctx); break;
+        case 'list_item':       this._renderListItem(token, ctx, tokens, i); break;
       }
     }
 
@@ -98,6 +99,19 @@ window.TokenRenderer = class TokenRenderer {
       ctx.verseText.appendChild(ctx.verseNumEl);
     }
     ctx.container.appendChild(ctx.verseText);
+
+    if (wordClassSpans && wordClassSpans.length && this._wordClassesEnabled) {
+      this._applyWordClassColors(ctx.verseText, wordClassSpans);
+    }
+
+    if (clearReadingSpans && clearReadingSpans.length && this._clearReadingEnabled) {
+      this._applyClearReadingDimming(ctx.verseText, clearReadingSpans);
+    }
+
+    if (this._wordStudyMode) {
+      this._applyWordStudyTargets(ctx.verseText, wordStudySpans);
+    }
+
     return ctx.container;
   }
 
@@ -259,7 +273,10 @@ window.TokenRenderer = class TokenRenderer {
     );
   }
 
-  _renderStyleStart(token, ctx) {
+  _renderStyleStart(token, ctx, tokens, index) {
+    // The BSB token stream splits text at style boundaries; the split point is
+    // where a space belonged in the source, so restore it to keep words apart.
+    this._ensureBoundarySpace(tokens, index + 1, ctx);
     if (!ctx.settings.redLetter && token.style === 'wj') {
       ctx.styleStack.push({ el: null, parent: ctx.currentBlock, skip: true });
       return;
@@ -278,15 +295,52 @@ window.TokenRenderer = class TokenRenderer {
     ctx.currentBlock = el;
   }
 
-  _renderStyleEnd(token, ctx) {
+  _renderStyleEnd(token, ctx, tokens, index) {
     if (!ctx.styleStack.length) return;
     const entry = ctx.styleStack.pop();
-    if (entry.skip) {
-      ctx.currentBlock = entry.parent;
-      return;
-    }
     ctx.currentBlock = entry.parent;
+    if (entry.skip) return;
     if (entry.el && !entry.el.hasChildNodes()) entry.el.remove();
+    this._ensureBoundarySpace(tokens, index + 1, ctx);
+  }
+
+  _renderListItem(token, ctx, tokens, index) {
+    this._ensureBoundarySpace(tokens, index + 1, ctx);
+  }
+
+  // Inserts a single space into the current block when a structural boundary
+  // (style span, footnote marker, list item) sits between two words and the
+  // following text would otherwise glue to the previous content.
+  _ensureBoundarySpace(tokens, fromIndex, ctx) {
+    let nextText = null;
+    for (let j = fromIndex; j < tokens.length; j++) {
+      const t = tokens[j];
+      if (t.type === 'text' && t.text) { nextText = t.text; break; }
+      if (['paragraph_start', 'poetry_start', 'line_break', 'section_heading', 'list_item'].includes(t.type)) break;
+    }
+    if (!nextText) return;
+    const first = nextText[0];
+    if (/\s/.test(first)) return;
+    // No space before closing punctuation; a space belongs before words,
+    // opening quotes/parens, and dashes.
+    if ('.,;:!?)]}\u2019\u201d'.includes(first)) return;
+    const parent = ctx.currentBlock || ctx.verseText;
+    const last = parent.lastChild;
+    if (!last) return;
+    let needsSpace = false;
+    if (last.nodeType === 3) {
+      const lastChar = (last.textContent || '')[last.textContent.length - 1];
+      needsSpace = !!lastChar && !/\s/.test(lastChar);
+    } else if (last.tagName === 'BR') {
+      // A line break visually separates, but textContent collapses it to
+      // nothing; a following space keeps the rendered text well-spaced.
+      needsSpace = true;
+    } else {
+      const lastChar = (last.textContent || '').trimEnd().slice(-1);
+      needsSpace = !!lastChar && !/\s/.test(lastChar);
+    }
+    if (!needsSpace) return;
+    parent.appendChild(document.createTextNode(' '));
   }
 
   _renderFootnote(token, ctx, tokens, index) {
@@ -320,6 +374,7 @@ window.TokenRenderer = class TokenRenderer {
       ctx.pendingLeadingFootnotes.push(el);
     } else {
       (ctx.currentBlock || ctx.verseText).appendChild(el);
+      this._ensureBoundarySpace(tokens, index + 1, ctx);
     }
   }
 
@@ -378,5 +433,382 @@ window.TokenRenderer = class TokenRenderer {
     const books = window.BibleDB._BOOKS;
     const found = books.find(b => b.name === name);
     return found ? found.id : null;
+  }
+
+  get _wordClassesEnabled() {
+    return this.bridge && this.bridge.state
+      && this.bridge.state.get('wordClasses') === true
+      && this.bridge.state.get('currentTranslation') === 'BSB';
+  }
+
+  get _clearReadingEnabled() {
+    return this.bridge && this.bridge.state
+      && this.bridge.state.get('clearReadingEnabled') === true
+      && this.bridge.state.get('currentTranslation') === 'BSB'
+      && this.bridge.state.get('clearReadingMode') !== 'off';
+  }
+
+  get _wordStudyMode() {
+    return this.bridge && this.bridge.state
+      && this.bridge.state.get('wordStudyMode') === true
+      && this.bridge.state.get('currentTranslation') === 'BSB';
+  }
+
+  _collectWordSegments(verseText) {
+    const walker = document.createTreeWalker(verseText, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null, false);
+    const allNodes = [];
+    let n;
+    while ((n = walker.nextNode())) {
+      allNodes.push(n);
+    }
+
+    const isExcluded = (node) => {
+      let parent = node.parentNode;
+      while (parent && parent !== verseText) {
+        if (parent.tagName === 'SUP' ||
+            parent.classList.contains('footnote-caller') ||
+            parent.classList.contains('verse-num')) {
+          return true;
+        }
+        parent = parent.parentNode;
+      }
+      return false;
+    };
+
+    const WORD_CHAR = /[^\W_]/;
+    // Matches the apostrophe/quote class used by _wordRanges, which treats
+    // these as word-internal. A boundary after one of them still needs a space
+    // or the adjacent words collapse into a single token (e.g. "neighbor'and").
+    const APOSTROPHE = /[’']/;
+    const segments = [];
+    const parts = [];
+    let offset = 0;
+    let lastChar = '';
+    let lastTextParent = null;
+    let prevWasBionic = false;
+    let boundaryPending = false;
+
+    for (const node of allNodes) {
+      if (node.nodeType === 1) {
+        // Any element node between text nodes (style span, list item, poetry
+        // block, <br>, …) can sit where a space belonged in the source text.
+        boundaryPending = true;
+        continue;
+      }
+
+      if (isExcluded(node)) {
+        boundaryPending = true;
+        continue;
+      }
+
+      const t = node.textContent;
+      if (!t) {
+        boundaryPending = true;
+        continue;
+      }
+
+      const parent = node.parentElement;
+      const parentChanged = lastTextParent && parent !== lastTextParent;
+      const adjacentText = lastTextParent && parent === lastTextParent && !boundaryPending;
+      // A bionic <b> fragment is always immediately followed by its word's
+      // continuation in the same chunk, so it must not introduce a space.
+      const continueBionic = prevWasBionic;
+
+      const prevConnects = lastChar && (WORD_CHAR.test(lastChar) || APOSTROPHE.test(lastChar));
+      const curStartsWord = t && WORD_CHAR.test(t[0]);
+      if (prevConnects && curStartsWord && !continueBionic && (boundaryPending || parentChanged || adjacentText)) {
+        parts.push(' ');
+        offset += 1;
+      }
+
+      segments.push({ node, start: offset, end: offset + t.length });
+      parts.push(t);
+      offset += t.length;
+
+      const trimmed = t.trim();
+      lastChar = trimmed ? trimmed[trimmed.length - 1] : '';
+      lastTextParent = parent;
+      prevWasBionic = !!(parent && parent.tagName === 'B');
+      boundaryPending = false;
+    }
+
+    return { segments, fullText: parts.join('') };
+  }
+
+  _wordRanges(fullText) {
+    const WORD_RE = /[^\W_]+(?:[’'][^\W_]+)*/gu;
+    const words = [];
+    let m;
+    while ((m = WORD_RE.exec(fullText)) !== null) {
+      words.push({ start: m.index, end: m.index + m[0].length, text: m[0].toLowerCase() });
+    }
+    return words;
+  }
+
+  // Resolve a v2 annotation span to a concrete [start, end) range in the
+  // Map a v2 annotation span onto the reconstructed verse text. The exact
+  // character offsets from the database are authoritative; the surface text
+  // cross-checks them (a footnote-inserted space or punctuation can shift the
+  // reconstructed offsets). word_index is only a fallback and is never
+  // trusted on its own — it uses a different numbering than the legacy
+  // visible-token index (they diverge by hundreds of tokens across the
+  // corpus), so an index hit is accepted only when it lands on an identical
+  // surface word. Mismatches are skipped rather than shifted.
+  _v2Range(span, fullText, words) {
+    const normSurface = (span.surface || '').toLowerCase();
+    if (typeof span.charStart === 'number' && typeof span.charEnd === 'number') {
+      const spanText = fullText.slice(span.charStart, span.charEnd);
+      if (normSurface && spanText.toLowerCase() === normSurface) {
+        return { start: span.charStart, end: span.charEnd };
+      }
+    }
+    if (span.wordIndex != null) {
+      const w = words[span.wordIndex];
+      if (w && w.text === normSurface) return w;
+    }
+    return null;
+  }
+
+  _applyWordStudyTargets(verseText, wordPositions) {
+    if (!wordPositions || !wordPositions.length) return;
+    this._applyWordStudyTargetsV2(verseText, wordPositions);
+  }
+
+  _applyWordStudyTargetsV2(verseText, wordPositions) {
+    const { segments, fullText } = this._collectWordSegments(verseText);
+    if (!segments.length || !fullText) return;
+    const words = this._wordRanges(fullText);
+    if (!words.length) return;
+
+    const ranges = new Map();
+    for (const s of wordPositions) {
+      const r = this._v2Range(s, fullText, words);
+      if (!r) continue;
+      const key = r.start + ':' + r.end;
+      if (!ranges.has(key)) {
+        ranges.set(key, { charStart: r.start, charEnd: r.end, word_position: s.wordPosition, token_id: s.tokenId });
+      }
+    }
+    if (!ranges.size) return;
+
+    for (const entry of segments) {
+      const { node: tn, start: tnIndex, end: tnEnd } = entry;
+      const tnText = tn.textContent;
+      const rangesIn = [];
+      for (const r of ranges.values()) {
+        if (r.charStart < tnEnd && r.charEnd > tnIndex) {
+          rangesIn.push({
+            localStart: Math.max(r.charStart - tnIndex, 0),
+            localEnd: Math.min(r.charEnd - tnIndex, tnEnd - tnIndex),
+            word_position: r.word_position,
+            token_id: r.token_id,
+          });
+        }
+      }
+      if (!rangesIn.length) continue;
+
+      rangesIn.sort((a, b) => a.localStart - b.localStart);
+
+      const frag = document.createDocumentFragment();
+      let pos = 0;
+
+      for (const r of rangesIn) {
+        if (pos < r.localStart) {
+          frag.appendChild(document.createTextNode(tnText.slice(pos, r.localStart)));
+        }
+        const targetText = tnText.slice(r.localStart, r.localEnd);
+        if (targetText) {
+          const span = document.createElement('span');
+          span.className = 'word-study-target' + (this._wordClassesEnabled ? ' word-study-target--combined' : '');
+          span.dataset.wp = r.word_position;
+          if (r.token_id) span.dataset.tokenId = r.token_id;
+          span.textContent = targetText;
+          frag.appendChild(span);
+        }
+        pos = r.localEnd;
+      }
+      if (pos < tnText.length) {
+        frag.appendChild(document.createTextNode(tnText.slice(pos)));
+      }
+
+      tn.parentNode.replaceChild(frag, tn);
+    }
+  }
+
+  _applyWordClassColors(verseText, wordClassSpans) {
+    if (!wordClassSpans || !wordClassSpans.length) return;
+    this._applyWordClassColorsV2(verseText, wordClassSpans);
+  }
+
+  _applyWordClassColorsV2(verseText, wordClassSpans) {
+    const state = this.bridge.state;
+    const axisSettings = state.get('wordClassAxisSettings') || null;
+    const overrides = (axisSettings && axisSettings.colors) || null;
+
+    const activeSpans = wordClassSpans.filter(s => {
+      if (s.axis == null || s.value == null) return false;
+      return WordClassService.isValueEnabled(axisSettings, s.axis, s.value);
+    });
+    if (!activeSpans.length) return;
+
+    const { segments, fullText } = this._collectWordSegments(verseText);
+    if (!segments.length) return;
+    const words = this._wordRanges(fullText);
+    if (!words.length) return;
+
+    const colorByRange = new Map();
+    for (const span of activeSpans) {
+      const r = this._v2Range(span, fullText, words);
+      if (!r) continue;
+      const color = WordClassService.getAxisColor(span.axis, span.value, overrides);
+      const key = r.start + ':' + r.end;
+      if (!colorByRange.has(key)) colorByRange.set(key, { charStart: r.start, charEnd: r.end, color });
+    }
+    if (!colorByRange.size) return;
+
+    this._applyColorRangesToSegments(segments, colorByRange);
+  }
+
+  _applyColorRangesToSegments(segments, colorByRange) {
+    for (const entry of segments) {
+      const { node: tn, start: tnStart, end: tnEnd } = entry;
+      const ranges = [];
+      for (const c of colorByRange.values()) {
+        if (c.charStart < tnEnd && c.charEnd > tnStart) {
+          ranges.push({
+            localStart: Math.max(c.charStart - tnStart, 0),
+            localEnd: Math.min(c.charEnd - tnStart, tnEnd - tnStart),
+            color: c.color,
+          });
+        }
+      }
+      if (!ranges.length) continue;
+
+      ranges.sort((a, b) => a.localStart - b.localStart);
+      const merged = [];
+      for (const r of ranges) {
+        if (merged.length && merged[merged.length - 1].localEnd >= r.localStart) {
+          merged[merged.length - 1].localEnd = Math.max(merged[merged.length - 1].localEnd, r.localEnd);
+        } else {
+          merged.push({ localStart: r.localStart, localEnd: r.localEnd, color: r.color });
+        }
+      }
+
+      const text = tn.textContent;
+      const frag = document.createDocumentFragment();
+      let pos = 0;
+      let changed = false;
+
+      for (const r of merged) {
+        if (pos < r.localStart) {
+          frag.appendChild(document.createTextNode(text.slice(pos, r.localStart)));
+        }
+        const colored = text.slice(r.localStart, r.localEnd);
+        if (colored) {
+          const span = document.createElement('span');
+          span.style.color = r.color;
+          span.textContent = colored;
+          frag.appendChild(span);
+          changed = true;
+        }
+        pos = r.localEnd;
+      }
+      if (pos < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(pos)));
+      }
+
+      if (changed) {
+        tn.parentNode.replaceChild(frag, tn);
+      }
+    }
+  }
+
+  // Clear Reading dimming is a separate pass on top of word-class colors: each
+  // word gets an opacity (and, for negation, a weight) from its role in the
+  // passage. Wrapping an already-colored word in an opacity span keeps the
+  // color visible while quieting glue (article/relation/connector) and popping
+  // negation. Ranges resolve through the same offset machinery as colors.
+  _applyClearReadingDimming(verseText, clearReadingSpans) {
+    const state = this.bridge.state;
+    const mode = state.get('clearReadingMode');
+    const toggles = state.get('clearReadingToggles') || null;
+    if (!WordClassService.CLEAR_READING_WEIGHTS[mode]) return;
+
+    const activeSpans = clearReadingSpans.filter(s => s.value);
+    if (!activeSpans.length) return;
+
+    const { segments, fullText } = this._collectWordSegments(verseText);
+    if (!segments.length) return;
+    const words = this._wordRanges(fullText);
+    if (!words.length) return;
+
+    const styleByRange = new Map();
+    for (const span of activeSpans) {
+      const r = this._v2Range(span, fullText, words);
+      if (!r) continue;
+      const w = WordClassService.getClearReadingWeight(span.value, mode, toggles);
+      if (w.opacity === 1.0 && !w.fontWeight) continue;
+      const key = r.start + ':' + r.end;
+      if (!styleByRange.has(key)) {
+        styleByRange.set(key, { charStart: r.start, charEnd: r.end, opacity: w.opacity, fontWeight: w.fontWeight });
+      }
+    }
+    if (!styleByRange.size) return;
+
+    let anyChange = false;
+    for (const entry of segments) {
+      const { node: tn, start: tnStart, end: tnEnd } = entry;
+      const ranges = [];
+      for (const c of styleByRange.values()) {
+        if (c.charStart < tnEnd && c.charEnd > tnStart) {
+          ranges.push({
+            localStart: Math.max(c.charStart - tnStart, 0),
+            localEnd: Math.min(c.charEnd - tnStart, tnEnd - tnStart),
+            opacity: c.opacity,
+            fontWeight: c.fontWeight,
+          });
+        }
+      }
+      if (!ranges.length) continue;
+
+      ranges.sort((a, b) => a.localStart - b.localStart);
+      const merged = [];
+      for (const r of ranges) {
+        if (merged.length && merged[merged.length - 1].localEnd >= r.localStart) {
+          merged[merged.length - 1].localEnd = Math.max(merged[merged.length - 1].localEnd, r.localEnd);
+        } else {
+          merged.push(r);
+        }
+      }
+
+      const text = tn.textContent;
+      const frag = document.createDocumentFragment();
+      let pos = 0;
+      let changed = false;
+
+      for (const r of merged) {
+        if (pos < r.localStart) {
+          frag.appendChild(document.createTextNode(text.slice(pos, r.localStart)));
+        }
+        const styled = text.slice(r.localStart, r.localEnd);
+        if (styled) {
+          const span = document.createElement('span');
+          span.style.opacity = String(r.opacity);
+          if (r.fontWeight) span.style.fontWeight = String(r.fontWeight);
+          span.textContent = styled;
+          frag.appendChild(span);
+          changed = true;
+        }
+        pos = r.localEnd;
+      }
+      if (pos < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(pos)));
+      }
+
+      if (changed) {
+        tn.parentNode.replaceChild(frag, tn);
+        anyChange = true;
+      }
+    }
   }
 };

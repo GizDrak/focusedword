@@ -1,6 +1,6 @@
 window.UISkins = class UISkins {
   static _definitions = new Map();
-  static _activeId = 'classic';
+  static _activeId = 'modern';
   static _decorated = new WeakMap();
   static _dynamicTrees = [];
 
@@ -202,6 +202,7 @@ window.UISkins = class UISkins {
       ['chapter-summary-subtitle', '#chapter-subtitle'],
       ['bottom-navigation', '#bottom-nav'],
       ['highlight-toolbar', '#highlight-toolbar'],
+      ['wordstudy-panel', '#wordstudy-panel'],
       ['app-surface', '#landscape-layout'],
       ['content-area', '#content'],
       ['translation-dropdown', '#panel-left-translation-dropdown'],
@@ -257,7 +258,7 @@ window.UISkins = class UISkins {
     document.querySelectorAll('#discover-panel .discover-header').forEach(el => UISkins.decorate(el, 'search-header'));
     document.querySelectorAll('#discover-panel #discover-input').forEach(el => UISkins.decorate(el, 'search-input'));
     document.querySelectorAll('#discover-panel #discover-results').forEach(el => UISkins.decorate(el, 'search-results'));
-    document.querySelectorAll('#changelog-panel').forEach(el => UISkins.decorate(el, 'changelog-panel'));
+    document.querySelectorAll('#changelog-panel, #license-panel, #credits-panel').forEach(el => UISkins.decorate(el, 'changelog-panel'));
     document.querySelectorAll('#debug-log-panel').forEach(el => UISkins.decorate(el, 'debug-log-panel'));
     document.querySelectorAll('#install-banner .install-banner-body').forEach(el => UISkins.decorate(el, 'install-banner-body'));
     document.querySelectorAll('#install-ios-sheet .install-ios-header').forEach(el => UISkins.decorate(el, 'install-sheet-header'));

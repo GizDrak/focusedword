@@ -90,6 +90,8 @@ window.SpotlightRenderer = class SpotlightRenderer {
     if (vCurrent && vCurrent.verse !== this.bridge.state.get('currentVerse')) {
       window.verseManager.setPassive(vCurrent.verse);
     }
+
+    this.base.updateProgress(vCurrent?.verse);
   }
 
   setActiveVerse(verses, index) {
@@ -151,6 +153,13 @@ window.SpotlightRenderer = class SpotlightRenderer {
         vm.scrollToVerse(verses[index]?.verse);
       }
     }
+  }
+
+  goToVerse(verses, verseNum) {
+    const idx = verses.findIndex(v => v.verse === verseNum);
+    if (idx < 0) return;
+    this.currentVerseIndex = idx;
+    this.setActiveVerse(verses, idx);
   }
 
   advance(verses, direction) {

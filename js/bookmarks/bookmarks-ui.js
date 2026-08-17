@@ -21,6 +21,11 @@ window.BookmarksUI = class BookmarksUI {
     });
   }
 
+  _confirmDialog(options) {
+    if (window.dialogService) return window.dialogService.confirm(options);
+    return Promise.resolve(window.confirm(options.message || ''));
+  }
+
   _initEventListeners() {
     document.getElementById('library-close').addEventListener('click', () => this.closeSlideUp());
     document.getElementById('library-backdrop').addEventListener('click', () => this.closeSlideUp());
@@ -52,6 +57,9 @@ window.BookmarksUI = class BookmarksUI {
     const backdrop = document.getElementById('library-backdrop');
     backdrop.classList.add('open');
     panel.classList.add('open');
+    panel.removeAttribute('aria-hidden');
+    panel.inert = false;
+    backdrop.removeAttribute('aria-hidden');
     this._activeFilterSet = this.bridge.state.get('activeBookmarkSet');
     this._activeHighlightColor = this.bridge.state.get('activeHighlightColor');
     this.renderBookmarksTab();
@@ -69,6 +77,9 @@ window.BookmarksUI = class BookmarksUI {
     const backdrop = document.getElementById('library-backdrop');
     panel.classList.remove('open');
     backdrop.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.inert = true;
+    backdrop.setAttribute('aria-hidden', 'true');
     if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
     if (this._escHandler) { this._escHandler(); this._escHandler = null; }
   }
@@ -303,9 +314,37 @@ window.BookmarksUI = class BookmarksUI {
 
     const popover = document.createElement('div');
     popover.className = 'bm-set-manage-popover';
+    popover.setAttribute('popover', 'auto');
+    popover.setAttribute('aria-label', 'Manage bookmark sets');
     const rect = anchorEl.getBoundingClientRect();
-    popover.style.left = Math.min(rect.left, window.innerWidth - 220) + 'px';
-    popover.style.top = rect.bottom + 4 + 'px';
+    const width = 220;
+    const anchorName = `--bookmark-set-${Date.now()}`;
+    const supportsAnchors = Boolean(
+      window.CSS?.supports?.('position-anchor', anchorName) &&
+      window.CSS?.supports?.('top', 'anchor(bottom)')
+    );
+    if (supportsAnchors) {
+      anchorEl.style.anchorName = anchorName;
+      popover.style.positionAnchor = anchorName;
+      popover.style.top = 'anchor(bottom)';
+      popover.style.left = 'anchor(left)';
+      popover.style.marginTop = '4px';
+    } else {
+      popover.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) + 'px';
+      popover.style.top = rect.bottom + 4 + 'px';
+    }
+
+    let controller = null;
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      if (controller?.isOpen()) controller.hide();
+      if (anchorEl.style.anchorName === anchorName) anchorEl.style.anchorName = '';
+      if (popover.parentNode) popover.remove();
+      if (this._bookmarkSetManageCleanup === cleanup) this._bookmarkSetManageCleanup = null;
+      if (this._bookmarkSetManageController === controller) this._bookmarkSetManageController = null;
+    };
 
     for (const s of sets) {
       const row = document.createElement('div');
@@ -318,10 +357,11 @@ window.BookmarksUI = class BookmarksUI {
 
       const renameBtn = document.createElement('button');
       renameBtn.textContent = '✏️';
-      renameBtn.title = 'Rename';
+      renameBtn.title = `Rename ${s.name}`;
+      renameBtn.setAttribute('aria-label', `Rename ${s.name}`);
       renameBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        popover.remove();
+        cleanup();
         this._renameSet(s);
       });
       row.appendChild(renameBtn);
@@ -329,11 +369,18 @@ window.BookmarksUI = class BookmarksUI {
       const delBtn = document.createElement('button');
       delBtn.className = 'danger';
       delBtn.textContent = '🗑';
-      delBtn.title = 'Delete';
+      delBtn.title = `Delete ${s.name}`;
+      delBtn.setAttribute('aria-label', `Delete ${s.name}`);
       delBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        popover.remove();
-        if (!confirm(`Delete "${s.name}"? Bookmarks in this set will become unassigned.`)) return;
+        cleanup();
+        const confirmed = await this._confirmDialog({
+          title: 'Delete bookmark set',
+          message: `Delete "${s.name}"? Bookmarks in this set will become unassigned.`,
+          confirmLabel: 'Delete Set',
+          danger: true
+        });
+        if (!confirmed) return;
         await this.bridge.selection.deleteBookmarkSet(s.id);
         if (this._activeFilterSet === s.id) {
           this._activeFilterSet = null;
@@ -349,13 +396,20 @@ window.BookmarksUI = class BookmarksUI {
 
     document.body.appendChild(popover);
 
+    controller = window.PopoverService
+      ? window.PopoverService.create(popover, { onChange: (open) => { if (!open) cleanup(); } })
+      : null;
+    this._bookmarkSetManageController = controller;
+    this._bookmarkSetManageCleanup = cleanup;
+
     const hide = (e) => {
       if (!popover.contains(e.target) && e.target !== anchorEl) {
-        popover.remove();
+        cleanup();
         document.removeEventListener('click', hide);
       }
     };
-    setTimeout(() => document.addEventListener('click', hide), 10);
+    if (controller) controller.show();
+    if (!controller?.native) setTimeout(() => document.addEventListener('click', hide), 10);
   }
 
   _renameSet(set) {

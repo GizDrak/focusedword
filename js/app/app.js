@@ -103,7 +103,7 @@ window.App = class App {
     document.addEventListener('ui:skin-changed', applySkinPrefs);
 
     if (window.UISkins) {
-      window.UISkins.apply(bridge.state.get('uiSkin') || 'classic');
+      window.UISkins.apply(bridge.state.get('uiSkin') || 'modern');
     }
 
     const syncThemeColor = () => {
@@ -112,7 +112,18 @@ window.App = class App {
       if (meta && bgSurface) meta.setAttribute('content', bgSurface);
     };
     syncThemeColor();
-    bridge.state.onChange('theme', () => requestAnimationFrame(syncThemeColor));
+    bridge.state.onChange('theme uiSkin', () => requestAnimationFrame(syncThemeColor));
+    document.addEventListener('ui:skin-changed', () => requestAnimationFrame(syncThemeColor));
+
+    const windowControlsOverlay = navigator.windowControlsOverlay;
+    if (windowControlsOverlay) {
+      const syncWindowControlsOverlay = () => {
+        const rect = windowControlsOverlay.getTitlebarAreaRect?.();
+        if (rect) document.documentElement.style.setProperty('--titlebar-area-height', `${rect.height}px`);
+      };
+      syncWindowControlsOverlay();
+      windowControlsOverlay.addEventListener?.('geometrychange', syncWindowControlsOverlay);
+    }
 
     const splashEl = document.getElementById('splash-screen');
     const statusEl = document.getElementById('splash-status');
@@ -182,8 +193,13 @@ window.App = class App {
 
     bridge.register('cross-references', new window.CrossReferences(bridge));
     bridge.register('cross-refs-ui', new window.CRefsUI(bridge));
+    bridge.register('word-study-ui', new window.WordStudyUI(bridge));
 
     bridge.register('highlight-manager', new window.HighlightManager(bridge));
+
+    // Register before settings.init so _refreshWcWhenReady can find the service
+    bridge.register('word-class-service', new window.WordClassService());
+    bridge.register('word-study-service', new window.WordStudyService());
 
     bridge.selection = new window.SelectionManager(bridge);
     _splash('Preparing…');
@@ -250,8 +266,20 @@ window.App = class App {
       }
     }
 
+    if (bridge.state.get('wordStudyEnabled') === true && bridge.state.get('currentTranslation') === 'BSB') {
+      const wc = bridge.get('word-class-service');
+      if (wc && !wc.isReady) {
+        wc.init(bridge).catch(e => console.warn('[WordStudy] startup wc init:', e));
+      }
+      const ws = bridge.get('word-study-service');
+      if (ws && !ws.dataReady) {
+        ws.initDataDb().then(() => ws.initLexDb()).catch(e => console.warn('[WordStudy] startup data init:', e));
+      }
+    }
+
     this._buildTranslationManifest(bridge);
     this._setupModeButton(bridge);
+    this._setupWordStudyToggle(bridge);
     this._setupMoreButton(bridge);
     this._setupLibraryButton(bridge);
     this._setupSpeedControls(bridge);
@@ -338,6 +366,12 @@ window.App = class App {
     const modePopup = document.getElementById('mode-popup');
     if (!modeTab || !modePopup) return;
 
+    const modeMenu = window.PopoverService
+      ? window.PopoverService.create(modePopup, {
+          onChange: (open) => modeTab.setAttribute('aria-expanded', String(open))
+        })
+      : null;
+
     const setModeActive = () => {
       const inOtherMode = bridge.state.get('swipeMode') || bridge.state.get('spotlightMode') || bridge.state.get('speedMode');
       const inSplit = bridge.state.get('splitMode');
@@ -355,24 +389,37 @@ window.App = class App {
     };
 
     const closeModePopup = () => {
-      modePopup.classList.remove('open');
-      modePopup.classList.add('hidden');
+      if (modeMenu) modeMenu.hide();
+      else {
+        modePopup.classList.remove('open');
+        modePopup.classList.add('hidden');
+        modeTab.setAttribute('aria-expanded', 'false');
+      }
     };
 
     modeTab.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isOpen = modePopup.classList.contains('open');
+      e.preventDefault();
+      const isOpen = modeMenu ? modeMenu.isOpen() : modePopup.classList.contains('open');
       const mp = document.getElementById('more-popup');
-      if (mp && mp.classList.contains('open')) { mp.classList.remove('open'); mp.classList.add('hidden'); }
+      if (mp && window.PopoverService) {
+        window.PopoverService.create(mp).hide();
+      } else if (mp && mp.classList.contains('open')) {
+        mp.classList.remove('open');
+        mp.classList.add('hidden');
+      }
       closeModePopup();
       if (!isOpen) {
         setModeActive();
-        modePopup.classList.remove('hidden');
-        requestAnimationFrame(() => modePopup.classList.add('open'));
+        if (modeMenu) modeMenu.show();
+        else {
+          modePopup.classList.remove('hidden');
+          requestAnimationFrame(() => modePopup.classList.add('open'));
+        }
       }
     });
 
-    document.addEventListener('click', (e) => {
+    if (!modeMenu?.native) document.addEventListener('click', (e) => {
       if (!modePopup.classList.contains('open')) return;
       if (!modePopup.contains(e.target) && !modeTab.contains(e.target)) {
         closeModePopup();
@@ -403,52 +450,278 @@ window.App = class App {
     });
 
     bridge.state.onChange('spotlightMode swipeMode speedMode splitMode'.split(' '), () => {
-      if (modePopup.classList.contains('open')) setModeActive();
+      if (modeMenu?.isOpen() || modePopup.classList.contains('open')) setModeActive();
+    });
+  }
+
+  _setupWordStudyToggle(bridge) {
+    bridge.state.onChange('speedMode', (_, val) => {
+      if (val && bridge.state.get('wordStudyMode')) {
+        bridge.state.set('wordStudyMode', false);
+      }
     });
   }
 
   _setupMoreButton(bridge) {
     const moreTab = document.querySelector('.tab-item[data-tab="more"]');
     const morePopup = document.getElementById('more-popup');
-    const installMoreItem = document.getElementById('more-install-app');
     if (!moreTab || !morePopup) return;
 
+    let _moreSavedHTML = null;
+
+    const showMainMenu = () => {
+      if (_moreSavedHTML) {
+        morePopup.innerHTML = _moreSavedHTML;
+        _moreSavedHTML = null;
+        morePopup.classList.remove('more-wc-open');
+      }
+    };
+
+    const moreMenu = window.PopoverService
+      ? window.PopoverService.create(morePopup, {
+          onChange: (open) => {
+            moreTab.setAttribute('aria-expanded', String(open));
+            if (!open) showMainMenu();
+          }
+        })
+      : null;
+
     const refreshInstallItem = () => {
+      const installMoreItem = document.getElementById('more-install-app');
       if (!installMoreItem) return;
       const ip = bridge.get('install-prompt');
       installMoreItem.classList.toggle('hidden', !ip?.isInstallable());
     };
 
     const closeMorePopup = () => {
-      morePopup.classList.remove('open');
-      morePopup.classList.add('hidden');
+      if (moreMenu) moreMenu.hide();
+      else {
+        showMainMenu();
+        morePopup.classList.remove('open');
+        morePopup.classList.add('hidden');
+        moreTab.setAttribute('aria-expanded', 'false');
+      }
       morePopup.style.bottom = '';
       morePopup.style.right = '';
     };
 
     moreTab.addEventListener('click', (e) => {
       e.stopPropagation();
+      e.preventDefault();
       refreshInstallItem();
-      const isOpen = morePopup.classList.contains('open');
+      const isOpen = moreMenu ? moreMenu.isOpen() : morePopup.classList.contains('open');
       const mp = document.getElementById('mode-popup');
-      if (mp && mp.classList.contains('open')) { mp.classList.remove('open'); mp.classList.add('hidden'); }
+      if (mp && window.PopoverService) {
+        window.PopoverService.create(mp).hide();
+      } else if (mp && mp.classList.contains('open')) {
+        mp.classList.remove('open');
+        mp.classList.add('hidden');
+      }
       closeMorePopup();
       if (!isOpen) {
         const rect = moreTab.getBoundingClientRect();
         const gap = 8;
         morePopup.style.bottom = (window.innerHeight - rect.top + gap) + 'px';
         morePopup.style.right = (window.innerWidth - rect.right) + 'px';
-        morePopup.classList.remove('hidden');
-        requestAnimationFrame(() => morePopup.classList.add('open'));
+        if (moreMenu?.native) {
+          moreMenu.show();
+        } else {
+          morePopup.classList.remove('hidden');
+          requestAnimationFrame(() => morePopup.classList.add('open'));
+        }
       }
     });
 
     bridge.on('install:state-changed', refreshInstallItem);
     refreshInstallItem();
 
-    document.addEventListener('click', (e) => {
+    const refreshWcKeyItem = () => {
+      const item = document.getElementById('more-word-class-key');
+      if (!item) return;
+      const wc = bridge.state?.get('wordClasses');
+      item.classList.toggle('hidden', !wc);
+    };
+    bridge.state?.onChange('wordClasses', refreshWcKeyItem);
+    bridge.on('render:chapter', refreshWcKeyItem);
+    refreshWcKeyItem();
+
+    const refreshWsItem = () => {
+      const item = document.getElementById('more-word-study');
+      if (!item) return;
+      const ws = bridge.state?.get('wordStudyEnabled');
+      item.classList.toggle('hidden', !ws);
+    };
+    bridge.state?.onChange('wordStudyEnabled', refreshWsItem);
+    bridge.on('render:chapter', refreshWsItem);
+    refreshWsItem();
+
+    const refreshClearReadingItem = () => {
+      const item = document.getElementById('more-clear-reading');
+      if (!item) return;
+      const cr = bridge.state?.get('clearReadingEnabled');
+      item.classList.toggle('hidden', !cr);
+    };
+    bridge.state?.onChange('clearReadingEnabled', refreshClearReadingItem);
+    bridge.on('render:chapter', refreshClearReadingItem);
+    refreshClearReadingItem();
+
+    const renderWcSubmenu = () => {
+      if (!_moreSavedHTML) _moreSavedHTML = morePopup.innerHTML;
+      morePopup.classList.add('more-wc-open');
+      const wc = bridge.get('word-class-service');
+      const groups = wc && wc.getAxisSettings ? wc.getAxisSettings() : null;
+      let html = '<button class="more-item" id="wc-sub-back"><span class="more-item-icon">←</span><span class="more-item-label">Back</span></button>';
+      html += '<div class="more-divider"></div>';
+      if (groups && groups.length) {
+        html += '<div class="more-wc-group">Word Classes</div>';
+        for (const group of groups) {
+          html += '<div class="more-item more-wc-row more-wc-axis' + (group.enabled ? '' : ' muted') + '" data-axis="' + window.HTMLEscape(group.axis) + '">';
+          html += '<div class="more-wc-info">';
+          html += '<span class="more-item-label">' + window.HTMLEscape(group.label) + '</span>';
+          html += '</div>';
+          html += '<input type="checkbox" class="toggle-checkbox" data-axis="' + window.HTMLEscape(group.axis) + '"' + (group.enabled ? ' checked' : '') + ' style="display:none">';
+          html += '</div>';
+          for (const v of group.values) {
+            html += '<div class="more-item more-wc-row' + (v.enabled ? '' : ' muted') + '" data-axis="' + window.HTMLEscape(group.axis) + '" data-value="' + window.HTMLEscape(v.value) + '">';
+            html += '<span class="wc-dot" style="background:' + window.HTMLEscape(v.color) + '"></span>';
+            html += '<div class="more-wc-info">';
+            html += '<span class="more-item-label">' + window.HTMLEscape(v.label) + '</span>';
+            html += '<span class="more-wc-desc">' + window.HTMLEscape(v.definition || '') + '</span>';
+            html += '</div>';
+            html += '<input type="checkbox" class="toggle-checkbox" data-axis="' + window.HTMLEscape(group.axis) + '" data-value="' + window.HTMLEscape(v.value) + '"' + (v.enabled ? ' checked' : '') + ' style="display:none">';
+            html += '</div>';
+          }
+        }
+      } else {
+        html += '<div class="more-item more-wc-row muted" data-note="loading"><span class="more-wc-info"><span class="more-item-label">Word annotations are still loading…</span></span></div>';
+      }
+      morePopup.innerHTML = html;
+      morePopup.querySelector('#wc-sub-back').addEventListener('click', (e) => {
+        e.stopPropagation();
+        showMainMenu();
+      });
+      morePopup.querySelectorAll('.more-wc-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+          const cb = row.querySelector('.toggle-checkbox');
+          if (cb) {
+            cb.checked = !cb.checked;
+            row.classList.toggle('muted', !cb.checked);
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+      });
+      morePopup.querySelectorAll('.toggle-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          if (cb.dataset.axis && !cb.dataset.value) {
+            const axis = cb.dataset.axis;
+            const current = Object.assign({}, bridge.state.get('wordClassAxisSettings') || {});
+            const axes = Object.assign({}, current.axes || {});
+            axes[axis] = cb.checked;
+            current.axes = axes;
+            // The axis master is a bulk switch: clear per-value overrides so
+            // the whole group follows the master.
+            const groups = (wc && wc.getAxisSettings) ? wc.getAxisSettings() : [];
+            const g = groups.find(x => x.axis === axis);
+            const values = Object.assign({}, current.values || {});
+            if (g) {
+              for (const v of g.values) delete values[v.key];
+            }
+            if (Object.keys(values).length) current.values = values; else delete current.values;
+            bridge.state.set('wordClassAxisSettings', (current.values || current.colors || current.axes) ? current : null);
+            const freshGroups = (wc && wc.getAxisSettings) ? wc.getAxisSettings() : [];
+            morePopup.querySelectorAll('.more-wc-row[data-axis="' + axis + '"][data-value]').forEach(row => {
+              const fg = freshGroups.find(x => x.axis === axis);
+              const v = fg && fg.values.find(x => x.value === row.dataset.value);
+              const enabled = !!(v && v.enabled);
+              row.classList.toggle('muted', !enabled);
+              const valueCb = row.querySelector('.toggle-checkbox');
+              if (valueCb) valueCb.checked = enabled;
+            });
+          } else if (cb.dataset.axis && cb.dataset.value) {
+            const key = cb.dataset.axis + ':' + cb.dataset.value;
+            const current = Object.assign({}, bridge.state.get('wordClassAxisSettings') || {});
+            const values = Object.assign({}, current.values || {});
+            values[key] = cb.checked;
+            current.values = values;
+            bridge.state.set('wordClassAxisSettings', (current.values || current.colors || current.axes) ? current : null);
+          }
+          bridge.emit('render:refresh');
+        });
+      });
+    };
+
+    const renderClearReadingSubmenu = () => {
+      if (!_moreSavedHTML) _moreSavedHTML = morePopup.innerHTML;
+      morePopup.classList.add('more-wc-open');
+      const mode = bridge.state.get('clearReadingMode') || 'off';
+      const toggles = Object.assign({}, bridge.state.get('clearReadingToggles') || {});
+      const values = window.WordClassService ? window.WordClassService.CLEAR_READING_VALUES : [];
+      let html = '<button class="more-item" id="cr-sub-back"><span class="more-item-icon">←</span><span class="more-item-label">Back</span></button>';
+      html += '<div class="more-divider"></div>';
+      html += '<div class="more-wc-group">Mode</div>';
+      html += '<div class="cr-mode-row">';
+      for (const m of ['off', 'soft', 'strong']) {
+        html += '<button class="cr-mode-option' + (mode === m ? ' active' : '') + '" data-mode="' + m + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</button>';
+      }
+      html += '</div>';
+      html += '<div class="more-divider"></div>';
+      html += '<div class="more-wc-group">Categories</div>';
+      if (values && values.length) {
+        for (const v of values) {
+          const enabled = toggles[v.value] !== false;
+          const w = window.WordClassService.getClearReadingWeight(v.value, mode === 'off' ? 'soft' : mode, toggles);
+          const previewOpacity = enabled ? w.opacity : 1.0;
+          const previewBold = enabled && w.fontWeight ? 'font-weight:' + w.fontWeight + ';' : '';
+          html += '<div class="more-item more-wc-row cr-cat-row' + (enabled ? '' : ' muted') + '" data-value="' + window.HTMLEscape(v.value) + '">';
+          html += '<span class="cr-preview" style="opacity:' + previewOpacity + ';' + previewBold + '">Aa</span>';
+          html += '<div class="more-wc-info">';
+          html += '<span class="more-item-label">' + window.HTMLEscape(window.WordClassService.getClearReadingLabel(v.value)) + '</span>';
+          html += '<span class="more-wc-desc">' + window.HTMLEscape(v.definition || '') + '</span>';
+          html += '</div>';
+          html += '<input type="checkbox" class="toggle-checkbox" data-value="' + window.HTMLEscape(v.value) + '"' + (enabled ? ' checked' : '') + ' style="display:none">';
+          html += '</div>';
+        }
+      }
+      morePopup.innerHTML = html;
+      morePopup.querySelector('#cr-sub-back').addEventListener('click', (e) => {
+        e.stopPropagation();
+        showMainMenu();
+      });
+      morePopup.querySelectorAll('.cr-mode-option').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const next = btn.dataset.mode;
+          if (next === mode) return;
+          bridge.state.set('clearReadingMode', next);
+          bridge.emit('render:refresh');
+          renderClearReadingSubmenu();
+        });
+      });
+      morePopup.querySelectorAll('.more-wc-row[data-value]').forEach(row => {
+        row.addEventListener('click', (e) => {
+          const cb = row.querySelector('.toggle-checkbox');
+          if (cb) {
+            cb.checked = !cb.checked;
+            row.classList.toggle('muted', !cb.checked);
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+      });
+      morePopup.querySelectorAll('.cr-cat-row .toggle-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const current = Object.assign({}, bridge.state.get('clearReadingToggles') || {});
+          current[cb.dataset.value] = cb.checked;
+          bridge.state.set('clearReadingToggles', current);
+          bridge.emit('render:refresh');
+          renderClearReadingSubmenu();
+        });
+      });
+    };
+
+    if (!moreMenu?.native) document.addEventListener('click', (e) => {
       if (!morePopup.classList.contains('open')) return;
       if (!morePopup.contains(e.target) && !moreTab.contains(e.target)) {
+        if (_moreSavedHTML) showMainMenu();
         closeMorePopup();
       }
     });
@@ -456,6 +729,26 @@ window.App = class App {
     morePopup.addEventListener('click', (e) => {
       const item = e.target.closest('.more-item');
       if (!item) return;
+      if (!item.dataset.action) return;
+      if (item.dataset.action === 'word-class-key') {
+        e.stopPropagation();
+        renderWcSubmenu();
+        return;
+      }
+      if (item.dataset.action === 'word-study-mode') {
+        if (bridge.state.get('wordStudyEnabled') !== true) return;
+        const next = !bridge.state.get('wordStudyMode');
+        bridge.state.set('wordStudyMode', next);
+        bridge.emit('render:refresh');
+        return;
+      }
+      if (item.dataset.action === 'clear-reading') {
+        if (bridge.state.get('clearReadingEnabled') !== true) return;
+        e.stopPropagation();
+        renderClearReadingSubmenu();
+        return;
+      }
+      if (_moreSavedHTML) showMainMenu();
       closeMorePopup();
       setTimeout(() => {
         if (item.dataset.action === 'settings') {
@@ -703,6 +996,7 @@ window.App = class App {
     let clickTimer = null;
 
     content.addEventListener('click', (e) => {
+      if (e._wordStudyHandled) return;
       const interaction = bridge.get('interaction-manager');
       if (interaction && interaction.selectionMode) return;
       if (interaction && interaction._clearedAt && Date.now() - interaction._clearedAt < 300) return;
@@ -801,7 +1095,11 @@ window.App = class App {
 
   _setupKeyboardEvents(bridge) {
     document.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+      const tag = e.target.tagName;
+      const isTextInput = tag === 'INPUT' && /^(text|number|search|email|tel|url|password)$/i.test(e.target.type || 'text');
+      const isTextarea = tag === 'TEXTAREA';
+      const isContentEditable = e.target.isContentEditable === true;
+      if (isTextInput || isTextarea || isContentEditable) return;
 
       const settings = bridge.get('settings');
       if (settings && e.key === 'Escape' && settings.settingsOpen) {
@@ -878,16 +1176,8 @@ window.App = class App {
     const sharedText = params.get('text');
     if (sharedText) {
       setTimeout(() => {
-        const input = document.getElementById('discover-input');
-        const backdrop = document.getElementById('discover-backdrop');
-        const panel = document.getElementById('discover-panel');
-        if (input && backdrop && panel) {
-          backdrop.classList.remove('hidden');
-          panel.classList.remove('hidden');
-          input.value = sharedText;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.focus();
-        }
+        const search = bridge.get('search');
+        if (search) search.open(sharedText);
       }, 600);
       return;
     }

@@ -11,6 +11,11 @@ window.ScriptureReposUI = class ScriptureReposUI {
     this._renderAll();
   }
 
+  _confirmDialog(options) {
+    if (window.dialogService) return window.dialogService.confirm(options);
+    return Promise.resolve(window.confirm(options.message || ''));
+  }
+
   _cacheElements() {
     this._els = {
       body: document.getElementById('scripture-repos-body'),
@@ -62,7 +67,12 @@ window.ScriptureReposUI = class ScriptureReposUI {
       }
       const u = new URL(url);
       if (u.protocol === 'https:' && !window.UrlValidator.isLocalhost(u.hostname) && u.origin !== 'https://repo.focusedword.com') {
-        if (!confirm('Add repository from ' + u.origin + '? Make sure you trust this source.')) return;
+        const trusted = await this._confirmDialog({
+          title: 'Add repository?',
+          message: 'Add repository from ' + u.origin + '? Make sure you trust this source.',
+          confirmLabel: 'Add Repository'
+        });
+        if (!trusted) return;
       }
       const name = url.replace(/^https?:\/\//, '').split('/')[0];
       const repo = await window.repoService.registerRepository(url, name);
@@ -105,7 +115,13 @@ window.ScriptureReposUI = class ScriptureReposUI {
   }
 
   async _onRemoveRepo(repoId) {
-    if (!confirm('Remove this repository? It can be re-added later using the same URL. Downloaded translations will be kept.')) return;
+    const confirmed = await this._confirmDialog({
+      title: 'Remove repository',
+      message: 'Remove this repository? It can be re-added later using the same URL. Downloaded translations will be kept.',
+      confirmLabel: 'Remove Repository',
+      danger: true
+    });
+    if (!confirmed) return;
     await window.repoService.markRepositoryDeleted(repoId);
     this._repoManifests.delete(repoId);
     if (this._activeRepoId === repoId) this.closePanel();
@@ -118,12 +134,18 @@ window.ScriptureReposUI = class ScriptureReposUI {
     const repo = window.repoService.repositories.find(r => r.id === repoId);
     if (!repo) return;
     this._activeRepoId = repoId;
+    this._previousFocus = document.activeElement;
     this._els.popupTitle.textContent = repo.repo_name || repo.name;
     this._els.popupLoading.style.display = '';
     this._els.popupContent.style.display = 'none';
     this._els.popupError.style.display = 'none';
     this._els.popupPanel.classList.add('open');
     this._els.popupOverlay.classList.add('open');
+    this._els.popupPanel.removeAttribute('aria-hidden');
+    this._els.popupPanel.inert = false;
+    this._els.popupOverlay.removeAttribute('aria-hidden');
+    const base = this.bridge.get('base-renderer');
+    if (base) this._popupCleanupFocus = base.trapFocus(this._els.popupPanel, null);
 
     try {
       const result = await window.repoService.checkRepository(repo.url);
@@ -150,12 +172,18 @@ window.ScriptureReposUI = class ScriptureReposUI {
 
   showRepoPicker() {
     this._activeRepoId = null;
+    this._previousFocus = document.activeElement;
     this._els.popupTitle.textContent = 'Select Repository';
     this._els.popupLoading.style.display = 'none';
     this._els.popupContent.style.display = '';
     this._els.popupError.style.display = 'none';
     this._els.popupPanel.classList.add('open');
     this._els.popupOverlay.classList.add('open');
+    this._els.popupPanel.removeAttribute('aria-hidden');
+    this._els.popupPanel.inert = false;
+    this._els.popupOverlay.removeAttribute('aria-hidden');
+    const base = this.bridge.get('base-renderer');
+    if (base) this._popupCleanupFocus = base.trapFocus(this._els.popupPanel, null);
 
     const repos = window.repoService.repositories;
     if (!repos.length) {
@@ -190,6 +218,7 @@ window.ScriptureReposUI = class ScriptureReposUI {
 
   showAddRepoPopup() {
     this._activeRepoId = null;
+    this._previousFocus = document.activeElement;
     this._els.popupTitle.textContent = 'Add Repository';
     this._els.popupLoading.style.display = 'none';
     this._els.popupContent.style.display = '';
@@ -198,6 +227,11 @@ window.ScriptureReposUI = class ScriptureReposUI {
     this._els.popupPrivate.style.display = 'none';
     this._els.popupPanel.classList.add('open');
     this._els.popupOverlay.classList.add('open');
+    this._els.popupPanel.removeAttribute('aria-hidden');
+    this._els.popupPanel.inert = false;
+    this._els.popupOverlay.removeAttribute('aria-hidden');
+    const base = this.bridge.get('base-renderer');
+    if (base) this._popupCleanupFocus = base.trapFocus(this._els.popupPanel, null);
 
     const container = this._els.popupPublic;
     container.innerHTML = `
@@ -234,8 +268,16 @@ window.ScriptureReposUI = class ScriptureReposUI {
     this._activeRepoId = null;
     this._els.popupPanel.classList.remove('open');
     this._els.popupOverlay.classList.remove('open');
+    this._els.popupPanel.setAttribute('aria-hidden', 'true');
+    this._els.popupPanel.inert = true;
+    this._els.popupOverlay.setAttribute('aria-hidden', 'true');
     this._els.popupKey.value = '';
     this._els.popupError.style.display = 'none';
+    if (this._popupCleanupFocus) { this._popupCleanupFocus(); this._popupCleanupFocus = null; }
+    if (this._previousFocus && this._previousFocus.isConnected) {
+      this._previousFocus.focus({ preventScroll: true });
+    }
+    this._previousFocus = null;
   }
 
   _showPopupError(msg) {
@@ -372,7 +414,13 @@ window.ScriptureReposUI = class ScriptureReposUI {
   }
 
   async _onRemoveInstalled(translationId) {
-    if (!confirm(`Remove "${translationId}" from installed translations?`)) return;
+    const confirmed = await this._confirmDialog({
+      title: 'Remove translation',
+      message: `Remove "${translationId}" from installed translations?`,
+      confirmLabel: 'Remove Translation',
+      danger: true
+    });
+    if (!confirmed) return;
     try {
       await window.repoService.removeInstalledDatabase(translationId);
       this._buildTranslationManifest();

@@ -62,6 +62,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
+  min-width: 0;
 }
 
 [data-ui-skin="modern"] .sh-pill-center::before,
@@ -71,7 +73,9 @@
   width: 120px;
   height: 1px;
   opacity: 0.55;
-  flex-shrink: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 120px;
 }
 
 [data-ui-skin="modern"] .sh-pill-center::before {
@@ -97,6 +101,7 @@
   width: auto;
   flex: 1;
   flex-shrink: 1;
+  max-width: none;
   background: linear-gradient(to right, var(--accent-color), transparent);
 }
 
@@ -115,12 +120,15 @@
   width: auto;
   flex: 1;
   flex-shrink: 1;
+  max-width: none;
   background: linear-gradient(to left, var(--accent-color), transparent);
 }
 
 [data-ui-skin="modern"] .sh-pill {
   padding: 6px 30px;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: break-word;
   background: var(--modern-glass-bg);
   border: 1px solid color-mix(in srgb, var(--accent-color) 12%, var(--border-light));
   border-radius: 9999px;
@@ -1595,6 +1603,8 @@ html.android-device[data-ui-skin="modern"] #plans-panel.compressed {
 /* ── Changelog / Debug panels ── */
 
 [data-ui-skin="modern"] #changelog-panel,
+[data-ui-skin="modern"] #license-panel,
+[data-ui-skin="modern"] #credits-panel,
 [data-ui-skin="modern"] #debug-log-panel,
 [data-ui-skin="modern"] .modern-changelog-panel,
 [data-ui-skin="modern"] .modern-debug-log-panel {
@@ -1797,7 +1807,7 @@ html.android-device[data-ui-skin="modern"] #plans-panel.compressed {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 10;
+  z-index: 300;
   border: 1px solid color-mix(in srgb, var(--accent-color) 15%, var(--border-light));
   border-radius: 10px;
   background: var(--modern-glass-bg-strong);

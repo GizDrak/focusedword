@@ -1,5 +1,10 @@
 window.AppConfig = {
   SQLITE_WASM_URL: '/js/vendor/sqlite-wasm/index.mjs',
+  WORD_ANNOTATIONS_V2_ENABLED: true,
+  STUDY_ASSET_BASE_URL: 'https://repo.focusedword.com/study',
+  WORD_ANNOTATIONS_V2_DB: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.sqlite',
+  WORD_ANNOTATIONS_V2_MANIFEST: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.sqlite.manifest.json',
+  WORD_ANNOTATIONS_V2_VOCABULARY: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.vocabulary.json',
   DEFAULT_PORT: 3000,
   MAX_CHAPTER_NAV_LOCK: 800,
   MIN_CHAPTER_NAV_LOCK: 600,

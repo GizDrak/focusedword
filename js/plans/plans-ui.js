@@ -56,6 +56,12 @@ window.PlansUI = class PlansUI {
     });
   }
 
+  _alertDialog(options) {
+    if (window.dialogService) return window.dialogService.alert(options);
+    window.alert(options.message || '');
+    return Promise.resolve(true);
+  }
+
   _setupAutoCompress() {
     const content = document.getElementById('content');
     if (!content) return;
@@ -72,7 +78,7 @@ window.PlansUI = class PlansUI {
     const panel = document.createElement('div');
     panel.id = 'plans-panel';
     panel.className = 'plans-panel hidden';
-    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('role', 'region');
     panel.setAttribute('aria-label', 'Plans');
     panel.innerHTML = `
       <div class="plans-header" id="plans-header">
@@ -968,7 +974,7 @@ window.PlansUI = class PlansUI {
       this._openPlanDetail(created.id);
     } catch (e) {
       console.error('[PlansUI] Failed to create plan:', e);
-      alert('Failed to create plan: ' + e.message);
+      await this._alertDialog({ title: 'Plan creation failed', message: e.message });
     }
   }
 
@@ -1586,7 +1592,7 @@ window.PlansUI = class PlansUI {
       this._openPlanDetail(created.id);
     } catch (e) {
       console.error('[PlansUI] Generator error:', e);
-      alert('Failed to generate plan: ' + e.message);
+      await this._alertDialog({ title: 'Plan generation failed', message: e.message });
     }
   }
 
@@ -1790,10 +1796,8 @@ window.PlansUI = class PlansUI {
     const panel = document.getElementById('plans-panel');
     panel.classList.remove('hidden', 'compressed');
     await this._showView('list');
-    const base = this.bridge.get('base-renderer');
-    if (base) {
-      this._cleanupFocus = base.trapFocus(panel, document.querySelector('.tab-item[data-tab="bible"]'));
-    }
+    const firstFocus = panel.querySelector('button, [href], input, select, textarea');
+    if (firstFocus) setTimeout(() => firstFocus.focus(), 50);
   }
 
   close() {
@@ -1804,7 +1808,6 @@ window.PlansUI = class PlansUI {
     const panel = document.getElementById('plans-panel');
     panel.classList.remove('compressed');
     panel.classList.add('hidden');
-    if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
 
   _today() {

@@ -9,6 +9,22 @@ window.HighlightManager = class HighlightManager {
     this._activeText = '';
     this._activeContainers = null;
     this._activeTranslationId = null;
+    this._activeRect = null;
+    this._pickerOpen = false;
+    this._toolbarMenu = window.PopoverService
+      ? window.PopoverService.create(this._toolbar)
+      : null;
+    const picker = document.getElementById('bookmark-set-picker');
+    this._pickerMenu = window.PopoverService && picker
+      ? window.PopoverService.create(picker, {
+          onChange: (open) => {
+            if (!open && this._pickerOpen) {
+              this._pickerOpen = false;
+              this._completeBookmark(this.bridge.state.get('activeBookmarkSet'));
+            }
+          }
+        })
+      : null;
     this.init();
   }
 
@@ -42,6 +58,16 @@ window.HighlightManager = class HighlightManager {
       e.stopPropagation();
       this._addNote();
     });
+
+    const reposition = () => {
+      if (this._activeRect && !this._toolbar.classList.contains('hidden')) {
+        this._positionToolbar(this._activeRect);
+      }
+    };
+    this._repositionToolbar = reposition;
+    window.addEventListener('resize', reposition);
+    window.addEventListener('orientationchange', reposition);
+    document.addEventListener('scroll', reposition, true);
   }
 
   _onSelectionActive(payload) {
@@ -57,12 +83,51 @@ window.HighlightManager = class HighlightManager {
       this._activeText = payload.text;
     }
     this._activeTranslationId = payload.translationId || null;
-    this._positionToolbar(payload.rect);
-    this._toolbar.classList.remove('hidden');
+    this._activeRect = payload.rect || null;
+    if (this._toolbarMenu) this._toolbarMenu.show();
+    else this._toolbar.classList.remove('hidden');
+    this._positionToolbar(this._activeRect);
+    requestAnimationFrame(() => this._positionToolbar(this._activeRect));
   }
 
   _positionToolbar(rect) {
-    // Fixed right-side panel — no dynamic positioning needed
+    if (!rect) return;
+    const touchLayout = window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 700;
+    if (touchLayout) {
+      this._toolbar.classList.remove('is-anchored');
+      this._toolbar.style.left = '';
+      this._toolbar.style.top = '';
+      this._toolbar.style.right = '';
+      this._toolbar.style.bottom = '';
+      return;
+    }
+
+    this._toolbar.classList.add('is-anchored');
+    const toolbarRect = this._toolbar.getBoundingClientRect();
+    const width = toolbarRect.width || 280;
+    const height = toolbarRect.height || 52;
+    const left = Math.max(8, Math.min(
+      rect.left + (rect.width - width) / 2,
+      window.innerWidth - width - 8
+    ));
+    const above = rect.top - height - 8;
+    const top = above >= 8
+      ? above
+      : Math.min(window.innerHeight - height - 8, rect.bottom + 8);
+    this._toolbar.style.left = `${left}px`;
+    this._toolbar.style.top = `${Math.max(8, top)}px`;
+    this._toolbar.style.right = 'auto';
+    this._toolbar.style.bottom = 'auto';
+  }
+
+  _hideToolbar() {
+    if (this._toolbarMenu) this._toolbarMenu.hide();
+    else this._toolbar.classList.add('hidden');
+    this._toolbar.classList.remove('is-anchored');
+    this._toolbar.style.left = '';
+    this._toolbar.style.top = '';
+    this._toolbar.style.right = '';
+    this._toolbar.style.bottom = '';
   }
 
   _onSelectionCleared() {
@@ -71,7 +136,8 @@ window.HighlightManager = class HighlightManager {
     this._activeContainers = null;
     this._activeText = '';
     this._activeTranslationId = null;
-    this._toolbar.classList.add('hidden');
+    this._activeRect = null;
+    this._hideToolbar();
   }
 
   async _applyPrecisionHighlight(color) {
@@ -115,7 +181,7 @@ window.HighlightManager = class HighlightManager {
       if (interaction) interaction.clearSelection();
       this._activeContainers = null;
       this._activeText = '';
-      this._toolbar.classList.add('hidden');
+      this._hideToolbar();
       return;
     }
     if (!this._tempSelection || !this._activeText) return;
@@ -161,7 +227,7 @@ window.HighlightManager = class HighlightManager {
     if (interaction) interaction.clearTempSelection();
     this._tempSelection = null;
     this._activeText = '';
-    this._toolbar.classList.add('hidden');
+    this._hideToolbar();
 
     await this._renderHighlightsForSingleVerse(bookId, chapter, verseNum);
   }
@@ -246,7 +312,7 @@ window.HighlightManager = class HighlightManager {
     this._activeContainers = null;
     this._tempSelection = null;
     this._activeText = '';
-    this._toolbar.classList.add('hidden');
+    this._hideToolbar();
 
     // Re-render highlights for the affected verses
     for (const vn of verseNums) {
@@ -363,7 +429,9 @@ window.HighlightManager = class HighlightManager {
       options.appendChild(newBtn);
     });
 
-    picker.classList.remove('hidden');
+    this._pickerOpen = true;
+    if (this._pickerMenu) this._pickerMenu.show();
+    else picker.classList.remove('hidden');
 
     this._pickerHideHandler = (e) => {
       if (!picker.contains(e.target) && e.target !== this._toolbar) {
@@ -371,7 +439,7 @@ window.HighlightManager = class HighlightManager {
         this._completeBookmark(activeSet);
       }
     };
-    setTimeout(() => document.addEventListener('click', this._pickerHideHandler), 10);
+    if (!this._pickerMenu?.native) setTimeout(() => document.addEventListener('click', this._pickerHideHandler), 10);
   }
 
   _showNewSetInput() {
@@ -445,21 +513,21 @@ window.HighlightManager = class HighlightManager {
     cancelBtn.addEventListener('click', () => {
       cleanup();
       this._pendingBookmark = null;
-      this._toolbar.classList.add('hidden');
+      this._hideToolbar();
     });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') doCreate();
       if (e.key === 'Escape') {
         cleanup();
         this._pendingBookmark = null;
-        this._toolbar.classList.add('hidden');
+        this._hideToolbar();
       }
     });
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         cleanup();
         this._pendingBookmark = null;
-        this._toolbar.classList.add('hidden');
+        this._hideToolbar();
       }
     });
   }
@@ -481,12 +549,14 @@ window.HighlightManager = class HighlightManager {
     this._multiVerseRange = null;
     this._activeContainers = null;
     this._activeText = '';
-    this._toolbar.classList.add('hidden');
+    this._hideToolbar();
   }
 
   _hideBookmarkSetPicker() {
     const picker = document.getElementById('bookmark-set-picker');
-    if (picker) picker.classList.add('hidden');
+    this._pickerOpen = false;
+    if (this._pickerMenu) this._pickerMenu.hide();
+    else if (picker) picker.classList.add('hidden');
     if (this._pickerHideHandler) {
       document.removeEventListener('click', this._pickerHideHandler);
       this._pickerHideHandler = null;
@@ -589,7 +659,7 @@ window.HighlightManager = class HighlightManager {
     this._activeContainers = null;
     this._activeText = '';
     this._activeTranslationId = null;
-    this._toolbar.classList.add('hidden');
+    this._hideToolbar();
   }
 
   _addNote() {
@@ -644,7 +714,7 @@ window.HighlightManager = class HighlightManager {
     this._activeContainers = null;
     this._activeText = '';
     this._activeTranslationId = null;
-    this._toolbar.classList.add('hidden');
+    this._hideToolbar();
 
     const notesUI = this.bridge.get('notes-ui');
     if (notesUI) {

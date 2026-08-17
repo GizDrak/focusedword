@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v54';
+const CACHE_NAME = 'focused-word-v78';
 const DB_CACHE = 'bible-database-cache';
 
 const REQUIRED_SHELL = [
@@ -16,9 +16,12 @@ const OPTIONAL_SHELL = [
   '/js/data/uuid.js',
   '/js/data/html.js',
   '/js/data/bionic.js',
+  '/js/data/word-class-service.js',
+  '/scripture/BSB_token_annotations_v2.vocabulary.json',
   '/js/text/markdown-parser.js',
   '/js/notes/tag-cache-utils.js',
   '/js/data/legacy-migration.js',
+  '/js/core/popover-service.js',
   '/js/notes/tag-search.js',
   '/js/text/token-renderer.js',
   '/js/notes/simple-editor.js',
@@ -37,6 +40,8 @@ const OPTIONAL_SHELL = [
   '/js/ui/skins/modern/skin.css',
   '/js/ui/skins/luminous/skin.js',
   '/js/ui/skins/luminous/skin.css',
+  '/js/ui/skins/minimal/skin.js',
+  '/js/ui/skins/minimal/skin.css',
   '/js/text/url-validator.js',
   '/js/sync/sync-service.js',
   '/js/domain/verse-manager.js',
@@ -56,6 +61,8 @@ const OPTIONAL_SHELL = [
   '/js/reading/interaction-manager.js',
   '/js/text/highlight-manager.js',
   '/js/notes/notes-ui.js',
+  '/js/data/word-study-service.js',
+  '/js/word-study/word-study-ui.js',
   '/js/cross-refs/cross-refs-ui.js',
   '/js/footnotes/footnotes-ui.js',
   '/js/reading/renderers/base.js',
@@ -79,6 +86,8 @@ const OPTIONAL_SHELL = [
   '/assets/icons/ui/closed-bible-icon.svg',
   '/assets/favicon.svg',
   '/whats_new.md',
+  '/LICENSE.md',
+  '/THIRD_PARTY_NOTICES.md',
   '/assets/lists/bible-wordlist.json',
   '/scripture/bible_chapters.json',
   '/assets/fonts/san/inter-v20-latin-regular.woff2',
@@ -127,7 +136,11 @@ function isCacheableAsset(path) {
     path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.svg') ||
     path.endsWith('.png') || path.endsWith('.wasm') || path.endsWith('.json') ||
     path.endsWith('.webp') || path.endsWith('.woff2') ||
-    /\/scripture\/(?:en\/)?.*\.(db|sqlite|json)$/.test(path)
+    // Small chapter metadata is fine to shell-cache, but large scripture
+    // databases (.db/.sqlite) are cached by the app in its own
+    // 'bible-database-cache' — caching them here too would double the disk
+    // footprint (hundreds of MB each).
+    /\/scripture\/(?:en\/)?.*\.json$/.test(path)
   );
 }
 

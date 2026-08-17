@@ -99,6 +99,12 @@ window.NavigationModule = class NavigationModule {
 
     document.getElementById('nav-close').addEventListener('click', () => this.closeSheet());
     document.getElementById('nav-backdrop').addEventListener('click', () => this.closeSheet());
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('nav-sheet').classList.contains('open')) {
+        e.stopPropagation();
+        this.closeSheet();
+      }
+    });
 
     document.getElementById('nav-testament-tabs').addEventListener('click', (e) => {
       const tab = e.target.closest('.nav-testament-tab');
@@ -145,6 +151,68 @@ window.NavigationModule = class NavigationModule {
         book_code: bookCode,
         book_id: bookId
       }));
+      const currentTranslation = this.bridge.state.get('currentTranslation');
+      if (currentTranslation === 'BSB') {
+        const wc = this.bridge.get('word-class-service');
+        const wordClassesOn = state.get('wordClasses') === true;
+        const clearReadingOn = state.get('clearReadingEnabled') === true;
+        const wordStudyOn = state.get('wordStudyEnabled') === true;
+        if (wc && (wordClassesOn || wordStudyOn || clearReadingOn)) {
+          // Deferred enrichment: never block the chapter render on the
+          // annotation DB. If the service is already ready, attach spans
+          // synchronously; otherwise initialize in the background and
+          // re-render once coloring is available.
+          const enrich = async (emitRefresh) => {
+            try {
+              if (!wc.isReady) await wc.init(this.bridge);
+              if (!wc.isReady) return;
+              const current = () => state.get('currentBook') === bookId && state.get('currentChapter') === chapter;
+              if (!current()) return;
+              if (wordClassesOn) {
+                const spans = await wc.getChapterRenderSpans(bookCode, chapter);
+                if (!current()) return;
+                for (const v of this.currentVerses) {
+                  v.wordClassSpans = spans[v.verse] || [];
+                }
+              }
+              if (clearReadingOn) {
+                const clearReading = await wc.getClearReadingSpans(bookCode, chapter);
+                if (!current()) return;
+                for (const v of this.currentVerses) {
+                  v.clearReadingSpans = clearReading[v.verse] || [];
+                }
+              }
+              if (wordStudyOn) {
+                const ws = this.bridge.get('word-study-service');
+                if (ws) {
+                  try {
+                    if (!ws.dataReady) await ws.initDataDb();
+                    if (ws.dataReady) {
+                      const cleanTextVerses = {};
+                      for (const v of this.currentVerses) cleanTextVerses[v.verse] = v.clean_text || '';
+                      const studySpans = await ws.getChapterStudySpans(bookCode, chapter, cleanTextVerses, wc);
+                      if (!current()) return;
+                      for (const v of this.currentVerses) {
+                        v.wordStudySpans = studySpans[v.verse] || [];
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('[Navigation] Word study span enrichment failed:', e);
+                  }
+                }
+              }
+              if (emitRefresh) this.bridge.emit('render:refresh');
+            } catch (e) {
+              console.warn('[Navigation] Word class enrichment failed:', e);
+            }
+          };
+          if (wc.isReady) {
+            await enrich(false);
+          } else {
+            enrich(true);
+          }
+        }
+      }
     } else {
       this.currentVerses = [];
     }
@@ -302,6 +370,12 @@ window.NavigationModule = class NavigationModule {
     const menu = document.getElementById('nav-translation-menu');
     if (!btn || !menu) return;
 
+    const menuController = window.PopoverService
+      ? window.PopoverService.create(menu, {
+          onChange: (open) => btn.setAttribute('aria-expanded', String(open))
+        })
+      : null;
+
     const manifest = this.bridge.translationManifest;
     if (!manifest || !manifest.length) return;
 
@@ -317,13 +391,20 @@ window.NavigationModule = class NavigationModule {
       item.className = 'nav-translation-menu-item';
       item.dataset.id = t.id;
       item.textContent = t.name;
-      if (t.id === currentId) item.classList.add('active');
+      if (t.id === currentId) {
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'true');
+      }
 
       item.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = item.dataset.id;
         if (id === this.bridge.state.get('currentTranslation')) {
-          menu.classList.remove('open');
+          if (menuController) menuController.hide();
+          else {
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+          }
           return;
         }
         this.bridge.state.set('currentTranslation', id);
@@ -340,7 +421,11 @@ window.NavigationModule = class NavigationModule {
         } catch (e) {
           console.error('Translation switch failed:', e);
         }
-        menu.classList.remove('open');
+        if (menuController) menuController.hide();
+        else {
+          menu.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
       });
       menu.appendChild(item);
     }
@@ -348,12 +433,15 @@ window.NavigationModule = class NavigationModule {
     if (!this._menuBound) {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        menu.classList.toggle('open');
+        e.preventDefault();
+        if (menuController) menuController.toggle();
+        else menu.classList.toggle('open');
       });
 
-      document.addEventListener('click', (e) => {
+      if (!menuController?.native) document.addEventListener('click', (e) => {
         if (!menu.contains(e.target) && e.target !== btn) {
           menu.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
         }
       });
 
@@ -366,6 +454,9 @@ window.NavigationModule = class NavigationModule {
     const sheet = document.getElementById('nav-sheet');
     backdrop.classList.add('open');
     sheet.classList.add('open');
+    sheet.removeAttribute('aria-hidden');
+    sheet.inert = false;
+    backdrop.removeAttribute('aria-hidden');
 
     document.getElementById('nav-view-books').classList.add('hidden');
     document.getElementById('nav-view-chapters').classList.add('hidden');
@@ -430,10 +521,18 @@ window.NavigationModule = class NavigationModule {
   }
 
   closeSheet() {
-    document.getElementById('nav-backdrop').classList.remove('open');
-    document.getElementById('nav-sheet').classList.remove('open');
+    const sheet = document.getElementById('nav-sheet');
+    const backdrop = document.getElementById('nav-backdrop');
+    backdrop.classList.remove('open');
+    sheet.classList.remove('open');
+    sheet.setAttribute('aria-hidden', 'true');
+    sheet.inert = true;
+    backdrop.setAttribute('aria-hidden', 'true');
     const menu = document.getElementById('nav-translation-menu');
-    if (menu) menu.classList.remove('open');
+    if (menu) {
+      if (window.PopoverService) window.PopoverService.create(menu).hide();
+      else menu.classList.remove('open');
+    }
     if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
 

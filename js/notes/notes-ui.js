@@ -46,11 +46,21 @@ class NotesUI {
     this._setupKeyboardHandler();
   }
 
+  _confirmDialog(options) {
+    if (window.dialogService) return window.dialogService.confirm(options);
+    return Promise.resolve(window.confirm(options.message || ''));
+  }
+
+  _promptDialog(options) {
+    if (window.dialogService) return window.dialogService.prompt(options);
+    return Promise.resolve(window.prompt(options.message || '', options.defaultValue || ''));
+  }
+
   _createPanel() {
     const panel = document.createElement('div');
     panel.id = 'notes-panel';
     panel.className = 'notes-panel hidden';
-    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('role', 'region');
     panel.setAttribute('aria-label', 'Notes');
     panel.innerHTML = `
       <div class="notes-header">
@@ -334,7 +344,13 @@ class NotesUI {
 
     this._els.categorySelect.addEventListener('change', async () => {
       if (this._els.categorySelect.value === '__add__') {
-        const name = prompt('New category name:');
+        const name = await this._promptDialog({
+          title: 'New category',
+          message: 'Create a category for this note.',
+          label: 'Category name',
+          required: true,
+          requiredMessage: 'Enter a category name.'
+        });
         if (name && name.trim()) {
           const color = await this._pickColor(this._nextColor());
           const ns = this.bridge.get('note-store');
@@ -562,10 +578,8 @@ class NotesUI {
     this._updateTitle();
     this._refreshCategorySelect();
     this._refreshCategoryFilter();
-    const base = this.bridge.get('base-renderer');
-    if (base) {
-      this._cleanupFocus = base.trapFocus(panel, document.querySelector('.tab-item[data-tab="bible"]'));
-    }
+    const firstFocus = panel.querySelector('button, [href], input, select, textarea');
+    if (firstFocus) setTimeout(() => firstFocus.focus(), 50);
   }
 
   close() {
@@ -576,7 +590,6 @@ class NotesUI {
     this._activeNoteId = null;
     panel.classList.add('hidden');
     this._editor?.blur();
-    if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
 
   compress() {
@@ -1007,9 +1020,15 @@ class NotesUI {
     this._showSaveStatus('Saved');
   }
 
-  _deleteCurrentNote() {
+  async _deleteCurrentNote() {
     if (!this._activeNoteId) return;
-    if (!confirm('Delete this note?')) return;
+    const confirmed = await this._confirmDialog({
+      title: 'Delete note',
+      message: 'Delete this note? This action cannot be undone.',
+      confirmLabel: 'Delete Note',
+      danger: true
+    });
+    if (!confirmed) return;
     const noteStore = this.bridge.get('note-store');
     if (!noteStore) return;
     noteStore.deleteNote(this._activeNoteId);
@@ -1019,7 +1038,13 @@ class NotesUI {
   }
 
   async _showAddCategory() {
-    const name = prompt('Category name:');
+    const name = await this._promptDialog({
+      title: 'New category',
+      message: 'Create a category for organizing notes.',
+      label: 'Category name',
+      required: true,
+      requiredMessage: 'Enter a category name.'
+    });
     if (!name || !name.trim()) return;
     const color = await this._pickColor(this._nextColor());
     const ns = this.bridge.get('note-store');
@@ -1059,12 +1084,19 @@ class NotesUI {
       });
     });
     this._els.ncList.querySelectorAll('.nc-rename-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const idx = parseInt(btn.dataset.index);
         const cat = cats[idx];
         if (!cat) return;
-        const name = prompt('Rename category:', cat.name);
+        const name = await this._promptDialog({
+          title: 'Rename category',
+          message: 'Choose a new name for this category.',
+          label: 'Category name',
+          defaultValue: cat.name,
+          required: true,
+          requiredMessage: 'Enter a category name.'
+        });
         if (name && name.trim()) {
           ns.updateCategory(cat.id, { name: name.trim() });
           this._refreshCategorySelect();
@@ -1073,11 +1105,18 @@ class NotesUI {
       });
     });
     this._els.ncList.querySelectorAll('.nc-delete-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const idx = parseInt(btn.dataset.index);
         const cat = cats[idx];
-        if (!cat || !confirm(`Delete category "${cat.name}"? Notes will become uncategorized.`)) return;
+        if (!cat) return;
+        const confirmed = await this._confirmDialog({
+          title: 'Delete category',
+          message: `Delete category "${cat.name}"? Notes will become uncategorized.`,
+          confirmLabel: 'Delete Category',
+          danger: true
+        });
+        if (!confirmed) return;
         ns.deleteCategory(cat.id);
         this._refreshCategorySelect();
         this._renderCategoryManager();
@@ -1455,6 +1494,8 @@ class NotesUI {
 
     const menu = document.createElement('div');
     menu.className = 'tag-context-menu';
+    menu.setAttribute('popover', 'auto');
+    menu.setAttribute('aria-label', 'Tag actions');
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
 
@@ -1484,13 +1525,29 @@ class NotesUI {
     menu.appendChild(removeBtn);
     document.body.appendChild(menu);
 
+    const controller = window.PopoverService
+      ? window.PopoverService.create(menu, {
+          onChange: (open) => {
+            if (!open && this._tagMenuController === controller) this._removeTagContextMenu();
+          }
+        })
+      : null;
+    this._tagMenuController = controller;
+
     const closeHandler = (e) => {
+      if (e.type === 'keydown' && e.key !== 'Escape') return;
+      if (e.type === 'keydown') {
+        this._removeTagContextMenu();
+        return;
+      }
       if (!menu.contains(e.target)) {
         this._removeTagContextMenu();
       }
     };
-    setTimeout(() => {
+    if (controller) controller.show();
+    if (!controller?.native) setTimeout(() => {
       document.addEventListener('click', closeHandler);
+      document.addEventListener('keydown', closeHandler);
       document.addEventListener('touchstart', closeHandler);
       this._tagMenuCloseHandler = closeHandler;
     }, 0);
@@ -1498,9 +1555,13 @@ class NotesUI {
 
   _removeTagContextMenu() {
     const el = document.querySelector('.tag-context-menu');
+    const controller = this._tagMenuController;
+    this._tagMenuController = null;
+    if (controller?.isOpen()) controller.hide();
     if (el) el.remove();
     if (this._tagMenuCloseHandler) {
       document.removeEventListener('click', this._tagMenuCloseHandler);
+      document.removeEventListener('keydown', this._tagMenuCloseHandler);
       document.removeEventListener('touchstart', this._tagMenuCloseHandler);
       this._tagMenuCloseHandler = null;
     }

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Word Class Palette Preview</title>
+<style>
+  :root {
+    --wc-referent-deity: #D6C900;
+    --wc-referent-spiritual-being: #FF747A;
+    --wc-referent-theological: #40A9FF;
+    --wc-referent-person: #FF7BC1;
+    --wc-referent-people-group: #00C5E5;
+    --wc-referent-animal: #D49838;
+    --wc-referent-nature: #22C373;
+    --wc-referent-place: #FF8F31;
+    --wc-referent-object: #7F9FC0;
+    --wc-referent-concept: #9EB92E;
+    --wc-referent-time: #D583F8;
+    --wc-referent-quantity: #00DD9D;
+    --wc-referent-body-part: #FD6C95;
+    --wc-grammar-noun: #F57050;
+    --wc-grammar-proper-noun: #E773D1;
+    --wc-grammar-pronoun: #00D4D5;
+    --wc-grammar-verb: #E9AC00;
+    --wc-grammar-adjective: #BAC45B;
+    --wc-grammar-adverb: #00B2F1;
+    --wc-grammar-preposition: #8D9EFF;
+    --wc-grammar-conjunction: #DE9277;
+    --wc-grammar-determiner: #BDB89B;
+    --wc-grammar-numeral: #FFA200;
+    --wc-grammar-particle: #95AAA5;
+  }
+  @supports (color: oklch(0% 0 0)) {
+    :root {
+      --wc-referent-deity: oklch(82.0% 0.180 105);
+      --wc-referent-spiritual-being: oklch(74.0% 0.180 20);
+      --wc-referent-theological: oklch(72.0% 0.170 250);
+      --wc-referent-person: oklch(76.0% 0.180 350);
+      --wc-referent-people-group: oklch(74.0% 0.170 210);
+      --wc-referent-animal: oklch(72.0% 0.130 75);
+      --wc-referent-nature: oklch(72.0% 0.170 155);
+      --wc-referent-place: oklch(76.0% 0.170 55);
+      --wc-referent-object: oklch(69.0% 0.060 250);
+      --wc-referent-concept: oklch(74.0% 0.160 120);
+      --wc-referent-time: oklch(74.0% 0.180 315);
+      --wc-referent-quantity: oklch(79.0% 0.180 165);
+      --wc-referent-body-part: oklch(72.0% 0.180 5);
+      --wc-grammar-noun: oklch(70.0% 0.170 35);
+      --wc-grammar-proper-noun: oklch(72.0% 0.180 335);
+      --wc-grammar-pronoun: oklch(78.0% 0.150 195);
+      --wc-grammar-verb: oklch(78.0% 0.170 85);
+      --wc-grammar-adjective: oklch(79.0% 0.130 114);
+      --wc-grammar-adverb: oklch(70.0% 0.180 225);
+      --wc-grammar-preposition: oklch(73.0% 0.150 275);
+      --wc-grammar-conjunction: oklch(73.0% 0.100 40);
+      --wc-grammar-determiner: oklch(78.0% 0.040 100);
+      --wc-grammar-numeral: oklch(81.0% 0.190 65);
+      --wc-grammar-particle: oklch(72.0% 0.025 180);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, sans-serif; color: #1F1F1F; background: #E9E9EE; }
+  header { padding: 1.5rem 2rem 0.75rem; max-width: 1080px; margin: 0 auto; }
+  header h1 { margin: 0 0 0.25rem; font-size: 1.35rem; }
+  header p { margin: 0; color: #555; font-size: 0.9rem; }
+  .legend { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.75rem; color: #666; margin-top: 0.5rem; }
+  .legend b { font-weight: 600; }
+
+  .theme { max-width: 1080px; margin: 1rem auto; border-radius: 14px; padding: 1.25rem 1.5rem; }
+  .theme.dark { background: #111111; color: #EDE8DD; box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
+  .theme.light { background: #FFFFFF; color: #1F1F1F; box-shadow: 0 4px 18px rgba(0,0,0,0.10); border: 1px solid #E5E7EB; }
+  .theme h2 { margin: 0 0 0.1rem; font-size: 1rem; }
+  .theme .theme-sub { font-size: 0.78rem; opacity: 0.6; margin-bottom: 1rem; }
+
+  .group { margin-bottom: 1.1rem; }
+  .group-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55; margin: 0 0 0.4rem; }
+
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem; }
+  .swatch { display: flex; align-items: center; gap: 0.65rem; padding: 0.4rem 0.5rem; border-radius: 8px; border: 1px solid rgba(128,128,128,0.22); }
+  .chip { width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(128,128,128,0.35); background: var(--c); flex-shrink: 0; }
+  .swatch .meta { display: flex; flex-direction: column; min-width: 0; }
+  .swatch .name { font-size: 0.82rem; font-weight: 600; }
+  .swatch .def { font-size: 0.7rem; opacity: 0.65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .swatch .spec { font-size: 0.62rem; opacity: 0.5; font-family: ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .sample { margin-top: 1.25rem; padding-top: 0.9rem; border-top: 1px solid rgba(128,128,128,0.2); }
+  .sample .sample-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55; margin-bottom: 0.5rem; }
+  .sample-text { font-size: 1.15rem; line-height: 2; max-width: 70ch; }
+  .sample-text .w { border-radius: 4px; padding: 0 0.18em; }
+  .sample-text .w span { border-bottom: 2px solid currentColor; }
+  .wc { font-weight: 600; }
+
+  .note { font-size: 0.72rem; opacity: 0.55; max-width: 72ch; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Word Class Palette — OKLCH Preview</h1>
+  <p>All 24 word-class colors rendered from <code>var(--wc-*)</code>. Check both themes for distinguishability and contrast. Engine: <span id="engine"></span></p>
+  <div class="legend">
+    <span><b>Gold</b> = Divine</span><span><b>Blues</b> = Spiritual / relational</span><span><b>Greens</b> = Living / nature</span>
+    <span><b>Reds</b> = Human</span><span><b>Oranges</b> = Active / quantity / animals</span><span><b>Purples</b> = Abstract / theological / time</span>
+    <span><b>Slate</b> = Physical objects &amp; grammatical utility</span>
+  </div>
+</header>
+
+<div class="theme dark">
+  <h2>Dark (#111111)</h2>
+  <div class="theme-sub">Reference contrast target for dark themes</div>
+  <div id="group-d" class="groups"></div>
+  <div class="sample" id="sample-d"></div>
+</div>
+
+<div class="theme light">
+  <h2>Light (#FFFFFF)</h2>
+  <div class="theme-sub">Reference contrast target for light themes</div>
+  <div id="group-l" class="groups"></div>
+  <div class="sample" id="sample-l"></div>
+</div>
+
+<script>
+  const DATA = {
+    referent: [
+      { value: 'deity', label: 'God', var: '--wc-referent-deity', def: 'God the Father, Jesus Christ, the Holy Spirit' },
+      { value: 'spiritual_being', label: 'Spiritual Beings', var: '--wc-referent-spiritual-being', def: 'Angels, cherubim, demons' },
+      { value: 'theological', label: 'Theological', var: '--wc-referent-theological', def: 'Grace, faith, sin, salvation' },
+      { value: 'person', label: 'Person', var: '--wc-referent-person', def: 'Individual human' },
+      { value: 'people_group', label: 'People Group', var: '--wc-referent-people-group', def: 'Israel, nations, tribes' },
+      { value: 'animal', label: 'Animals', var: '--wc-referent-animal', def: 'Lion, sheep, serpent' },
+      { value: 'nature', label: 'Nature', var: '--wc-referent-nature', def: 'Plants, land, sky, sea' },
+      { value: 'place', label: 'Place', var: '--wc-referent-place', def: 'City, mountain, wilderness' },
+      { value: 'object', label: 'Materials', var: '--wc-referent-object', def: 'Stone, gold, bread, garment' },
+      { value: 'concept', label: 'Concept', var: '--wc-referent-concept', def: 'Abstract idea or theme' },
+      { value: 'time', label: 'Time', var: '--wc-referent-time', def: 'Day, year, forever' },
+      { value: 'quantity', label: 'Quantity', var: '--wc-referent-quantity', def: 'Numbers, measure, all' },
+    ],
+    grammar: [
+      { value: 'noun', label: 'Noun', var: '--wc-grammar-noun', def: 'Person, place, thing' },
+      { value: 'proper_noun', label: 'Proper Noun', var: '--wc-grammar-proper-noun', def: 'Named entity' },
+      { value: 'pronoun', label: 'Pronoun', var: '--wc-grammar-pronoun', def: 'He, she, it, they' },
+      { value: 'verb', label: 'Verb', var: '--wc-grammar-verb', def: 'Action or state' },
+      { value: 'adjective', label: 'Adjective', var: '--wc-grammar-adjective', def: 'Describes a noun' },
+      { value: 'adverb', label: 'Adverb', var: '--wc-grammar-adverb', def: 'Modifies a verb' },
+      { value: 'preposition', label: 'Preposition', var: '--wc-grammar-preposition', def: 'In, on, from, with' },
+      { value: 'conjunction', label: 'Conjunction', var: '--wc-grammar-conjunction', def: 'And, but, for' },
+      { value: 'determiner', label: 'Determiner', var: '--wc-grammar-determiner', def: 'The, a, this, every' },
+      { value: 'numeral', label: 'Numeral', var: '--wc-grammar-numeral', def: 'One, two, three' },
+      { value: 'particle', label: 'Particle', var: '--wc-grammar-particle', def: 'Grammatical particle' },
+    ],
+  };
+
+  const resolve = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  function renderGroup(container, entries) {
+    let html = '';
+    html += '<div class="group"><div class="group-title">Classes — semantic category</div><div class="swatches">';
+    for (const e of entries.referent) html += swatch(e);
+    html += '</div></div>';
+    html += '<div class="group"><div class="group-title">Grammar — part of speech</div><div class="swatches">';
+    for (const e of entries.grammar) html += swatch(e);
+    html += '</div></div>';
+    container.innerHTML = html;
+  }
+
+  function swatch(e) {
+    return '<div class="swatch"><span class="chip" style="--c:var(' + e.var + ')"></span>' +
+      '<span class="meta"><span class="name">' + e.label + '</span>' +
+      '<span class="def">' + e.def + '</span>' +
+      '<span class="spec" title="' + e.var + '">' + e.var + ' · ' + resolve(e.var) + '</span></span></div>';
+  }
+
+  function renderSample(container) {
+    const words = [
+      ['In', 'grammar-preposition'], ['the', 'grammar-determiner'], ['beginning', 'grammar-noun'],
+      ['God', 'referent-deity'], ['created', 'grammar-verb'], ['the', 'grammar-determiner'],
+      ['heavens', 'referent-nature'], ['and', 'grammar-conjunction'], ['the', 'grammar-determiner'],
+      ['earth', 'referent-object'], ['.', null],
+    ];
+    let html = '<div class="sample-title">Sample rendering</div><div class="sample-text">';
+    for (const [w, v] of words) {
+      if (!v) { html += w; continue; }
+      html += '<span class="w wc" style="color:var(--wc-' + v + ')">' + w + '</span> ';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  const engine = (() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'oklch(50% 0.2 150)';
+    document.body.appendChild(probe);
+    const ok = getComputedStyle(probe).color && probe.style.color.indexOf('oklch') !== -1 ? 'oklch supported' : 'hex fallback in use';
+    probe.remove();
+    return ok;
+  })();
+  document.getElementById('engine').textContent = engine;
+
+  renderGroup(document.getElementById('group-d'), DATA);
+  renderSample(document.getElementById('sample-d'));
+  renderGroup(document.getElementById('group-l'), DATA);
+  renderSample(document.getElementById('sample-l'));
+</script>
+</body>
+</html>

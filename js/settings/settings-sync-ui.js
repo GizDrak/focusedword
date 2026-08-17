@@ -35,8 +35,11 @@ window.SyncSettingsUI = class SyncSettingsUI {
     if (this._autoSync) {
       syncService.pullLatestState().catch(() => {});
     }
-    window.addEventListener('sync-key-revoked', () => {
-      alert('Your sync key was revoked. Your sync settings will be reset.');
+    window.addEventListener('sync-key-revoked', async () => {
+      await this._alertDialog({
+        title: 'Sync key revoked',
+        message: 'Your sync key was revoked. Your sync settings will be reset.'
+      });
       try {
         const req = indexedDB.deleteDatabase('FocusedSyncDB');
         req.onsuccess = () => console.log('[SyncSettingsUI] Sync DB cleared');
@@ -68,25 +71,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
   }
 
   _bindEvents() {
-    this._els.changeUrl.addEventListener('click', () => {
-      const url = prompt('Enter server URL:', syncService.serverUrl);
-      if (url) {
-        try {
-          if (!window.UrlValidator.isAllowedEndpoint(url)) {
-            alert('Server URL must use HTTPS (or HTTP for localhost development only)');
-            return;
-          }
-          const u = new URL(url);
-          if (u.protocol === 'https:' && !window.UrlValidator.isLocalhost(u.hostname) && u.origin !== 'https://sync.focusedword.com') {
-            if (!confirm('Use sync server at ' + u.origin + '? Make sure you trust this server.')) return;
-          }
-          syncService.setServerUrl(url);
-          this._els.urlDisplay.textContent = syncService.serverUrl;
-        } catch (e) {
-          alert('Invalid server URL: ' + e.message);
-        }
-      }
-    });
+    this._els.changeUrl.addEventListener('click', () => this._changeServerUrl());
 
     this._els.enable.addEventListener('change', async () => {
       const wasEnabled = this._els.enable.checked;
@@ -124,22 +109,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
       }, 700);
     });
 
-    this._els.restoreKey.addEventListener('click', async () => {
-      const input = prompt('Paste your sync key:');
-      if (input) {
-        syncService.setKey(input);
-        syncService.lastError = null;
-        localStorage.setItem('sync-enabled', 'true');
-        syncService.setEnabled(true);
-        this._syncUI();
-        try {
-          await syncService.restoreKeyAndPull(input);
-        } catch (e) {
-          console.warn('[SyncSettingsUI] Key restore pull failed:', e);
-        }
-        this._refreshLastLabel();
-      }
-    });
+    this._els.restoreKey.addEventListener('click', () => this._restoreSyncKey());
 
     this._els.syncNow.addEventListener('click', async () => {
       this._els.syncNow.disabled = true;
@@ -205,8 +175,14 @@ window.SyncSettingsUI = class SyncSettingsUI {
       }
     });
 
-    this._els.reset.addEventListener('click', () => {
-      if (!confirm('Reset all sync data including local outbox? This does not affect bookmarks or reading progress.')) return;
+    this._els.reset.addEventListener('click', async () => {
+      const confirmed = await this._confirmDialog({
+        title: 'Reset sync settings',
+        message: 'Reset all sync data including local outbox? This does not affect bookmarks or reading progress.',
+        confirmLabel: 'Reset Sync',
+        danger: true
+      });
+      if (!confirmed) return;
       try {
         const req = indexedDB.deleteDatabase('FocusedSyncDB');
         req.onsuccess = () => console.log('[SyncSettingsUI] Sync DB cleared');
@@ -221,7 +197,13 @@ window.SyncSettingsUI = class SyncSettingsUI {
     });
 
     this._els.revoke.addEventListener('click', async () => {
-      if (!confirm('This will permanently delete all synced bookmarks, highlights, notes, and plans from the cloud server only. Your local data on this device will NOT be deleted. Your sync key will be revoked and cannot be reused, even if cloud data remains after a server error. Are you sure?')) return;
+      const confirmed = await this._confirmDialog({
+        title: 'Erase cloud data',
+        message: 'This will permanently delete all synced bookmarks, highlights, notes, and plans from the cloud server only. Your local data on this device will NOT be deleted. Your sync key will be revoked and cannot be reused, even if cloud data remains after a server error. Are you sure?',
+        confirmLabel: 'Erase Cloud Data',
+        danger: true
+      });
+      if (!confirmed) return;
       this._els.revoke.disabled = true;
       this._els.revoke.textContent = 'Revoking...';
       try {
@@ -243,6 +225,78 @@ window.SyncSettingsUI = class SyncSettingsUI {
       this._syncUI();
       location.reload();
     });
+  }
+
+  _confirmDialog(options) {
+    if (window.dialogService) return window.dialogService.confirm(options);
+    return Promise.resolve(window.confirm(options.message || ''));
+  }
+
+  _alertDialog(options) {
+    if (window.dialogService) return window.dialogService.alert(options);
+    window.alert(options.message || '');
+    return Promise.resolve(true);
+  }
+
+  async _changeServerUrl() {
+    const url = window.dialogService
+      ? await window.dialogService.prompt({
+        title: 'Change sync server',
+        message: 'Enter the URL of the server used for Focused Sync.',
+        label: 'Server URL',
+        defaultValue: syncService.serverUrl,
+        inputType: 'url'
+      })
+      : window.prompt('Enter server URL:', syncService.serverUrl);
+    if (!url) return;
+
+    try {
+      if (!window.UrlValidator.isAllowedEndpoint(url)) {
+        await this._alertDialog({
+          title: 'Invalid server URL',
+          message: 'Server URL must use HTTPS (or HTTP for localhost development only)'
+        });
+        return;
+      }
+      const u = new URL(url);
+      if (u.protocol === 'https:' && !window.UrlValidator.isLocalhost(u.hostname) && u.origin !== 'https://sync.focusedword.com') {
+        const trusted = await this._confirmDialog({
+          title: 'Use this sync server?',
+          message: 'Use sync server at ' + u.origin + '? Make sure you trust this server.',
+          confirmLabel: 'Use Server'
+        });
+        if (!trusted) return;
+      }
+      syncService.setServerUrl(url);
+      this._els.urlDisplay.textContent = syncService.serverUrl;
+    } catch (e) {
+      await this._alertDialog({ title: 'Invalid server URL', message: e.message });
+    }
+  }
+
+  async _restoreSyncKey() {
+    const input = window.dialogService
+      ? await window.dialogService.prompt({
+        title: 'Restore sync key',
+        message: 'Paste the sync key from another device.',
+        label: 'Sync Key',
+        inputType: 'text',
+        autocomplete: 'off'
+      })
+      : window.prompt('Paste your sync key:');
+    if (!input) return;
+
+    syncService.setKey(input);
+    syncService.lastError = null;
+    localStorage.setItem('sync-enabled', 'true');
+    syncService.setEnabled(true);
+    this._syncUI();
+    try {
+      await syncService.restoreKeyAndPull(input);
+    } catch (e) {
+      console.warn('[SyncSettingsUI] Key restore pull failed:', e);
+    }
+    this._refreshLastLabel();
   }
 
   _showSyncOnboardingModal() {
@@ -360,20 +414,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
       if (this._els.restoreKey) this._els.restoreKey.click();
     });
 
-    document.getElementById('sync-onboarding-server-url')?.addEventListener('click', () => {
-      const url = prompt('Enter server URL:', syncService.serverUrl);
-      if (url) {
-        try {
-          if (!window.UrlValidator.isAllowedEndpoint(url)) {
-            alert('Server URL must use HTTPS (or HTTP for localhost development only)');
-            return;
-          }
-          syncService.setServerUrl(url);
-        } catch (e) {
-          alert('Invalid server URL: ' + e.message);
-        }
-      }
-    });
+    document.getElementById('sync-onboarding-server-url')?.addEventListener('click', () => this._changeServerUrl());
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {

@@ -208,6 +208,83 @@ window.BaseRenderer = class BaseRenderer {
 
     label.textContent = `${bookName} ${chapter} \u00B7 ${verse} / ${total}`;
     bar.classList.add('visible');
+
+    this._syncVerseRail(bookName, chapter, verse, nav);
+  }
+
+  _railNavigateTo(verseNum) {
+    window.verseManager.setIntentional(verseNum);
+    const state = this.bridge.state;
+    if (state.get('splitMode') || state.get('spotlightMode')) {
+      const spotlight = this.bridge.get('renderer-spotlight');
+      const nav = this.bridge.get('navigation');
+      if (spotlight && nav && nav.currentVerses) {
+        spotlight.goToVerse(nav.currentVerses, verseNum);
+      }
+    } else if (state.get('swipeMode')) {
+      const swipe = this.bridge.get('renderer-swipe');
+      const nav = this.bridge.get('navigation');
+      if (swipe && nav && nav.currentVerses) {
+        swipe.goToVerse(nav.currentVerses, verseNum);
+      }
+    } else {
+      this.updateFocusedVerse(verseNum);
+      const vm = this.bridge.get('view-manager');
+      if (vm) vm.scrollToReadingBand(verseNum);
+    }
+  }
+
+  _syncVerseRail(bookName, chapter, verse, nav) {
+    const rail = document.getElementById('verse-rail-track');
+    const railLabel = document.getElementById('verse-rail-label');
+    const railVerse = document.getElementById('verse-rail-verse');
+    if (!rail || !railLabel || !railVerse) return;
+
+    const railRef = bookName + '_' + chapter;
+
+    railLabel.textContent = bookName + ' ' + chapter;
+
+    if (this._lastRailRef !== railRef && nav?.currentVerses) {
+      this._lastRailRef = railRef;
+      rail.innerHTML = '';
+      const realVerses = nav.currentVerses.filter(v => v.verse > 0);
+      const total = realVerses.length;
+      for (let i = 0; i < total; i++) {
+        const v = realVerses[i];
+        const tick = document.createElement('span');
+        tick.className = 'vr-tick';
+        tick.dataset.verse = v.verse;
+        tick.setAttribute('role', 'tab');
+        tick.setAttribute('tabindex', '-1');
+        tick.setAttribute('aria-label', 'Go to ' + bookName + ' ' + chapter + ':' + v.verse);
+        tick.style.top = (i / total * 100) + '%';
+        tick.style.height = (1 / total * 100) + '%';
+        const verseNum = v.verse;
+        tick.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._railNavigateTo(verseNum);
+        });
+        rail.appendChild(tick);
+      }
+    }
+
+    if (verse) {
+      railVerse.textContent = String(verse);
+    }
+
+    if (!verse) return;
+    let activeFound = false;
+    for (let i = 0; i < rail.children.length; i++) {
+      const tick = rail.children[i];
+      const num = parseInt(tick.dataset.verse);
+      tick.classList.remove('active', 'done');
+      if (num === verse) {
+        tick.classList.add('active');
+        activeFound = true;
+      } else if (!activeFound) {
+        tick.classList.add('done');
+      }
+    }
   }
 
   _addCrossRefIndicator(container, verseNum) {
@@ -474,20 +551,31 @@ window.BaseRenderer = class BaseRenderer {
   }
 
   trapFocus(container, triggerEl, focusEl) {
-    const focusable = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+    const getFocusable = () => Array.from(container.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )).filter(el => {
+      if (el.disabled || el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
+      if (el.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
+      if (el.classList.contains('hidden') || el.closest('.hidden')) return false;
+      return true;
+    });
+
     const handler = (e) => {
-      if (e.key === 'Tab') {
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault(); last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault(); first.focus();
-        }
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
     container.addEventListener('keydown', handler);
-    setTimeout(() => (focusEl || first)?.focus(), 50);
+    setTimeout(() => (focusEl || getFocusable()[0])?.focus(), 50);
     return () => {
       container.removeEventListener('keydown', handler);
       triggerEl?.focus();

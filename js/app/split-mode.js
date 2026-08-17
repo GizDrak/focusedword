@@ -44,8 +44,9 @@ window.SplitMode = class SplitMode {
         if (!dd) return;
         dd.innerHTML = '';
         manifest.forEach(t => {
-          const item = document.createElement('div');
+          const item = document.createElement('button');
           item.className = 'translation-dropdown-item';
+          item.type = 'button';
           item.dataset.value = t.id || t.name;
           item.textContent = t.name;
           dd.appendChild(item);
@@ -72,30 +73,48 @@ window.SplitMode = class SplitMode {
   _bindEvents() {
     const toggleDropdown = (btn, dd) => {
       if (!btn || !dd) return;
+      const controller = window.PopoverService
+        ? window.PopoverService.create(dd, {
+            onChange: (open) => btn.setAttribute('aria-expanded', String(open))
+          })
+        : null;
+      btn._translationPopover = controller;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        document.querySelectorAll('.translation-dropdown.open').forEach(d => {
-          if (d !== dd) d.classList.remove('open');
+        e.preventDefault();
+        document.querySelectorAll('.translation-dropdown').forEach(d => {
+          if (d === dd) return;
+          if (window.PopoverService) window.PopoverService.create(d).hide();
+          else d.classList.remove('open');
         });
-        dd.classList.toggle('open');
+        if (controller) controller.toggle();
+        else dd.classList.toggle('open');
       });
     };
     toggleDropdown(this._els.leftTransBtn, this._els.leftTransDropdown);
     toggleDropdown(this._els.rightTransBtn, this._els.rightTransDropdown);
 
     this._boundDocClick = () => {
-      document.querySelectorAll('.translation-dropdown.open').forEach(d => {
-        d.classList.remove('open');
+      [
+        [this._els.leftTransBtn, this._els.leftTransDropdown],
+        [this._els.rightTransBtn, this._els.rightTransDropdown]
+      ].forEach(([btn, dd]) => {
+        if (!dd || btn?._translationPopover?.native) return;
+        dd.classList.remove('open');
+        btn?.setAttribute('aria-expanded', 'false');
       });
     };
-    document.addEventListener('click', this._boundDocClick);
+    if (!this._els.leftTransBtn?._translationPopover?.native || !this._els.rightTransBtn?._translationPopover?.native) {
+      document.addEventListener('click', this._boundDocClick);
+    }
 
     const selectFromDropdown = (btn, dd, onChange) => {
       if (!dd) return;
       dd.addEventListener('click', (e) => {
         const item = e.target.closest('.translation-dropdown-item');
         if (!item) return;
-        dd.classList.remove('open');
+        if (btn._translationPopover) btn._translationPopover.hide();
+        else dd.classList.remove('open');
         const val = item.dataset.value;
         this._setBtnAbbr(btn, val);
         onChange(val);
@@ -206,6 +225,7 @@ window.SplitMode = class SplitMode {
   }
 
   _onDeactivate() {
+    [this._els.leftTransBtn, this._els.rightTransBtn].forEach(btn => btn?._translationPopover?.hide());
     this._teardownPanelEvents(this._els.panelBody);
     this._teardownRightPanelPointerEvents();
     this._els.panelBody.innerHTML = '';

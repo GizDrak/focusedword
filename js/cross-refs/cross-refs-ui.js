@@ -2,6 +2,8 @@ window.CRefsUI = class CRefsUI {
   constructor(bridge) {
     this.bridge = bridge;
     this._open = false;
+    this._previousFocus = null;
+    this._cleanupFocus = null;
     this._init();
   }
 
@@ -13,6 +15,12 @@ window.CRefsUI = class CRefsUI {
 
     document.getElementById('crossref-close').addEventListener('click', () => this.close());
     this.overlay.addEventListener('click', () => this.close());
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._open) {
+        e.stopPropagation();
+        this.close();
+      }
+    });
 
     this.bridge.on('crossref:show', (detail) => this._show(detail));
     this.bridge.state.onChange('crossRefs', (key, val) => {
@@ -21,10 +29,17 @@ window.CRefsUI = class CRefsUI {
   }
 
   async _show(detail) {
+    this._previousFocus = document.activeElement;
     this.body.innerHTML = '<div class="crossref-empty">Loading...</div>';
+    this.panel.removeAttribute('aria-hidden');
+    this.panel.inert = false;
+    this.overlay.removeAttribute('aria-hidden');
     this.panel.classList.add('open');
     this.overlay.classList.add('open');
     this._open = true;
+
+    const base = this.bridge.get('base-renderer');
+    if (base) this._cleanupFocus = base.trapFocus(this.panel, null);
 
     let refs = this.bridge.get('cross-references').getRefs(detail.bookId, detail.chapter, detail.verse);
     const books = window.BibleDB._BOOKS;
@@ -89,6 +104,14 @@ window.CRefsUI = class CRefsUI {
   close() {
     this.panel.classList.remove('open');
     this.overlay.classList.remove('open');
+    this.panel.inert = true;
+    this.panel.setAttribute('aria-hidden', 'true');
+    this.overlay.setAttribute('aria-hidden', 'true');
     this._open = false;
+    if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
+    if (this._previousFocus && this._previousFocus.isConnected) {
+      this._previousFocus.focus({ preventScroll: true });
+    }
+    this._previousFocus = null;
   }
 };

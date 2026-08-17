@@ -1,5 +1,27 @@
 # What's New in Focused Word
 
+## v0.9.6 — New Study Tools
+
+### Study data hosted in the repository
+The Word Classes and Word Study databases are now fetched from the Focused Word repository at `https://repo.focusedword.com/study` and cached on first load. The app no longer needs to ship them with the install, so future updates roll out without reinstalling.
+
+### Smarter Word Classes
+Word Classes now make it easier to see what words are about, including people, places, things, and spiritual beings. Grammar information is available too, while words without a clear label remain normal text so the page stays easy to read.
+
+### Easier Study settings
+The Study panel now lets you turn different kinds of word information on or off, adjust individual labels, and choose the colors that work best for you. The main word meanings are shown by default, while grammar coloring can be turned on when you want it. Your choices are saved and synced across devices.
+
+### Clear Reading mode
+Clear Reading helps the main ideas in a passage stand out by softening words such as pronouns, connectors, articles, and other linking words. Choose Soft or Strong mode, adjust each type of word individually, and keep important words such as negation easy to notice. Clear Reading works alongside Word Class colors.
+
+### Explore words across Scripture
+Word Study now shows the available meaning and grammar information for the selected word. Select a label to find other verses with the same kind of information, read short excerpts, and jump directly to any matching verse.
+
+### More reliable Word Study
+Tapping a word in Word Study now opens the exact source word, so repeated words like "and" or "the" always open the right Strong's entry.
+
+---
+
 ## v0.9.1 — Navigation History & Bug Fixes
 
 ### 🕐 Navigation History

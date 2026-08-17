@@ -1,4 +1,6 @@
 window.BibleDB = class BibleDB {
+  static SHA_UNAVAILABLE = '__sha_unavailable__';
+
   constructor() {
     this._core = null;
     this._mode = null;
@@ -30,44 +32,115 @@ window.BibleDB = class BibleDB {
     return this.__wasmPromise;
   }
 
-static async createDbFromBytes(dbPath) {
+static async createDbFromBytes(dbPath, expectedSha256 = null) {
     const sqlite3 = await BibleDB._sqliteWasmPromise;
-    let buf;
+    const fetched = await BibleDB.fetchBytes(dbPath);
+    let bytes = fetched.bytes;
+    if (!bytes || !bytes.length) return null;
 
+    // Verify integrity, but only once per artifact version. A successful
+    // check records the expected hash so later loads from the cache skip the
+    // (potentially hundreds-of-MB) digest pass. On a mismatch the cached
+    // copy is stale — drop it and retry a fresh download before giving up.
+    if (expectedSha256) {
+      const verified = await BibleDB._getVerifiedSha(dbPath);
+      if (verified !== expectedSha256) {
+        let actual = await BibleDB._sha256Hex(bytes);
+        if (actual === BibleDB.SHA_UNAVAILABLE) {
+          // Integrity verification is unavailable in this environment; accept
+          // the bytes without digest checks rather than thrash the cache.
+          console.warn('[db] Skipping integrity check for', dbPath, '— crypto.subtle unavailable');
+        } else if (!actual || actual !== expectedSha256) {
+          console.error('[db] Integrity check failed for', dbPath, '— expected', expectedSha256, 'got', actual || 'unavailable');
+          await BibleDB._deleteCached(dbPath);
+          const fresh = await BibleDB.fetchBytes(dbPath, true);
+          actual = fresh.bytes ? await BibleDB._sha256Hex(fresh.bytes) : null;
+          if (actual === BibleDB.SHA_UNAVAILABLE) {
+            bytes = fresh.bytes;
+          } else if (!actual || actual !== expectedSha256) {
+            console.error('[db] Fresh download also failed integrity check for', dbPath);
+            return null;
+          } else {
+            bytes = fresh.bytes;
+          }
+        }
+        if (actual !== BibleDB.SHA_UNAVAILABLE) {
+          await BibleDB._setVerifiedSha(dbPath, expectedSha256);
+        }
+      }
+    }
+
+    const db = BibleDB._deserialize(bytes);
+    if (!db) await BibleDB._deleteCached(dbPath);
+    return db;
+  }
+
+  static async fetchBytes(dbPath, forceNetwork = false) {
     try {
       // Defensive check: Only use caches if they exist (i.e., we are in HTTPS/localhost)
       if (typeof caches !== 'undefined') {
         const cache = await caches.open('bible-database-cache');
-        let resp = await cache.match(dbPath);
-
-        if (!resp) {
-          resp = await fetch(dbPath);
-          if (resp.ok) await cache.put(dbPath, resp.clone());
+        if (!forceNetwork) {
+          const cached = await cache.match(dbPath);
+          if (cached) {
+            return { bytes: new Uint8Array(await cached.arrayBuffer()), fromCache: true };
+          }
         }
-        buf = await resp.arrayBuffer();
-      } else {
-        // Fallback: Just fetch from the network if caches are not available
-        console.warn('[db] Cache API not available (HTTP connection). Skipping cache.');
+
         const resp = await fetch(dbPath);
-        buf = await resp.arrayBuffer();
+        if (resp.ok) await cache.put(dbPath, resp.clone());
+        return { bytes: new Uint8Array(await resp.arrayBuffer()), fromCache: false };
       }
+      // Fallback: Just fetch from the network if caches are not available
+      console.warn('[db] Cache API not available (HTTP connection). Skipping cache.');
+      const resp = await fetch(dbPath);
+      return { bytes: new Uint8Array(await resp.arrayBuffer()), fromCache: false };
     } catch (e) {
       console.error('[db] Storage/Network error:', e);
+      return { bytes: null, fromCache: false };
+    }
+  }
+
+  static async _deleteCached(dbPath) {
+    if (typeof caches === 'undefined') return;
+    try {
+      const cache = await caches.open('bible-database-cache');
+      await cache.delete(dbPath);
+    } catch (e) {
+      console.warn('[db] Failed to delete cached entry for', dbPath, e);
+    }
+  }
+
+  static _verifiedShaKey(dbPath) {
+    return 'verified-db:' + dbPath;
+  }
+
+  static async _getVerifiedSha(dbPath) {
+    try {
+      if (typeof window === 'undefined' || !window.idb) return null;
+      const rec = await window.idb.get('metadata', BibleDB._verifiedShaKey(dbPath));
+      return rec && rec.sha256 ? rec.sha256 : null;
+    } catch (e) {
       return null;
     }
+  }
 
-    const bytes = new Uint8Array(buf);
-
-    if (!bytes.length) {
-      console.error('[db] Empty buffer — cannot load database.');
-      return null;
+  static async _setVerifiedSha(dbPath, sha256) {
+    try {
+      if (typeof window === 'undefined' || !window.idb) return;
+      await window.idb.put('metadata', { key: BibleDB._verifiedShaKey(dbPath), sha256 });
+    } catch (e) {
+      console.warn('[db] Failed to record verified hash for', dbPath, e);
     }
+  }
 
-    const db = BibleDB._deserialize(bytes);
-    if (!db && typeof caches !== 'undefined') {
-      caches.open('bible-database-cache').then(c => c.delete(dbPath));
+  static async _sha256Hex(bytes) {
+    if (typeof crypto === 'undefined' || !crypto.subtle) {
+      console.warn('[db] crypto.subtle unavailable — skipping SHA-256 verification');
+      return BibleDB.SHA_UNAVAILABLE;
     }
-    return db;
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
   }
   
 
@@ -87,6 +160,14 @@ static async createDbFromBytes(dbPath) {
 
   async init(translationId = 'BSB') {
     try {
+      if (this._core) {
+        try { this._core.close(); } catch (e) { /* ignore */ }
+        this._core = null;
+        this._slug = null;
+        this._mode = null;
+        this._booksCache = null;
+        this._codeCache = null;
+      }
       const slug = this._slugFor(translationId);
 
       const installed = await window.idb.getInstalledDatabase(translationId);

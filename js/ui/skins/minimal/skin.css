@@ -1,0 +1,724 @@
+/* client/js/ui/skins/minimal/skin.css */
+/* Minimal skin — clean flat UI with a left-side verse progress rail,
+   thin text-only bottom navigation, and no shadows/gradients/ornament. */
+
+/* ========== Surface / Body ========== */
+[data-ui-skin="minimal"] body {
+  background: var(--bg);
+}
+
+[data-ui-skin="minimal"] body.background-texture {
+  background: var(--bg);
+}
+
+[data-ui-skin="minimal"] body.scroll-mode {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+[data-ui-skin="minimal"] body.swipe-mode,
+[data-ui-skin="minimal"] body.spotlight-mode {
+  margin: 0;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+[data-ui-skin="minimal"] body.spotlight-mode {
+  overflow: hidden;
+}
+
+[data-ui-skin="minimal"] main,
+[data-ui-skin="minimal"] #landscape-layout,
+[data-ui-skin="minimal"] #content {
+  background: transparent;
+}
+
+/* ========== Scroll Mode Layout ========== */
+[data-ui-skin="minimal"] body.scroll-mode main {
+  display: flex;
+  flex-direction: column;
+  height: calc(var(--app-height) - 40px - var(--safe-inset-bottom));
+  overflow: hidden;
+  padding: 0 1rem 0 calc(56px + 1rem);
+  max-width: none;
+  margin: 0;
+}
+
+[data-ui-skin="minimal"] body.scroll-mode #landscape-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+[data-ui-skin="minimal"] body.scroll-mode #content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scroll-behavior: smooth;
+  max-width: 42em;
+  width: 100%;
+}
+
+/* ========== Swipe / Spotlight Mode Layout ========== */
+[data-ui-skin="minimal"] body.spotlight-mode:not(.split-mode) main {
+  display: flex;
+  flex-direction: column;
+  height: calc(var(--app-height) - 40px - var(--safe-inset-bottom));
+  overflow: hidden;
+  padding: env(safe-area-inset-top, 0px) 1rem 0 56px;
+  max-width: none;
+  margin: 0;
+}
+
+[data-ui-skin="minimal"] body.spotlight-mode:not(.split-mode) #landscape-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+[data-ui-skin="minimal"] body.spotlight-mode:not(.split-mode) #content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: none;
+  scroll-behavior: smooth;
+}
+
+[data-ui-skin="minimal"] body.swipe-mode main {
+  display: flex;
+  flex-direction: column;
+  padding: 0 1rem 0 56px;
+  max-width: none;
+  margin: 0;
+}
+[data-ui-skin="minimal"] body.speed-mode main {
+  padding-top: 0;
+}
+
+/* ========== Verse Rail ========== */
+
+[data-ui-skin="minimal"] #verse-rail {
+  display: none;
+  position: fixed;
+  left: env(safe-area-inset-left, 0px);
+  top: 0;
+  bottom: calc(40px + var(--safe-inset-bottom));
+  width: 56px;
+  z-index: 99;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Remove the iOS spotlight gradient mask that covers the rail header */
+html.ios-device[data-ui-skin="minimal"] #content.spotlight-mode::before {
+  display: none;
+}
+
+/* Ensure rail header has safe-area top clearance on iOS */
+html.ios-device[data-ui-skin="minimal"] #verse-rail {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+[data-ui-skin="minimal"] body.scroll-mode #verse-rail,
+[data-ui-skin="minimal"] body.spotlight-mode #verse-rail,
+[data-ui-skin="minimal"] body.swipe-mode #verse-rail,
+[data-ui-skin="minimal"] body.split-mode #verse-rail {
+  display: flex;
+}
+
+[data-ui-skin="minimal"] .verse-rail-header {
+  width: 100%;
+  padding: 8px 14px 4px;
+  flex-shrink: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+[data-ui-skin="minimal"] .verse-rail-label {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.15;
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-ui-skin="minimal"] .verse-rail-verse {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  line-height: 1.1;
+  display: block;
+}
+
+[data-ui-skin="minimal"] .verse-rail-track {
+  position: relative;
+  flex: 1;
+  min-height: 40px;
+  pointer-events: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+[data-ui-skin="minimal"] .vr-tick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  border: none;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-ui-skin="minimal"] .vr-tick::after {
+  content: '';
+  position: absolute;
+  left: -12px;
+  right: -12px;
+  top: 0;
+  bottom: 0;
+}
+
+[data-ui-skin="minimal"] .vr-tick::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border);
+  pointer-events: none;
+  transition: width 0.15s, height 0.15s, background 0.15s;
+}
+
+[data-ui-skin="minimal"] .vr-tick.done::before {
+  background: var(--text-muted);
+  opacity: 0.3;
+}
+
+[data-ui-skin="minimal"] .vr-tick.active::before {
+  width: 16px;
+  height: 3px;
+  background: var(--accent-color);
+  opacity: 1;
+}
+
+[data-ui-skin="minimal"] .vr-tick:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  [data-ui-skin="minimal"] .vr-tick:hover::before {
+    background: var(--accent-color);
+    width: 14px;
+  }
+}
+
+/* ========== Bottom Navigation ========== */
+
+[data-ui-skin="minimal"] #bottom-nav {
+  height: calc(40px + var(--safe-inset-bottom));
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  padding: 0 0.5rem var(--safe-inset-bottom);
+}
+
+[data-ui-skin="minimal"] .bottom-nav-bg,
+[data-ui-skin="minimal"] .bottom-nav-notch,
+[data-ui-skin="minimal"] .nav-wing {
+  display: none !important;
+}
+
+[data-ui-skin="minimal"] #bottom-nav .tab-item {
+  gap: 0;
+  padding: 0.2rem 0.35rem;
+  min-width: 44px;
+  min-height: 40px;
+}
+
+[data-ui-skin="minimal"] #bottom-nav .tab-item .tab-icon {
+  display: none;
+}
+
+[data-ui-skin="minimal"] #bottom-nav .tab-item .tab-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+[data-ui-skin="minimal"] #bottom-nav .tab-item.active .tab-label {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+[data-ui-skin="minimal"] #bottom-nav .tab-bible {
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+[data-ui-skin="minimal"] #bottom-nav .tab-bible .tab-icon-wrapper {
+  display: none;
+}
+
+[data-ui-skin="minimal"] .bible-float {
+  display: none !important;
+}
+
+/* ========== Passage Navigation (chapter-bottom-nav) ========== */
+[data-ui-skin="minimal"] .chapter-bottom-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 0.75rem 0 0.5rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+[data-ui-skin="minimal"] .chapter-bottom-arrow {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background 0.15s, opacity 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+[data-ui-skin="minimal"] .chapter-bottom-arrow:active {
+  background: var(--hover-bg, rgba(128,128,128,0.12));
+}
+
+[data-ui-skin="minimal"] .chapter-bottom-arrow:disabled {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+[data-ui-skin="minimal"] .chapter-bottom-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ========== Chapter Header ========== */
+[data-ui-skin="minimal"] .chapter-header {
+  text-align: left;
+  padding: 1.25rem 0 0.75rem;
+  position: relative;
+  max-height: 300px;
+  overflow: hidden;
+  transition: opacity 0.35s ease, max-height 0.35s ease, padding 0.35s ease;
+}
+
+[data-ui-skin="minimal"] .chapter-header.header-hidden {
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+[data-ui-skin="minimal"] .chapter-emblem {
+  display: none;
+}
+
+[data-ui-skin="minimal"] .chapter-title {
+  font-family: var(--verse-font-family, inherit);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+  text-align: left;
+}
+
+[data-ui-skin="minimal"] .chapter-subtitle {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  font-weight: 400;
+  text-align: left;
+}
+
+/* ========== Verse Display ========== */
+[data-ui-skin="minimal"] .verse-container {
+  padding: 0.2rem var(--verse-padding-x);
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+[data-ui-skin="minimal"] .verse-container.focused {
+  border-left-color: var(--accent-color);
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-ui-skin="minimal"] .verse-text {
+  font-size: var(--verse-font-size);
+  line-height: var(--verse-line-height);
+  letter-spacing: var(--verse-letter-spacing);
+  color: var(--text-primary);
+}
+
+[data-ui-skin="minimal"] sup.verse-num,
+[data-ui-skin="minimal"] .verse-num {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-right: 0.5em;
+  min-width: 1.2rem;
+  text-align: right;
+  display: inline-block;
+  vertical-align: baseline;
+  position: static;
+  line-height: inherit;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0.6;
+}
+
+/* ========== Paragraph Mode ========== */
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .verse-container {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  border-left: none;
+}
+
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .verse-container.focused {
+  background: none;
+  box-shadow: none;
+  border-left: none;
+}
+
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .verse-container.focused .verse-text {
+  background-color: var(--spotlight-highlight);
+  border-radius: 0.2em;
+  padding: 0.1em 0;
+}
+
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .verse-text {
+  display: inline;
+}
+
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .verse-num {
+  display: inline;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-right: 0.3em;
+  min-width: auto;
+  text-align: left;
+  top: -0.25em;
+  opacity: 0.5;
+}
+
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .token-paragraph,
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .token-poetry,
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .token-poetry--disabled,
+[data-ui-skin="minimal"] body.scroll-mode.paragraph-mode .token-text {
+  display: inline;
+}
+
+/* ========== Section Headings ========== */
+[data-ui-skin="minimal"] .minimal-section-heading {
+  display: block;
+  font-size: calc(var(--verse-font-size) * 0.85);
+  font-weight: 600;
+  color: var(--accent-color);
+  text-align: left;
+  padding: 1em 0 0.35em;
+  letter-spacing: 0.02em;
+  line-height: var(--verse-line-height);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-ui-skin="minimal"] .section-heading-container {
+  margin-top: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+
+[data-ui-skin="minimal"] .token-section-heading {
+  font-size: calc(var(--verse-font-size) * 0.85);
+  font-weight: 600;
+  color: var(--accent-color);
+  text-align: left;
+  padding: 0;
+  letter-spacing: 0.02em;
+}
+
+[data-ui-skin="minimal"] .token-section-heading-ref {
+  display: block;
+  text-align: center;
+  font-size: var(--marker-font-size, 0.7rem);
+  color: var(--accent-color);
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+
+@media (hover: hover) {
+  [data-ui-skin="minimal"] .token-section-heading-ref:hover {
+    background: var(--accent-color-glow);
+  }
+}
+
+/* Override gutter verse-number positioning inside swipe cards.
+   The global gutter rule absolutely positions the verse number at
+   the upper-left of the container, which breaks swipe card layout. */
+html[data-ui-skin="minimal"][data-verse-number-placement="gutter"] body.swipe-mode .verse-deck .verse-container {
+  padding-left: 2rem;
+}
+
+html[data-ui-skin="minimal"][data-verse-number-placement="gutter"] body.swipe-mode .verse-deck .verse-num {
+  position: relative;
+  left: auto;
+  top: 0.2em;
+  display: inline-block;
+  min-width: 1.5rem;
+  margin-right: 0.55em;
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  line-height: 1;
+  vertical-align: text-top;
+  opacity: 0.85;
+}
+
+/* ========== Poetry Blocks ========== */
+[data-ui-skin="minimal"] .block-poetry {
+  margin: 0.4em 0;
+  padding: 0.3em 0.5em;
+  border-left: 2px solid var(--border-light);
+}
+
+/* ========== Footnotes / Cross-refs / Inline Icons ========== */
+[data-ui-skin="minimal"] .footnote-caller,
+[data-ui-skin="minimal"] .crossref-indicator {
+  color: var(--accent-color);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+[data-ui-skin="minimal"] .footnote-caller:hover,
+[data-ui-skin="minimal"] .crossref-indicator:hover {
+  opacity: 0.9;
+}
+
+[data-ui-skin="minimal"] .minimal-icon {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 1;
+}
+
+[data-ui-skin="minimal"] .minimal-icon--footnote {
+  font-weight: bold;
+}
+
+[data-ui-skin="minimal"] .minimal-icon--crossref {
+  font-weight: bold;
+}
+
+/* ========== Desktop Chapter Bars ========== */
+[data-ui-skin="minimal"] .desktop-chapter-bar {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+[data-ui-skin="minimal"] .desktop-chapter-bar:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+/* ========== Landscape / Short Viewport ========== */
+@media screen and (orientation: landscape) and (max-height: 520px) {
+  [data-ui-skin="minimal"] #bottom-nav {
+    height: calc(34px + var(--safe-inset-bottom));
+  }
+
+  [data-ui-skin="minimal"] #bottom-nav .tab-item {
+    padding: 0.1rem 0.25rem;
+    min-width: 36px;
+    min-height: 34px;
+  }
+
+  [data-ui-skin="minimal"] #bottom-nav .tab-item .tab-label {
+    font-size: 0.55rem;
+  }
+
+  [data-ui-skin="minimal"] body.scroll-mode main {
+    height: calc(var(--app-height) - 34px - var(--safe-inset-bottom));
+    padding: 0 0.5rem 0 calc(42px + 0.5rem);
+  }
+
+  [data-ui-skin="minimal"] body.spotlight-mode main {
+    height: calc(var(--app-height) - 34px - var(--safe-inset-bottom));
+    padding-left: 42px;
+  }
+
+  [data-ui-skin="minimal"] body.swipe-mode main {
+    padding-left: 42px;
+  }
+
+  [data-ui-skin="minimal"] body.split-mode #content {
+    padding-left: calc(42px + 1rem);
+  }
+
+  [data-ui-skin="minimal"] body.split-mode.split-portrait #panel-right .panel-body {
+    padding-left: calc(42px + 1rem);
+  }
+
+  [data-ui-skin="minimal"] #verse-rail {
+    width: 42px;
+    bottom: calc(34px + var(--safe-inset-bottom));
+  }
+
+  [data-ui-skin="minimal"] .verse-rail-header {
+    padding: 5px 2px 2px;
+  }
+
+  [data-ui-skin="minimal"] .verse-rail-label {
+    font-size: 0.45rem;
+  }
+
+  [data-ui-skin="minimal"] .verse-rail-verse {
+    font-size: 0.7rem;
+  }
+
+  [data-ui-skin="minimal"] .vr-tick::before {
+    left: 10px;
+    width: 8px;
+  }
+
+  [data-ui-skin="minimal"] .vr-tick.active::before {
+    width: 13px;
+  }
+
+  [data-ui-skin="minimal"] .chapter-header {
+    padding: 0.75rem 0 0.5rem;
+  }
+
+  [data-ui-skin="minimal"] .chapter-title {
+    font-size: 0.95rem;
+  }
+
+  [data-ui-skin="minimal"] .chapter-subtitle {
+    font-size: 0.6rem;
+  }
+}
+
+/* ========== Landscape / Tall Viewport ========== */
+@media screen and (orientation: landscape) and (min-height: 521px) {
+  [data-ui-skin="minimal"] body.scroll-mode main {
+    padding-left: calc(64px + 2rem);
+  }
+
+  [data-ui-skin="minimal"] body.spotlight-mode main {
+    padding-left: 64px;
+  }
+
+  [data-ui-skin="minimal"] body.swipe-mode main {
+    padding-left: 64px;
+  }
+
+  [data-ui-skin="minimal"] body.split-mode #content {
+    padding-left: calc(64px + 2rem);
+  }
+
+  [data-ui-skin="minimal"] body.split-mode.split-portrait #panel-right .panel-body {
+    padding-left: calc(64px + 2rem);
+  }
+
+  [data-ui-skin="minimal"] #verse-rail {
+    width: 64px;
+  }
+}
+
+/* ========== Focus Mode ========== */
+[data-ui-skin="minimal"] body.focus-mode #verse-rail {
+  display: none;
+}
+
+/* ========== Split Mode ========== */
+[data-ui-skin="minimal"] body.split-mode main {
+  height: calc(var(--app-height) - 40px - var(--safe-inset-bottom));
+  padding: 0;
+}
+
+[data-ui-skin="minimal"] body.split-mode #content {
+  padding-left: calc(56px + 1.25rem);
+}
+
+[data-ui-skin="minimal"] body.split-mode.split-portrait #panel-right .panel-body {
+  padding-left: calc(56px + 1.25rem);
+}
+
+/* ========== Speed Mode ========== */
+[data-ui-skin="minimal"] #content.speed-mode {
+  min-height: var(--app-height);
+}
+
+[data-ui-skin="minimal"] .speed-word {
+  text-align: center;
+  padding: 1rem;
+  max-width: 80%;
+  margin: 0 auto;
+}
+
+[data-ui-skin="minimal"] #speed-controls {
+  max-width: 80%;
+  margin: 0.5rem auto 0;
+}
+
+/* ========== Hide remaining verse-progress bar in minimal ========== */
+/* The top progress bar is replaced by the left rail. Cross-references
+   and tag results still use #verse-progress internally, so the element
+   stays in the DOM but is visually hidden. */
+[data-ui-skin="minimal"] #verse-progress {
+  display: none;
+}
+
+/* ========== Reduced Motion ========== */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-skin="minimal"] .chapter-header,
+  [data-ui-skin="minimal"] .vr-tick::before,
+  [data-ui-skin="minimal"] .desktop-chapter-bar {
+    transition: none !important;
+  }
+}
