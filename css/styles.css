@@ -5132,12 +5132,12 @@ body.focus-mode .crossref-overlay {
 }
 
 html.ios-device .wordstudy-panel {
-  top: calc(var(--ios-safe-area-top, 50px) + 8px);
-  max-height: calc(100svh - var(--ios-safe-area-top, 50px) - 16px - env(safe-area-inset-bottom, 0px));
+  top: max(8px, env(safe-area-inset-top));
+  max-height: calc(100svh - max(8px, env(safe-area-inset-top)) - 8px - env(safe-area-inset-bottom, 0px));
 }
 
 html.ios-device .wordstudy-header {
-  top: calc(var(--ios-safe-area-top, 50px) + 20px);
+  top: 12px;
 }
 
 .wordstudy-header {
