@@ -4,6 +4,7 @@ window.NavigationModule = class NavigationModule {
     this.booksCache = [];
     this.currentVerses = [];
     this._cleanupFocus = null;
+    this._enrichGen = 0;
   }
 
   onRegister(bridge) {
@@ -151,72 +152,93 @@ window.NavigationModule = class NavigationModule {
         book_code: bookCode,
         book_id: bookId
       }));
+      // Render the chapter immediately; stream word classes / word study
+      // enrichment afterwards so switching chapters never blocks on the
+      // annotation databases.
+      this._enrichGen = (this._enrichGen || 0) + 1;
+      const gen = this._enrichGen;
+      const versesForEnrich = this.currentVerses;
+      const enrichBookCode = bookCode;
+      const enrichChapter = chapter;
+      const enrichBookId = bookId;
+      this.bridge.emit('nav:chapter-loaded', { verses: this.currentVerses });
+
       const currentTranslation = this.bridge.state.get('currentTranslation');
       if (currentTranslation === 'BSB') {
         const wc = this.bridge.get('word-class-service');
-        const wordClassesOn = state.get('wordClasses') === true;
-        const clearReadingOn = state.get('clearReadingEnabled') === true;
-        const wordStudyOn = state.get('wordStudyEnabled') === true;
-        if (wc && (wordClassesOn || wordStudyOn || clearReadingOn)) {
-          // Deferred enrichment: never block the chapter render on the
-          // annotation DB. If the service is already ready, attach spans
-          // synchronously; otherwise initialize in the background and
-          // re-render once coloring is available.
-          const enrich = async (emitRefresh) => {
+        if (wc && (state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true)) {
+          // Fire-and-forget: never block the initial paint.
+          (async () => {
             try {
               if (!wc.isReady) await wc.init(this.bridge);
               if (!wc.isReady) return;
-              const current = () => state.get('currentBook') === bookId && state.get('currentChapter') === chapter;
-              if (!current()) return;
-              if (wordClassesOn) {
-                const spans = await wc.getChapterRenderSpans(bookCode, chapter);
-                if (!current()) return;
-                for (const v of this.currentVerses) {
-                  v.wordClassSpans = spans[v.verse] || [];
-                }
+              const isStale = () => gen !== this._enrichGen || this.currentVerses !== versesForEnrich || state.get('currentBook') !== enrichBookId || state.get('currentChapter') !== enrichChapter;
+              if (isStale()) return;
+
+              const tasks = [];
+              let didEnrich = false;
+
+              if (state.get('wordClasses') === true) {
+                tasks.push(
+                  wc.getChapterRenderSpans(enrichBookCode, enrichChapter).then(spans => {
+                    if (isStale() || state.get('wordClasses') !== true) return;
+                    for (const v of versesForEnrich) {
+                      v.wordClassSpans = spans[v.verse] || [];
+                    }
+                    didEnrich = true;
+                  })
+                );
               }
-              if (clearReadingOn) {
-                const clearReading = await wc.getClearReadingSpans(bookCode, chapter);
-                if (!current()) return;
-                for (const v of this.currentVerses) {
-                  v.clearReadingSpans = clearReading[v.verse] || [];
-                }
+
+              if (state.get('clearReadingEnabled') === true) {
+                tasks.push(
+                  wc.getClearReadingSpans(enrichBookCode, enrichChapter).then(clearReading => {
+                    if (isStale() || state.get('clearReadingEnabled') !== true) return;
+                    for (const v of versesForEnrich) {
+                      v.clearReadingSpans = clearReading[v.verse] || [];
+                    }
+                    didEnrich = true;
+                  })
+                );
               }
-              if (wordStudyOn) {
-                const ws = this.bridge.get('word-study-service');
-                if (ws) {
-                  try {
-                    if (!ws.dataReady) await ws.initDataDb();
-                    if (ws.dataReady) {
+
+              if (state.get('wordStudyEnabled') === true) {
+                tasks.push(
+                  (async () => {
+                    const ws = this.bridge.get('word-study-service');
+                    if (!ws) return;
+                    try {
+                      if (!ws.dataReady) await ws.initDataDb();
+                      if (isStale() || !ws.dataReady || state.get('wordStudyEnabled') !== true) return;
                       const cleanTextVerses = {};
-                      for (const v of this.currentVerses) cleanTextVerses[v.verse] = v.clean_text || '';
-                      const studySpans = await ws.getChapterStudySpans(bookCode, chapter, cleanTextVerses, wc);
-                      if (!current()) return;
-                      for (const v of this.currentVerses) {
+                      for (const v of versesForEnrich) cleanTextVerses[v.verse] = v.clean_text || '';
+                      const studySpans = await ws.getChapterStudySpans(enrichBookCode, enrichChapter, cleanTextVerses, wc);
+                      if (isStale()) return;
+                      for (const v of versesForEnrich) {
                         v.wordStudySpans = studySpans[v.verse] || [];
                       }
+                      didEnrich = true;
+                    } catch (e) {
+                      console.warn('[Navigation] Word study span enrichment failed:', e);
                     }
-                  } catch (e) {
-                    console.warn('[Navigation] Word study span enrichment failed:', e);
-                  }
-                }
+                  })()
+                );
               }
-              if (emitRefresh) this.bridge.emit('render:refresh');
+
+              await Promise.all(tasks);
+              if (isStale() || !didEnrich) return;
+              this.bridge.emit('render:refresh');
             } catch (e) {
               console.warn('[Navigation] Word class enrichment failed:', e);
             }
-          };
-          if (wc.isReady) {
-            await enrich(false);
-          } else {
-            enrich(true);
-          }
+          })();
         }
       }
     } else {
       this.currentVerses = [];
+      this._enrichGen = (this._enrichGen || 0) + 1;
+      this.bridge.emit('nav:chapter-loaded', { verses: this.currentVerses });
     }
-    this.bridge.emit('nav:chapter-loaded', { verses: this.currentVerses });
   }
 
   async loadNextChapter(autoAdvance) {

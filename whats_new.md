@@ -1,5 +1,18 @@
 # What's New in Focused Word
 
+## v0.9.7 — Faster Chapters & iOS Polish
+
+### Faster chapter switching with Study features on
+Chapters now appear instantly even when Word Classes, Clear Reading, or Word Study are enabled. The text renders right away and word colors, dimming, and Word Study underlines stream in just after — so flipping between chapters feels quick again, even on large books. Rapid navigation discards stale updates so only the current chapter is colored.
+
+### Word Study sheet no longer peeks on iOS
+On iPhones with a notch or Dynamic Island, the hidden Word Study panel could show its bottom edge in the status bar area. It now hides fully above the safe area and slides in cleanly when you tap a word.
+
+### Reliable Study data hosting
+Word Classes, Word Study, and Clear Reading databases are loaded from `https://repo.focusedword.com/study` and cached after the first fetch, so future content updates don't require reinstalling the app.
+
+---
+
 ## v0.9.6 — New Study Tools
 
 ### Study data hosted in the repository
