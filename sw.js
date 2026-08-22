@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v79';
+const CACHE_NAME = 'focused-word-v80';
 const DB_CACHE = 'bible-database-cache';
 
 const REQUIRED_SHELL = [

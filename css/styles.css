@@ -5089,7 +5089,7 @@ body.focus-mode .crossref-overlay {
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  transform: translate(-50%, calc(-100% - 40px));
+  transform: translate(-50%, calc(-100% - env(safe-area-inset-top, 0px) - 40px));
   transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
   box-shadow: 0 20px 60px rgba(0,0,0,0.58), inset 0 1px rgba(255,255,255,0.02);
   color: #f4f4f2;
@@ -5134,6 +5134,11 @@ body.focus-mode .crossref-overlay {
 html.ios-device .wordstudy-panel {
   top: max(8px, env(safe-area-inset-top));
   max-height: calc(100svh - max(8px, env(safe-area-inset-top)) - 8px - env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, calc(-100% - env(safe-area-inset-top) - 40px));
+}
+
+html.ios-device .wordstudy-panel.open {
+  transform: translate(-50%, 0);
 }
 
 html.ios-device .wordstudy-header {
