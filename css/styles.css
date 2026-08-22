@@ -2295,6 +2295,36 @@ html[data-verse-number-placement="gutter"] body:not(.paragraph-mode) .verse-cont
   color: inherit;
 }
 
+/* Streaming annotation cue: a small spinner marks a verse that is still
+   waiting for word colors / study targets to stream in after the chapter's
+   first paint. Once the annotation pass touches the verse the spinner is
+   removed. */
+.wordstudy-pending {
+  position: relative;
+}
+
+.wordstudy-pending::after {
+  content: '';
+  position: absolute;
+  top: 0.35em;
+  right: 0.35em;
+  z-index: 1;
+  width: 0.7em;
+  height: 0.7em;
+  opacity: 0.65;
+  border: 2px solid rgba(255, 214, 0, 0.28);
+  border-top-color: rgba(255, 214, 0, 0.9);
+  border-radius: 50%;
+  animation: wc-spin 0.7s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes wc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ========== Spotlight Mode ========== */
 #content.spotlight-mode {
   touch-action: none;

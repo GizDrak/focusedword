@@ -158,21 +158,21 @@ window.NavigationModule = class NavigationModule {
       this._enrichGen = (this._enrichGen || 0) + 1;
       const gen = this._enrichGen;
       const versesForEnrich = this.currentVerses;
-      const enrichBookCode = bookCode;
-      const enrichChapter = chapter;
-      const enrichBookId = bookId;
       this.bridge.emit('nav:chapter-loaded', { verses: this.currentVerses });
 
       const currentTranslation = this.bridge.state.get('currentTranslation');
       if (currentTranslation === 'BSB') {
         const wc = this.bridge.get('word-class-service');
         if (wc && (state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true)) {
-          // Fire-and-forget: never block the initial paint.
-          (async () => {
+          // Enrichment is deferred past the first paint so the chapter renders
+          // immediately (Phase 1). Annotations are applied to the living DOM in
+          // place (Phase 2) and adjacent chapters are prefetched during idle
+          // (Phase 3). Never block the initial paint.
+          const run = async () => {
             try {
               if (!wc.isReady) await wc.init(this.bridge);
               if (!wc.isReady) return;
-              const isStale = () => gen !== this._enrichGen || this.currentVerses !== versesForEnrich || state.get('currentBook') !== enrichBookId || state.get('currentChapter') !== enrichChapter;
+              const isStale = () => gen !== this._enrichGen || this.currentVerses !== versesForEnrich || state.get('currentBook') !== bookId || state.get('currentChapter') !== chapter;
               if (isStale()) return;
 
               const tasks = [];
@@ -180,7 +180,7 @@ window.NavigationModule = class NavigationModule {
 
               if (state.get('wordClasses') === true) {
                 tasks.push(
-                  wc.getChapterRenderSpans(enrichBookCode, enrichChapter).then(spans => {
+                  Promise.resolve(wc.getChapterRenderSpans(bookCode, chapter)).then(spans => {
                     if (isStale() || state.get('wordClasses') !== true) return;
                     for (const v of versesForEnrich) {
                       v.wordClassSpans = spans[v.verse] || [];
@@ -192,7 +192,7 @@ window.NavigationModule = class NavigationModule {
 
               if (state.get('clearReadingEnabled') === true) {
                 tasks.push(
-                  wc.getClearReadingSpans(enrichBookCode, enrichChapter).then(clearReading => {
+                  Promise.resolve(wc.getClearReadingSpans(bookCode, chapter)).then(clearReading => {
                     if (isStale() || state.get('clearReadingEnabled') !== true) return;
                     for (const v of versesForEnrich) {
                       v.clearReadingSpans = clearReading[v.verse] || [];
@@ -212,7 +212,7 @@ window.NavigationModule = class NavigationModule {
                       if (isStale() || !ws.dataReady || state.get('wordStudyEnabled') !== true) return;
                       const cleanTextVerses = {};
                       for (const v of versesForEnrich) cleanTextVerses[v.verse] = v.clean_text || '';
-                      const studySpans = await ws.getChapterStudySpans(enrichBookCode, enrichChapter, cleanTextVerses, wc);
+                      const studySpans = await ws.getChapterStudySpans(bookCode, chapter, cleanTextVerses, wc);
                       if (isStale()) return;
                       for (const v of versesForEnrich) {
                         v.wordStudySpans = studySpans[v.verse] || [];
@@ -227,17 +227,83 @@ window.NavigationModule = class NavigationModule {
 
               await Promise.all(tasks);
               if (isStale() || !didEnrich) return;
-              this.bridge.emit('render:refresh');
+
+              // Phase 2: apply spans onto the living DOM; the render manager
+              // falls back to a full refresh only if the DOM no longer matches.
+              this.bridge.emit('nav:annotations-applied', { verses: versesForEnrich });
+
+              // Phase 3: idle-time prefetch of the adjacent chapter's spans so
+              // the next swipe applies almost instantly.
+              this._prefetchAdjacent(bookId, chapter, wc);
             } catch (e) {
               console.warn('[Navigation] Word class enrichment failed:', e);
             }
-          })();
+          };
+
+          if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(() => run(), { timeout: 250 });
+          } else {
+            requestAnimationFrame(() => requestAnimationFrame(() => run()));
+          }
         }
       }
     } else {
       this.currentVerses = [];
       this._enrichGen = (this._enrichGen || 0) + 1;
       this.bridge.emit('nav:chapter-loaded', { verses: this.currentVerses });
+    }
+  }
+
+  // Phase 3: warm the annotation caches for the next/previous chapter during
+  // idle time so a swipe apply is nearly instant. Errors are swallowed.
+  async _prefetchAdjacent(bookId, chapter, wc) {
+    if (!wc) return;
+    const state = this.bridge.state;
+    if (state.get('currentTranslation') !== 'BSB') return;
+    const bookIndex = this.booksCache.findIndex(b => b.id === bookId);
+    if (bookIndex < 0) return;
+    try {
+      const totalChapters = await this.bridge.db.getChapterCount(bookId);
+      const code = this.bridge.db.idToCode(bookId);
+      const targets = [];
+      // Within the current book: previous / next chapter use the same code.
+      if (chapter > 1) targets.push({ code, chapter: chapter - 1 });
+      if (chapter < totalChapters) targets.push({ code, chapter: chapter + 1 });
+      // Boundaries roll over into the adjacent book with that book's own code.
+      if (chapter === 1 && bookIndex > 0) {
+        const prevBook = this.booksCache[bookIndex - 1];
+        const prevChapters = await this.bridge.db.getChapterCount(prevBook.id);
+        targets.push({ code: this.bridge.db.idToCode(prevBook.id), chapter: prevChapters });
+      }
+      if (chapter === totalChapters && bookIndex < this.booksCache.length - 1) {
+        const nextBook = this.booksCache[bookIndex + 1];
+        targets.push({ code: this.bridge.db.idToCode(nextBook.id), chapter: 1 });
+      }
+
+      for (const t of targets) {
+        if (!t.code) continue;
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(() => this._prefetchCb(t.code, t.chapter, wc), { timeout: 300 });
+        } else {
+          setTimeout(() => this._prefetchCb(t.code, t.chapter, wc), 0);
+        }
+      }
+    } catch (e) {
+      console.warn('[Navigation] adjacent prefetch setup failed:', e);
+    }
+  }
+
+  _prefetchCb(bookCode, chapter, wc) {
+    if (!wc) return;
+    try {
+      const state = this.bridge.state;
+      const done = () => {
+        if (state.get('wordClasses') === true) wc.getChapterRenderSpans(bookCode, chapter);
+        if (state.get('clearReadingEnabled') === true) wc.getClearReadingSpans(bookCode, chapter);
+      };
+      Promise.resolve().then(done).catch(() => {});
+    } catch (e) {
+      console.warn('[Navigation] adjacent prefetch failed:', e);
     }
   }
 

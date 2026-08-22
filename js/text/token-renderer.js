@@ -112,6 +112,14 @@ window.TokenRenderer = class TokenRenderer {
       this._applyWordStudyTargets(ctx.verseText, wordStudySpans);
     }
 
+    // Show a small loading spinner on verses whose annotations stream in after
+    // the first paint (word classes / clear reading / word study enabled but
+    // spans not attached yet). Removed by applyAnnotationsToDom once applied.
+    if (this._wordClassesEnabled || this._clearReadingEnabled || this._wordStudyMode) {
+      const pending = this._streamingPending(wordClassSpans, clearReadingSpans, wordStudySpans);
+      ctx.container.classList.toggle('wordstudy-pending', pending);
+    }
+
     return ctx.container;
   }
 
@@ -466,8 +474,10 @@ window.TokenRenderer = class TokenRenderer {
       let parent = node.parentNode;
       while (parent && parent !== verseText) {
         if (parent.tagName === 'SUP' ||
-            parent.classList.contains('footnote-caller') ||
-            parent.classList.contains('verse-num')) {
+            (parent.classList && (parent.classList.contains('footnote-caller') ||
+                parent.classList.contains('crossref-indicator') ||
+                parent.classList.contains('token-section-heading-ref') ||
+                parent.classList.contains('verse-num')))) {
           return true;
         }
         parent = parent.parentNode;
@@ -723,11 +733,68 @@ window.TokenRenderer = class TokenRenderer {
     }
   }
 
-  // Clear Reading dimming is a separate pass on top of word-class colors: each
-  // word gets an opacity (and, for negation, a weight) from its role in the
-  // passage. Wrapping an already-colored word in an opacity span keeps the
-  // color visible while quieting glue (article/relation/connector) and popping
-  // negation. Ranges resolve through the same offset machinery as colors.
+  // A verse shows the streaming spinner until its annotation spans arrive. It
+  // is pending when a streaming feature is active but the corresponding spans
+  // have not been attached yet (first paint happens before enrichment).
+  _streamingPending(wordClassSpans, clearReadingSpans, wordStudySpans) {
+    const active = this.bridge && this.bridge.state;
+    if (!active) return false;
+    if (this._wordClassesEnabled) {
+      const spans = wordClassSpans || [];
+      if (!spans.length) return true;
+    }
+    if (this._clearReadingEnabled) {
+      const spans = clearReadingSpans || [];
+      if (!spans.length) return true;
+    }
+    if (this._wordStudyMode) {
+      const spans = wordStudySpans || [];
+      if (!spans.length) return true;
+    }
+    return false;
+  }
+
+  // Apply already-resolved annotation spans onto living verse containers in the
+  // DOM without re-rendering the chapter. Used by the streaming enrichment path
+  // in NavigationModule so annotations stream in past the initial paint instead
+  // of forcing a full chapter rebuild. Returns the number of verses touched.
+  applyAnnotationsToDom(verses, flags) {
+    const state = this.bridge && this.bridge.state;
+    if (!state) return 0;
+    const speedOn = state.get('speedMode') === true;
+    if (speedOn) return 0;
+
+    let touched = 0;
+    for (const v of verses) {
+      const container = document.querySelector('.verse-container[data-verse="' + v.verse + '"]:not(.section-heading-container)');
+      if (!container) continue;
+      const verseText = container.querySelector(':scope > .verse-text') || container.querySelector('.verse-text');
+      if (!verseText) continue;
+
+      const doWordClasses = !!(flags && flags.wordClasses) && Array.isArray(v.wordClassSpans) && v.wordClassSpans.length;
+      const doClearReading = !!(flags && flags.clearReading) && Array.isArray(v.clearReadingSpans) && v.clearReadingSpans.length;
+      const doWordStudy = !!(flags && flags.wordStudy) && Array.isArray(v.wordStudySpans) && v.wordStudySpans.length;
+      if (!doWordClasses && !doClearReading && !doWordStudy) continue;
+
+      if (container.dataset.wcApplied === '1') continue;
+
+      if (doWordClasses && this._wordClassesEnabled) {
+        this._applyWordClassColors(verseText, v.wordClassSpans);
+      }
+      if (doClearReading && this._clearReadingEnabled) {
+        this._applyClearReadingDimming(verseText, v.clearReadingSpans);
+      }
+      if (doWordStudy && this._wordStudyMode) {
+        this._applyWordStudyTargets(verseText, v.wordStudySpans);
+      }
+
+      container.classList.remove('wordstudy-pending');
+      container.dataset.wcApplied = '1';
+      touched++;
+    }
+    return touched;
+  }
+
   _applyClearReadingDimming(verseText, clearReadingSpans) {
     const state = this.bridge.state;
     const mode = state.get('clearReadingMode');

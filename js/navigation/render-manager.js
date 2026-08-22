@@ -37,6 +37,33 @@ window.RenderManager = class RenderManager {
     }
   }
 
+  // Streaming path: apply already-resolved annotation spans onto the living
+    // chapter DOM in place instead of triggering a full chapter rebuild.
+  applyAnnotations(payload) {
+    const nav = this.bridge.get('navigation');
+    const verses = payload && payload.verses ? payload.verses : (nav && nav.currentVerses);
+    if (!verses || !verses.length) return;
+    const mode = this.bridge.state;
+    const flags = {
+      wordClasses: mode.get('wordClasses') === true,
+      clearReading: mode.get('clearReadingEnabled') === true,
+      wordStudy: mode.get('wordStudyEnabled') === true
+    };
+    const base = this.base;
+    const tr = base && base._tokenRenderer;
+    if (!tr || typeof tr.applyAnnotationsToDom !== 'function') {
+      this.render();
+      return;
+    }
+    const touched = tr.applyAnnotationsToDom(verses, flags);
+    if (!touched && this.bridge.state.get('swipeMode') === false && this.bridge.state.get('spotlightMode') === false) {
+      // DOM may not match (e.g. user re-rendered mid-stream); fall back to a
+      // full refresh so the annotations still show.
+      this.render();
+      return;
+    }
+  }
+
   _finalize() {
     requestAnimationFrame(() => {
       const state = this.bridge.state;
@@ -81,6 +108,7 @@ window.RenderManager = class RenderManager {
   _bind() {
     this.bridge.on('nav:chapter-loaded', () => this.render());
     this.bridge.on('render:refresh', () => this.render());
+    this.bridge.on('nav:annotations-applied', (payload) => this.applyAnnotations(payload));
     this.bridge.state.onChange('swipeMode spotlightMode speedMode splitMode splitPortrait'.split(' '), () => {
       this.vm.syncBodyClasses(this._modeFlags());
     });
