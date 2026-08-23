@@ -1,5 +1,53 @@
 # What's New in Focused Word
 
+## v1.0.0 — Release Version
+
+Focused Word is now officially v1.0.0! This is the complete, release-ready feature set, shipped in an offline-first, installable app for your phone, tablet, and desktop.
+
+### Read Your Way
+- **Scroll** — a smooth continuous scroll with gentle verse tracking and a focus highlight that follows you down the page.
+- **Swipe** — flip through card-based passages with a satisfying swipe, perfect for phones.
+- **Spotlight** — one verse centered at a time; tap the edges to advance.
+- **Speed** — rapid word-by-word (RSVP) reading with adjustable words-per-minute and auto-advance.
+- **Split** — read a second translation in a side-by-side (or stacked) reference panel.
+- **Focus Mode** — hide everything else for a calm, distraction-free page.
+
+### Understand the Passage
+- **Word Classes** — people, places, times, animals, materials, and themes are color-coded so a passage's shape becomes visible at a glance. Tune each class's color and turn grammar (nouns, verbs, prepositions…) on or off.
+- **Word Study** — tap any word to see the original Hebrew or Greek, transliteration, English meaning, grammatical form, and its Strong's number, plus a full lexicon entry with definitions, pronunciation, etymology, and other places the same word appears.
+- **Clear Reading** — soften pronouns, connectors, and other glue words (soft or strong) so the main ideas pop. Fine-tune each category.
+- **Cross References** — tap the † beside a verse for related passages inline.
+- **Search** — find any verse, phrase, or topic across the whole Bible instantly.
+- **Footnotes** — translator notes without leaving the page.
+- **Chapter titles, headings, and poetry formatting** — keep the passage in context.
+- **Per-word Red Letter** — the words of Christ set apart in red.
+
+### Remember & Grow
+- **Bookmarks** — save verses into named, color-coded sets and jump back anytime.
+- **Highlights** — 6 highlighter colors for a word, verse, or whole passage, filterable by color.
+- **Notes** — a clean, taggable notebook attached to verses.
+- **Reading Plans** — curated 1-year plans (Traditional, Chronological, Alternate, M'Cheyne, OT+NT) with a guided daily flow, streaks, and progress.
+- **Navigation History** — a Recent tab returns you to the last 50 places you visited.
+
+### Make It Yours
+- **4 complete looks** — Modern, Classic, Minimal, and Luminous.
+- **11 color themes** and **19 accent colors**.
+- **10 font families** with full control over size, line spacing, letter spacing, and margins.
+- **Bionic Reading** — bold the first part of each word to guide the eye; adjustable strength.
+- **Background texture** and per-word verse numbers (inline or gutter).
+
+### Your Library, Connected
+- **Install more translations** from a Scripture Repository by URL, with optional private-key protection and checksum verification.
+- **Offline-First PWA** — installable on iOS, Android, Windows, or macOS. Translations, cross-references, study data, and fonts are cached so the app keeps working with no signal.
+- **Cross-Device Sync** — keep reading position, settings, bookmarks, highlights, notes, plans, and reading history in sync via a simple passphrase, encrypted in transit and merged automatically.
+
+### Thoughtful Details
+- **In-app What's New, License, and Credits.**
+- **Debug Log** for troubleshooting.
+- **Accessible by design** — keyboard navigation, focus trapping, ARIA-aware controls, and an optional high-visibility font.
+
+---
+
 ## v0.9.7 — Faster Chapters & iOS Polish
 
 ### Faster chapter switching with Study features on

@@ -580,6 +580,7 @@ window.StateStore = class StateStore {
         'focused-word:word-classes': 'wordClasses',
         'focused-word:word-class-axis-settings': 'wordClassAxisSettings',
         'focused-word:word-study-enabled': 'wordStudyEnabled',
+        'focused-word:word-study-mode': 'wordStudyMode',
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);

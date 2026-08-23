@@ -6,7 +6,7 @@ window.IDBService = class IDBService {
 
   _open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('focused_word_db', 7);
+      const req = indexedDB.open('focused_word_db', 8);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
         const tx = e.target.transaction;
