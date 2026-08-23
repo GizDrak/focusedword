@@ -1225,6 +1225,18 @@ html.android-device[data-ui-skin="luminous"] .luminous-bottom-navigation {
   height: var(--app-height);
 }
 
+/* Keep the chapter heading out from under the transparent notch — mirror
+   Modern's safe-area top inset so the emblem/title aren't clipped. */
+[data-ui-skin="luminous"] body.scroll-mode #content,
+[data-ui-skin="luminous"] body.spotlight-mode #content {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+}
+
+[data-ui-skin="luminous"] #content.swipe-mode,
+[data-ui-skin="luminous"] body.spotlight-mode #content {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.35rem);
+}
+
 /* Luminous floating pill nav doesn't take fixed space, so scroll content
    needs extra bottom padding to avoid being hidden behind the pill. */
 [data-ui-skin="luminous"] body.scroll-mode #content,

@@ -152,7 +152,6 @@ window.SettingsModule = class SettingsModule {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this._onAccentChange(val);
-        this._closeAccentDropdown();
       });
       dropdown.appendChild(btn);
     }
