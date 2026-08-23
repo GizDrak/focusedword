@@ -421,8 +421,8 @@ html[data-ui-skin="luminous"] body.background-texture {
 
 /* Focus */
 [data-ui-skin="luminous"] :focus-visible {
-  outline: 2px solid var(--luminous-accent-bright);
-  outline-offset: 3px;
+  outline: 1px solid var(--luminous-accent-bright);
+  outline-offset: 1px;
 }
 
 /* Reduced motion */

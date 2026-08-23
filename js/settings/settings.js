@@ -645,6 +645,13 @@ window.SettingsModule = class SettingsModule {
     this.settingsOpen = true;
     const panel = document.getElementById('settings-panel');
     const overlay = document.getElementById('settings-overlay');
+    // Capture the element that opened settings so focus restores to the
+    // correct trigger (More tab) instead of hardcoding the bible button,
+    // which left a :focus-visible ring on the bible button after skin switches on iOS/Android.
+    const rawOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const opener = (rawOpener && rawOpener !== document.body && document.body.contains(rawOpener) && !rawOpener.closest('[aria-hidden="true"][inert]'))
+      ? rawOpener
+      : document.querySelector('.tab-item[data-tab="more"]');
     panel.classList.add('open');
     overlay.classList.add('open');
     panel.removeAttribute('aria-hidden');
@@ -652,7 +659,7 @@ window.SettingsModule = class SettingsModule {
     overlay.removeAttribute('aria-hidden');
     const base = this.bridge.get('base-renderer');
     if (base) {
-      this._cleanupFocus = base.trapFocus(panel, document.querySelector('.tab-item[data-tab="bible"]'), document.querySelector('#settings-panel .section-header'));
+      this._cleanupFocus = base.trapFocus(panel, opener, document.querySelector('#settings-panel .section-header'));
     }
   }
 

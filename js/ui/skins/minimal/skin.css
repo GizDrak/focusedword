@@ -220,8 +220,8 @@ html.ios-device[data-ui-skin="minimal"] #verse-rail {
 }
 
 [data-ui-skin="minimal"] .vr-tick:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: -2px;
+  outline: 1px solid var(--accent-color);
+  outline-offset: -1px;
 }
 
 @media (hover: hover) {

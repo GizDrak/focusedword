@@ -21,6 +21,25 @@ window.App = class App {
       document.documentElement.classList.add('android-device');
     }
 
+    // Scripture taps should not leave a focus ring: any pointerdown
+    // inside the reading surface clears the current focused element so
+    // :focus-visible never lingers after touch/mouse interaction.
+    document.addEventListener('pointerdown', (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (!t.closest('#content, #panel-right, .verse-container, .verse-text')) return;
+      // Don't steal focus from real controls inside the text (word-study
+      // tokens, cross-ref indicators, footnote callers, etc.).
+      if (t.closest('a, button, [role="button"], input, select, textarea, [tabindex]:not([tabindex="-1"]), .word-study-target, .crossref-indicator, .footnote-caller')) return;
+      if (document.activeElement instanceof HTMLElement) {
+        // Only blur if the active element lives inside the reading surface.
+        const ae = document.activeElement;
+        if (ae.closest && ae.closest('#content, #panel-right, #landscape-layout, main')) {
+          ae.blur();
+        }
+      }
+    }, true);
+
     const installPrompt = new window.InstallPrompt(bridge);
     bridge.register('install-prompt', installPrompt);
 

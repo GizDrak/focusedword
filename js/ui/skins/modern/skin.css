@@ -41,6 +41,19 @@
   height: var(--app-height);
 }
 
+/* Keep the chapter header clear of the transparent notch / status-bar area:
+   push the scroll surface down by the top safe-area inset plus a breathing-
+   room offset so the chapter emblem is never clipped under the top bar. */
+[data-ui-skin="modern"] body.scroll-mode #content,
+[data-ui-skin="modern"] body.spotlight-mode #content {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+}
+
+[data-ui-skin="modern"] #content.swipe-mode,
+[data-ui-skin="modern"] body.spotlight-mode #content {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.35rem);
+}
+
 [data-ui-skin="modern"] .sh-pill-container {
   margin: 1.75rem 0;
   display: flex;
@@ -283,8 +296,8 @@
 
 [data-ui-skin="modern"] #bottom-nav .tab-item:focus-visible,
 [data-ui-skin="modern"] .modern-nav-tab:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: -6px;
+  outline: 1px solid var(--accent-color);
+  outline-offset: -2px;
   border-radius: 8px;
 }
 
@@ -361,6 +374,15 @@
   pointer-events: none;
 }
 
+/* Hidden spacer is layout-only in Modern (floating bible handles taps) —
+   never show a focus ring on it, even if trapFocus programmatically restores
+   focus there before opener-capture lands. */
+[data-ui-skin="modern"] #bottom-nav .tab-item.tab-bible:focus,
+[data-ui-skin="modern"] #bottom-nav .tab-item.tab-bible:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* ========== Bible Float ========== */
 
 [data-ui-skin="modern"] .bible-float {
@@ -388,8 +410,8 @@
 }
 
 [data-ui-skin="modern"] .bible-float:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 4px;
+  outline: 1px solid var(--accent-color);
+  outline-offset: 2px;
   border-radius: 50%;
 }
 

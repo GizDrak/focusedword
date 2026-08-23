@@ -7,9 +7,35 @@
 }
 
 *:focus-visible {
-  outline: 3px solid var(--accent-color, #8B5CF6) !important;
-  outline-offset: 3px !important;
-  box-shadow: 0 0 0 1px var(--bg, #0A0A0A) !important;
+  outline: 1px solid var(--accent-color, #8B5CF6) !important;
+  outline-offset: 1px !important;
+  box-shadow: none !important;
+}
+
+/* Tapping the scripture reading surface should not paint a generic
+   focus ring — the verses themselves are not controls. Suppress the
+   global *:focus-visible ring on the reading containers so taps stay
+   clear; intentional interactive tokens (word-study, cross-refs, etc.)
+   keep their own thin :focus-visible styles below. */
+#content:focus-visible,
+#panel-right:focus-visible,
+#landscape-layout:focus-visible,
+main:focus-visible,
+.verse-container:focus-visible,
+.verse-text:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Programmatic focus restore (e.g. trapFocus closing a panel after a skin
+   switch) sets data-suppress-focus-ring for one frame so iOS/Android don't
+   paint a stale :focus-visible ring on the trigger. Keep keyboard Tab focus
+   fully visible — only suppress the synthetic restore. */
+[data-suppress-focus-ring]:focus,
+[data-suppress-focus-ring]:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
 }
 
 @media (forced-colors: active) {
@@ -684,8 +710,8 @@ body {
 }
 
 .icon-btn:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
+  outline: 1px solid var(--accent-color);
+  outline-offset: 1px;
 }
 
 .icon-btn.active {
@@ -3716,7 +3742,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .nav-book-item:focus-visible {
-  outline: 2px solid var(--accent-color);
+  outline: 1px solid var(--accent-color);
   outline-offset: -2px;
 }
 
@@ -3765,8 +3791,8 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .nav-grid-item:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
+  outline: 1px solid var(--accent-color);
+  outline-offset: 1px;
 }
 
 /* ========== Action Bar ========== */
@@ -5496,8 +5522,8 @@ html.ios-device .wordstudy-header {
 }
 
 .ws-tab:focus-visible {
-  outline: 2px solid var(--ws-gold);
-  outline-offset: 3px;
+  outline: 1px solid var(--ws-gold);
+  outline-offset: 1px;
 }
 
 .ws-tabpanel {
@@ -5595,8 +5621,8 @@ html.ios-device .wordstudy-header {
 }
 
 .ws-wc-clickable:focus-visible {
-  outline: 2px solid var(--ws-gold, #efbd31);
-  outline-offset: 2px;
+  outline: 1px solid var(--ws-gold, #efbd31);
+  outline-offset: 1px;
 }
 
 .ws-wc-sep {
@@ -6362,8 +6388,8 @@ body.focus-mode .focus-exit-btn:hover {
 }
 
 .section-header:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
+  outline: 1px solid var(--accent-color);
+  outline-offset: 1px;
   border-radius: 2px;
 }
 
@@ -6712,8 +6738,8 @@ body.focus-mode .focus-exit-btn:hover {
 }
 
 .study-sub-expand:focus-visible {
-  outline: 2px solid var(--accent, #D4AF37);
-  outline-offset: 2px;
+  outline: 1px solid var(--accent, #D4AF37);
+  outline-offset: 1px;
   border-radius: 2px;
 }
 

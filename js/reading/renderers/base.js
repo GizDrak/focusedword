@@ -578,7 +578,18 @@ window.BaseRenderer = class BaseRenderer {
     setTimeout(() => (focusEl || getFocusable()[0])?.focus(), 50);
     return () => {
       container.removeEventListener('keydown', handler);
-      triggerEl?.focus();
+      if (!triggerEl || !triggerEl.isConnected) return;
+      // Use preventScroll so closing a modal after a skin switch doesn't
+      // jolt the reading position (render:refresh may have just scrolled).
+      // Programmatic restore should not paint a :focus-visible ring on
+      // iOS/Android — suppress it for one frame.
+      const prevSuppress = triggerEl.hasAttribute('data-suppress-focus-ring');
+      triggerEl.setAttribute('data-suppress-focus-ring', '');
+      try { triggerEl.focus({ preventScroll: true }); } catch (_) { triggerEl.focus(); }
+      // Remove the suppress flag after the browser has resolved :focus-visible.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!prevSuppress) triggerEl.removeAttribute('data-suppress-focus-ring');
+      }));
     };
   }
 
