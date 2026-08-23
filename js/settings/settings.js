@@ -199,7 +199,10 @@ window.SettingsModule = class SettingsModule {
     const wrap = document.getElementById('settings-accent-wrap');
     if (!wrap) return;
     const dropdown = wrap._accentDropdown;
-    if (dropdown && dropdown.parentElement) dropdown.parentElement.removeChild(dropdown);
+    if (dropdown) {
+      dropdown.classList.add('hidden');
+      if (dropdown.parentElement) dropdown.parentElement.removeChild(dropdown);
+    }
     wrap._accentDropdown = null;
     if (this._accentCloseHandler) {
       document.removeEventListener('click', this._accentCloseHandler, true);
@@ -208,11 +211,6 @@ window.SettingsModule = class SettingsModule {
       this._accentCloseHandler = null;
       this._accentOnScroll = null;
       this._accentOnResize = null;
-    }
-    const trigger = wrap.querySelector('.custom-select-trigger');
-    if (trigger) {
-      const opening = trigger.dataset.open === 'true';
-      if (opening) trigger.dataset.open = 'false';
     }
   }
 
