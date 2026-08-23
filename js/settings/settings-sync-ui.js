@@ -613,6 +613,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
         const settingsMod = this.bridge.get('settings');
         if (settingsMod) {
           settingsMod._applyTextSettings();
+          settingsMod._renderAccentSwatches();
           settingsMod._syncUIFromState();
         }
         if (modules.settings.updated_at) {

@@ -581,6 +581,7 @@ window.SettingsModule = class SettingsModule {
       const skin = e.target.value;
       this.bridge.state.set('uiSkin', skin);
       window.UISkins.apply(skin);
+      this._renderAccentSwatches();
       this._applyTextSettings();
       this.bridge.emit('render:refresh');
     });
