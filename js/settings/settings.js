@@ -179,8 +179,10 @@ window.SettingsModule = class SettingsModule {
       e.stopPropagation();
       const opening = dropdown.classList.contains('hidden');
       if (opening) {
+        if (!dropdown.parentElement) document.body.appendChild(dropdown);
         dropdown.classList.remove('hidden');
         positionDropdown();
+        trigger.dataset.open = 'true';
         document.addEventListener('click', closeDropdown, true);
         window.addEventListener('scroll', onScrollOrResize, true);
         window.addEventListener('resize', onScrollOrResize);
@@ -206,6 +208,11 @@ window.SettingsModule = class SettingsModule {
       this._accentCloseHandler = null;
       this._accentOnScroll = null;
       this._accentOnResize = null;
+    }
+    const trigger = wrap.querySelector('.custom-select-trigger');
+    if (trigger) {
+      const opening = trigger.dataset.open === 'true';
+      if (opening) trigger.dataset.open = 'false';
     }
   }
 
@@ -672,6 +679,7 @@ window.SettingsModule = class SettingsModule {
     panel.setAttribute('aria-hidden', 'true');
     panel.inert = true;
     overlay.setAttribute('aria-hidden', 'true');
+    this._closeAccentDropdown();
     document.querySelectorAll('.section-header').forEach(h => h.setAttribute('aria-expanded', 'false'));
     if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
