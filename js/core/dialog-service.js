@@ -112,6 +112,11 @@ window.DialogService = class DialogService {
     const dialog = document.createElement('dialog');
     dialog.id = 'fw-dialog';
     dialog.setAttribute('aria-label', 'Focused Word dialog');
+    if (window.UISkins?.decorate) {
+      window.UISkins.decorate(dialog, 'dialog');
+    } else {
+      dialog.setAttribute('data-ui-component', 'dialog');
+    }
     document.body.appendChild(dialog);
     this._dialog = dialog;
     return dialog;
