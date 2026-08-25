@@ -75,6 +75,35 @@ static async createDbFromBytes(dbPath, expectedSha256 = null) {
     return db;
   }
 
+  static async checkForUpdates(dbPath) {
+    try {
+      if (typeof caches === 'undefined') return { updated: false };
+      const cache = await caches.open('bible-database-cache');
+      const cached = await cache.match(dbPath);
+      if (!cached) return { updated: false };
+
+      const headers = {};
+      const etag = cached.headers ? cached.headers.get('ETag') : null;
+      const lastModified = cached.headers ? cached.headers.get('Last-Modified') : null;
+      if (etag) headers['If-None-Match'] = etag;
+      if (lastModified) headers['If-Modified-Since'] = lastModified;
+
+      const resp = await fetch(dbPath, { headers });
+      if (resp.status === 304) {
+        return { updated: false };
+      }
+      if (resp.ok) {
+        await cache.put(dbPath, resp.clone());
+        const bytes = new Uint8Array(await resp.arrayBuffer());
+        return { updated: true, bytes };
+      }
+      return { updated: false };
+    } catch (e) {
+      console.warn('[db] Update check failed for', dbPath, e);
+      return { updated: false };
+    }
+  }
+
   static async fetchBytes(dbPath, forceNetwork = false) {
     try {
       // Defensive check: Only use caches if they exist (i.e., we are in HTTPS/localhost)

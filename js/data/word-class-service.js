@@ -227,6 +227,36 @@ window.WordClassService = class WordClassService {
     return this._initPromise
   }
 
+  async checkForBackgroundUpdate(bridge) {
+    if (!this._isReady || !AppConfig.WORD_ANNOTATIONS_V2_ENABLED || !AppConfig.WORD_ANNOTATIONS_V2_DB) return false
+    try {
+      const updateResult = await BibleDB.checkForUpdates(AppConfig.WORD_ANNOTATIONS_V2_DB)
+      if (!updateResult.updated || !updateResult.bytes) return false
+
+      this._manifestPromise = null
+      const manifest = await this._fetchManifest()
+      const newDb = BibleDB._deserialize(updateResult.bytes)
+      if (newDb && this._validateV2(newDb, manifest)) {
+        const oldDb = this._db
+        this._db = newDb
+        if (oldDb && oldDb !== newDb) {
+          try { oldDb.close() } catch (e) {}
+        }
+        if (bridge) {
+          bridge.emit('render:refresh')
+        }
+        return true
+      }
+      if (newDb) {
+        try { newDb.close() } catch (e) {}
+      }
+      return false
+    } catch (e) {
+      console.warn('[WordClassService] background update check failed:', e)
+      return false
+    }
+  }
+
   _fetchManifest() {
     if (this._manifestPromise) return this._manifestPromise
     if (!AppConfig.WORD_ANNOTATIONS_V2_MANIFEST) return Promise.resolve(null)

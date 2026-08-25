@@ -5,6 +5,8 @@ window.AppConfig = {
   WORD_ANNOTATIONS_V2_DB: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.sqlite',
   WORD_ANNOTATIONS_V2_MANIFEST: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.sqlite.manifest.json',
   WORD_ANNOTATIONS_V2_VOCABULARY: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.vocabulary.json',
+  WORD_STUDY_DATA_DB: 'https://repo.focusedword.com/study/bsb_word_data.sqlite',
+  LEXICON_DATA_DB: 'https://repo.focusedword.com/study/lexicon_data.sqlite',
   DEFAULT_PORT: 3000,
   MAX_CHAPTER_NAV_LOCK: 800,
   MIN_CHAPTER_NAV_LOCK: 600,

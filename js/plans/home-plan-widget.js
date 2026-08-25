@@ -79,11 +79,12 @@ window.HomePlanWidget = class HomePlanWidget {
       if (plan.status !== 'active' || plan.deleted) continue;
       const progress = plan.progress || {};
       const schedule = progress.schedule || [];
-      const todayEntry = schedule.find(s => s.date === today);
-      if (todayEntry && todayEntry.unit_indices.length > 0) {
+      const completedSet = new Set(Object.keys(progress.completions || {}).map(Number));
+      const activeEntry = schedule.find(s => s.status !== 'completed' && s.unit_indices && s.unit_indices.some(idx => !completedSet.has(idx)));
+      if (activeEntry && activeEntry.unit_indices.length > 0 && activeEntry.date <= today) {
         const units = progress.reading_units || [];
-        const todayUnits = todayEntry.unit_indices.map(i => units[i]).filter(Boolean);
-        if (todayUnits.length > 0) return { plan, scheduleEntry: todayEntry, todayUnits };
+        const todayUnits = activeEntry.unit_indices.map(i => units[i]).filter(Boolean);
+        if (todayUnits.length > 0) return { plan, scheduleEntry: activeEntry, todayUnits };
       }
     }
     return null;
@@ -92,7 +93,9 @@ window.HomePlanWidget = class HomePlanWidget {
   _show(plan, scheduleEntry, todayUnits) {
     const nameEl = document.getElementById('hpw-plan-name');
     const passagesEl = document.getElementById('hpw-passages');
-    nameEl.textContent = plan.name || 'Reading Plan';
+    const today = this._today();
+    const isBehind = scheduleEntry && scheduleEntry.date < today;
+    nameEl.textContent = (isBehind ? 'Catch-up: ' : '') + (plan.name || 'Reading Plan');
     passagesEl.textContent = todayUnits.map(u => window.PassageRef.formatPassage(u)).join('; ');
     this._el.classList.remove('hidden');
 
@@ -104,11 +107,6 @@ window.HomePlanWidget = class HomePlanWidget {
     if (!this._currentPlan) return;
     const plan = this._state.plans.find(p => p.id === this._currentPlan.id);
     if (!plan) return;
-    const progress = plan.progress || {};
-    const units = progress.reading_units || [];
-    const today = this._today();
-    const schedule = (progress.schedule || []).find(s => s.date === today);
-    if (!schedule || !schedule.unit_indices.length) return;
     const plansUI = this.bridge.get('plans-ui');
     if (plansUI) {
       await plansUI._navigateToTodaysReading(plan);

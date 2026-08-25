@@ -363,6 +363,25 @@ window.App = class App {
     splashEl.classList.add('splash-hidden');
     setTimeout(() => splashEl.remove(), 500);
     this._handleStartupIntent(bridge);
+    this._checkStudyDatabaseUpdates(bridge);
+  }
+
+  _checkStudyDatabaseUpdates(bridge) {
+    if (bridge.state.get('currentTranslation') !== 'BSB') return;
+    const wc = bridge.get('word-class-service');
+    const ws = bridge.get('word-study-service');
+    const checks = [];
+    if (wc && typeof wc.checkForBackgroundUpdate === 'function') {
+      checks.push(wc.checkForBackgroundUpdate(bridge));
+    }
+    if (ws && typeof ws.checkForBackgroundUpdates === 'function') {
+      checks.push(ws.checkForBackgroundUpdates(bridge));
+    }
+    if (checks.length > 0) {
+      Promise.allSettled(checks).catch(e => {
+        console.warn('[app] Background study database update check error:', e);
+      });
+    }
   }
 
   async _buildTranslationManifest(bridge) {

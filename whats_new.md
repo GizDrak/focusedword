@@ -1,5 +1,18 @@
 # What's New in Focused Word
 
+## v1.0.2 — Sequential Reading Plans & Study Data Updates
+
+### Sequential Reading Plan Progression
+- **Strict Catch-Up Progression**: Reading plans will no longer jump ahead to today's or future days' scriptures if prior days remain uncompleted.
+- **Guided Catch-Up Reading**: Unfinished days from earlier in the schedule are clearly marked as Catch-Up readings, allowing you to read and mark multiple missed days complete in order.
+- **Home Screen Widget Sync**: The home reading plan card keeps you on track by surfacing the earliest incomplete reading.
+
+### Background Study Database Updates & Expanded Word Classes
+- **Automatic Background Checks**: Study databases (`BSB_token_annotations_v2.sqlite`, `bsb_word_data.sqlite`, and `lexicon_data.sqlite`) now check for updates in the background on launch when previously cached, ensuring you stay up to date without interrupting your reading or re-downloading fresh installs.
+- **Additional Word Classes**: Additional words have been added to the Word Classes database for enhanced semantic and grammatical classification across Scripture.
+
+---
+
 ## v1.0.0 — Release Version
 
 Focused Word is now officially v1.0.0! This is the complete, release-ready feature set, shipped in an offline-first, installable app for your phone, tablet, and desktop.

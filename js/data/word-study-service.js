@@ -33,7 +33,10 @@ window.WordStudyService = class WordStudyService {
     if (this._dataInitPromise) return this._dataInitPromise;
     this._dataInitPromise = (async () => {
       try {
-        const db = await BibleDB.createDbFromBytes('https://repo.focusedword.com/study/bsb_word_data.sqlite');
+        const url = (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB)
+          ? AppConfig.WORD_STUDY_DATA_DB
+          : 'https://repo.focusedword.com/study/bsb_word_data.sqlite';
+        const db = await BibleDB.createDbFromBytes(url);
         if (!db) {
           this._dataInitPromise = null;
           return false;
@@ -55,7 +58,10 @@ window.WordStudyService = class WordStudyService {
     if (this._lexInitPromise) return this._lexInitPromise;
     this._lexInitPromise = (async () => {
       try {
-        const db = await BibleDB.createDbFromBytes('https://repo.focusedword.com/study/lexicon_data.sqlite');
+        const url = (typeof AppConfig !== 'undefined' && AppConfig.LEXICON_DATA_DB)
+          ? AppConfig.LEXICON_DATA_DB
+          : 'https://repo.focusedword.com/study/lexicon_data.sqlite';
+        const db = await BibleDB.createDbFromBytes(url);
         if (!db) {
           this._lexInitPromise = null;
           return false;
@@ -70,6 +76,63 @@ window.WordStudyService = class WordStudyService {
       }
     })();
     return this._lexInitPromise;
+  }
+
+  async checkForBackgroundUpdates(bridge) {
+    let updatedAny = false;
+    try {
+      const dataUrl = (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB)
+        ? AppConfig.WORD_STUDY_DATA_DB
+        : 'https://repo.focusedword.com/study/bsb_word_data.sqlite';
+      const lexUrl = (typeof AppConfig !== 'undefined' && AppConfig.LEXICON_DATA_DB)
+        ? AppConfig.LEXICON_DATA_DB
+        : 'https://repo.focusedword.com/study/lexicon_data.sqlite';
+
+      if (this._dataReady) {
+        const dataRes = await BibleDB.checkForUpdates(dataUrl);
+        if (dataRes.updated && dataRes.bytes) {
+          const newDb = BibleDB._deserialize(dataRes.bytes);
+          if (newDb) {
+            const oldDb = this._dataDb;
+            this._dataDb = newDb;
+            if (oldDb && oldDb !== newDb) {
+              try { oldDb.close(); } catch (e) {}
+            }
+            this._spanCache.clear();
+            this._cache.clear();
+            updatedAny = true;
+          }
+        }
+      }
+
+      if (this._lexReady) {
+        const lexRes = await BibleDB.checkForUpdates(lexUrl);
+        if (lexRes.updated && lexRes.bytes) {
+          const newDb = BibleDB._deserialize(lexRes.bytes);
+          if (newDb) {
+            const oldDb = this._lexDb;
+            this._lexDb = newDb;
+            if (oldDb && oldDb !== newDb) {
+              try { oldDb.close(); } catch (e) {}
+            }
+            this._cache.clear();
+            updatedAny = true;
+          }
+        }
+      }
+
+      if (updatedAny && bridge) {
+        const wc = bridge.get('word-class-service');
+        if (wc && typeof wc.revalidateCrosswalk === 'function') {
+          wc.revalidateCrosswalk();
+        }
+        bridge.emit('render:refresh');
+      }
+      return updatedAny;
+    } catch (e) {
+      console.warn('[WordStudyService] background update check failed:', e);
+      return false;
+    }
   }
 
   async getWordStudy(verseId, wordPosition) {

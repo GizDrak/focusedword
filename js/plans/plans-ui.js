@@ -368,6 +368,18 @@ window.PlansUI = class PlansUI {
     }
   }
 
+  _getEarliestUncompletedEntry(plan) {
+    const progress = plan.progress || {};
+    const schedule = progress.schedule || [];
+    const completedSet = new Set(Object.keys(progress.completions || {}).map(Number));
+    for (const entry of schedule) {
+      if (entry.status !== 'completed' && entry.unit_indices && entry.unit_indices.some(idx => !completedSet.has(idx))) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
   _renderPlanItem(plan, today) {
     const progress = plan.progress || {};
     const metrics = progress.metrics || {};
@@ -376,18 +388,28 @@ window.PlansUI = class PlansUI {
     const pct = metrics.total_weight > 0 ? Math.round((metrics.completed_weight / metrics.total_weight) * 100) : 0;
     const totalDays = schedule.length;
     const completedDays = schedule.filter(s => s.status === 'completed').length;
-    const todayEntry = schedule.find(s => s.date === today);
-    const todayPassages = todayEntry ? todayEntry.unit_indices.map(i => readingUnits[i]).filter(Boolean) : [];
-    const todayDone = todayEntry?.status === 'completed';
     const completedIndices = new Set(Object.keys(progress.completions || {}).map(Number));
     const hasMoreReadings = readingUnits.some(u => !completedIndices.has(u.index));
-    const todayText = todayPassages.length > 0 ? this._formatPassageList(todayPassages) : null;
+
+    const activeEntry = this._getEarliestUncompletedEntry(plan);
+    const activePassages = activeEntry ? activeEntry.unit_indices.map(i => readingUnits[i]).filter(Boolean) : [];
+    const isBehind = activeEntry && activeEntry.date < today;
+    const isToday = activeEntry && activeEntry.date === today;
+    const isFuture = activeEntry && activeEntry.date > today;
+    const activeText = activePassages.length > 0 ? this._formatPassageList(activePassages) : null;
 
     const name = window.HTMLEscape(plan.name || 'Unnamed Plan');
     const escapedId = window.HTMLEscape(plan.id);
     const dayCount = totalDays > 0 ? `Day ${completedDays + 1} of ${totalDays}` : '';
     const statusBadge = plan.status === 'paused' ? `<span class="plans-item-badge plans-badge-paused">Paused</span>` : '';
     const isPausedOrCompleted = plan.status !== 'active';
+
+    let displayTag = '';
+    if (!isPausedOrCompleted && activeEntry && activePassages.length > 0) {
+      if (isBehind) {
+        displayTag = `<span class="plans-item-catchup-tag" style="font-size:0.75rem;opacity:0.85;margin-right:6px">Catch-up:</span>`;
+      }
+    }
 
     return `
       <div class="plans-list-item-row" data-id="${escapedId}">
@@ -396,7 +418,7 @@ window.PlansUI = class PlansUI {
             <div class="plans-item-row1">
               <span class="plans-item-name">${name} ${statusBadge}</span>
             </div>
-            ${todayText && !isPausedOrCompleted ? `<div class="plans-item-today">${window.HTMLEscape(todayText)}</div>` : ''}
+            ${activeText && !isPausedOrCompleted ? `<div class="plans-item-today">${displayTag}${window.HTMLEscape(activeText)}</div>` : ''}
             <div class="plans-item-row2">
               <div class="plans-item-progress">
                 <div class="plans-progress-bar">
@@ -406,14 +428,14 @@ window.PlansUI = class PlansUI {
               </div>
               ${dayCount ? `<span class="plans-item-days">${dayCount}</span>` : ''}
             </div>
-            ${!isPausedOrCompleted && !todayDone && todayPassages.length > 0 ? `
+            ${!isPausedOrCompleted && activeEntry && (isBehind || isToday) && activePassages.length > 0 ? `
             <div class="plans-item-actions-row">
-              <button class="plans-item-read">Read Today</button>
+              <button class="plans-item-read">${isBehind ? 'Catch Up' : 'Read Today'}</button>
               <button class="plans-item-complete">Mark Done</button>
-            </div>` : !isPausedOrCompleted && !todayPassages.length && hasMoreReadings ? `
+            </div>` : !isPausedOrCompleted && activeEntry && isFuture && activePassages.length > 0 ? `
             <div class="plans-item-actions-row">
               <button class="plans-item-read">Read Next Day</button>
-            </div>` : !isPausedOrCompleted && todayDone && hasMoreReadings ? `
+            </div>` : !isPausedOrCompleted && hasMoreReadings ? `
             <div class="plans-item-actions-row">
               <button class="plans-item-read">Read Next Day</button>
             </div>` : ''}
@@ -454,29 +476,34 @@ window.PlansUI = class PlansUI {
     const pct = metrics.total_weight > 0 ? Math.round((metrics.completed_weight / metrics.total_weight) * 100) : 0;
     const totalDays = schedule.length;
     const completedDays = schedule.filter(s => s.status === 'completed').length;
-    const todayEntry = schedule.find(s => s.date === today);
-    const todayPassages = todayEntry ? todayEntry.unit_indices.map(i => readingUnits[i]).filter(Boolean) : [];
-    const todayDone = todayEntry?.status === 'completed';
     const completedIndices = new Set(Object.keys(progress.completions || {}).map(Number));
     const hasMoreReadings = readingUnits.some(u => !completedIndices.has(u.index));
-    const nextEntry = schedule.find(a => {
-      if (a.date <= today) return false;
-      return a.unit_indices.some(idx => !completedIndices.has(idx));
-    });
-    const nextPassages = nextEntry ? nextEntry.unit_indices.map(i => readingUnits[i]).filter(Boolean) : [];
+
+    const activeEntry = this._getEarliestUncompletedEntry(plan);
+    const activePassages = activeEntry ? activeEntry.unit_indices.map(i => readingUnits[i]).filter(Boolean) : [];
+    const isBehind = activeEntry && activeEntry.date < today;
+    const isToday = activeEntry && activeEntry.date === today;
+    const isFuture = activeEntry && activeEntry.date > today;
     const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    const nextEntry = schedule.find(a => {
+      if (!activeEntry) return a.date > today;
+      return a.date > activeEntry.date && a.unit_indices.some(idx => !completedIndices.has(idx));
+    });
     const nextDateLabel = nextEntry ? (() => { const d = new Date(nextEntry.date + 'T12:00:00'); return dayNames[d.getDay()] + ' ' + d.getDate(); })() : '';
 
-    const upcomingSchedule = schedule.filter(s => s.date >= today).slice(0, 14);
+    const firstScheduleDate = activeEntry && activeEntry.date < today ? activeEntry.date : today;
+    const upcomingSchedule = schedule.filter(s => s.date >= firstScheduleDate).slice(0, 14);
 
     let calHtml = '';
     if (upcomingSchedule.length > 0) {
       calHtml = `<div class="plans-calendar"><div class="plans-cal-header">`;
       for (const a of upcomingSchedule.slice(0, 7)) {
         const d = new Date(a.date + 'T12:00:00');
-        const isToday = a.date === today;
+        const isTodayCell = a.date === today;
         const isDone = a.status === 'completed';
-        const mid = isToday ? 'plans-cal-today' : isDone ? 'plans-cal-done' : '';
+        const isMissed = a.date < today && !isDone;
+        const mid = isTodayCell ? 'plans-cal-today' : isDone ? 'plans-cal-done' : isMissed ? 'plans-cal-missed' : '';
         calHtml += `<div class="plans-cal-cell ${mid}">
           <span class="plans-cal-dow">${dayNames[d.getDay()]}</span>
           <span class="plans-cal-date">${String(d.getDate()).padStart(2, '0')}</span>
@@ -484,6 +511,40 @@ window.PlansUI = class PlansUI {
         </div>`;
       }
       calHtml += `</div></div>`;
+    }
+
+    let readingSectionHtml = '';
+    if (activeEntry && activePassages.length > 0) {
+      const activeDateStr = (() => {
+        const d = new Date(activeEntry.date + 'T12:00:00');
+        return dayNames[d.getDay()] + ' ' + d.getDate();
+      })();
+      const sectionLabel = isBehind
+        ? `Catch-Up Reading (Scheduled for ${activeDateStr})`
+        : isToday
+        ? `Today's Reading`
+        : `Next reading: ${activeDateStr}`;
+      const actionBtnText = isBehind ? 'Catch Up' : isToday ? 'Read Today' : 'Read Ahead';
+
+      readingSectionHtml = `
+        <div class="plans-detail-today">
+          <span class="plans-today-label">${window.HTMLEscape(sectionLabel)}</span>
+          <div class="plans-today-passages">${this._formatPassageList(activePassages)}</div>
+          <div class="plans-today-actions">
+            <button class="plans-read-btn" id="plans-start-reading">${actionBtnText}</button>
+            <button class="plans-done-btn" id="plans-mark-done">Mark Complete</button>
+          </div>
+        </div>`;
+    } else if (!hasMoreReadings) {
+      readingSectionHtml = `
+        <div class="plans-detail-today">
+          <span class="plans-today-label">All readings completed!</span>
+        </div>`;
+    } else if (plan.status === 'active') {
+      readingSectionHtml = `
+        <div class="plans-detail-today">
+          <span class="plans-today-label">No reading scheduled for today.</span>
+        </div>`;
     }
 
     const detailView = document.getElementById('plans-detail-view');
@@ -501,44 +562,17 @@ window.PlansUI = class PlansUI {
           ${totalDays > 0 ? `<span class="plans-est-completion">Day ${completedDays + 1} of ${totalDays}</span>` : ''}
           ${metrics.estimated_completion ? `<span class="plans-est-completion">Est. completion: ${metrics.estimated_completion}</span>` : ''}
         </div>
-        ${todayPassages.length > 0 && !todayDone ? `
-        <div class="plans-detail-today">
-          <span class="plans-today-label">Today's Reading</span>
-          <div class="plans-today-passages">${this._formatPassageList(todayPassages)}</div>
-          <div class="plans-today-actions">
-            <button class="plans-read-btn" id="plans-start-reading">Read Today</button>
-            <button class="plans-done-btn" id="plans-mark-done">Mark Complete</button>
-          </div>
-        </div>` : !todayPassages.length && nextPassages.length > 0 && plan.status === 'active' ? `
-        <div class="plans-detail-today">
-          <span class="plans-today-label">Next reading: ${nextDateLabel}</span>
-          <div class="plans-today-passages">${this._formatPassageList(nextPassages)}</div>
-          <div class="plans-today-actions">
-            <button class="plans-read-btn" id="plans-next-reading">Read Next Day</button>
-          </div>
-        </div>` : todayDone && nextPassages.length > 0 ? `
-        <div class="plans-detail-today">
-          <span class="plans-today-label">Today completed · Next: ${nextDateLabel}</span>
-          <div class="plans-today-passages">${this._formatPassageList(nextPassages)}</div>
-          <div class="plans-today-actions">
-            <button class="plans-read-btn" id="plans-next-reading">Read Next Day</button>
-          </div>
-        </div>` : todayDone ? `
-        <div class="plans-detail-today">
-          <span class="plans-today-label">All readings completed!</span>
-        </div>` : plan.status === 'active' ? `
-        <div class="plans-detail-today">
-          <span class="plans-today-label">No reading scheduled for today.</span>
-        </div>` : ''}
+        ${readingSectionHtml}
         ${calHtml ? `<div class="plans-detail-upcoming">${calHtml}</div>` : ''}
         ${upcomingSchedule.length > 0 ? `
         <div class="plans-detail-list">
           ${upcomingSchedule.map(a => {
             const d = new Date(a.date + 'T12:00:00');
-            const isToday = a.date === today;
+            const isTodayItem = a.date === today;
             const isDone = a.status === 'completed';
-            return `<div class="plans-list-item-plain ${isToday ? 'plans-plain-today' : ''} ${isDone ? 'plans-plain-done' : ''}">
-              <span class="plans-plain-date">${isToday ? 'Today' : `${dayNames[d.getDay()]} ${d.getDate()}`}</span>
+            const isMissedItem = a.date < today && !isDone;
+            return `<div class="plans-list-item-plain ${isTodayItem ? 'plans-plain-today' : ''} ${isDone ? 'plans-plain-done' : ''} ${isMissedItem ? 'plans-plain-missed' : ''}">
+              <span class="plans-plain-date">${isTodayItem ? 'Today' : `${dayNames[d.getDay()]} ${d.getDate()}`}${isMissedItem ? ' (Catch up)' : ''}</span>
               <span class="plans-plain-passages">${a.unit_indices.map(i => readingUnits[i] ? window.PassageRef.formatPassage(readingUnits[i]) : '?').join(', ')}</span>
               <span class="plans-plain-status">${isDone ? '✓' : ''}</span>
             </div>`;
@@ -590,32 +624,18 @@ window.PlansUI = class PlansUI {
       document.getElementById('plans-panel').classList.remove('hidden', 'compressed');
     }
     const progress = plan.progress || {};
-    const schedule = progress.schedule || [];
     const readingUnits = progress.reading_units || [];
     const completedSet = new Set(Object.keys(progress.completions || {}).map(Number));
     const today = this._today();
-    const todayAssignment = schedule.find(a => a.date === today);
+    const activeEntry = this._getEarliestUncompletedEntry(plan);
     let targetUnit = null;
     let selectedEntry = null;
 
-    if (todayAssignment && todayAssignment.unit_indices.length > 0) {
-      const firstUncompleted = todayAssignment.unit_indices.find(idx => !completedSet.has(idx));
+    if (activeEntry && activeEntry.unit_indices && activeEntry.unit_indices.length > 0) {
+      const firstUncompleted = activeEntry.unit_indices.find(idx => !completedSet.has(idx));
       if (firstUncompleted !== undefined) {
         targetUnit = readingUnits[firstUncompleted];
-        selectedEntry = todayAssignment;
-      }
-    }
-    if (!targetUnit) {
-      const nextEntry = schedule.find(a => {
-        if (a.date <= today) return false;
-        return a.unit_indices.some(idx => !completedSet.has(idx));
-      });
-      if (nextEntry) {
-        selectedEntry = nextEntry;
-        const firstUncompleted = nextEntry.unit_indices.find(idx => !completedSet.has(idx));
-        if (firstUncompleted !== undefined) {
-          targetUnit = readingUnits[firstUncompleted];
-        }
+        selectedEntry = activeEntry;
       }
     }
     if (!targetUnit) return;
@@ -658,12 +678,11 @@ window.PlansUI = class PlansUI {
       }
       this._readingPlan = freshPlan;
       const progress = freshPlan.progress || {};
-      const schedule = progress.schedule || [];
       const readingUnits = progress.reading_units || [];
-      const today = this._today();
-      const todayEntry = schedule.find(s => s.date === today);
-      if (todayEntry && todayEntry.unit_indices.length > 0) {
-        this._todayUnits = todayEntry.unit_indices.map(i => readingUnits[i]).filter(Boolean);
+      const activeEntry = this._getEarliestUncompletedEntry(freshPlan);
+      if (activeEntry && activeEntry.unit_indices.length > 0) {
+        this._todayUnits = activeEntry.unit_indices.map(i => readingUnits[i]).filter(Boolean);
+        this._activeScheduleDate = activeEntry.date;
       } else {
         this._todayUnits = readingUnits.filter(u => u && !u.deleted).slice(0, 10);
       }
@@ -1648,11 +1667,11 @@ window.PlansUI = class PlansUI {
     const schedule = progress.schedule || [];
     const readingUnits = progress.reading_units || [];
     const today = this._today();
-    const todayEntry = schedule.find(s => s.date === today);
-    if (!todayEntry || todayEntry.status === 'completed') return;
+    const activeEntry = this._getEarliestUncompletedEntry(plan);
+    if (!activeEntry || activeEntry.status === 'completed') return;
 
     const completions = { ...(progress.completions || {}) };
-    for (const idx of todayEntry.unit_indices) {
+    for (const idx of activeEntry.unit_indices) {
       completions[idx] = { date: today, completed_at: Date.now() };
     }
     const completedWeight = Object.keys(completions).reduce((sum, key) => {
@@ -1664,18 +1683,18 @@ window.PlansUI = class PlansUI {
       progress: {
         ...progress,
         completions,
-        schedule: schedule.map(s => s.date === today ? { ...s, status: 'completed' } : s),
+        schedule: schedule.map(s => s.date === activeEntry.date ? { ...s, status: 'completed' } : s),
         metrics: { ...(progress.metrics || {}), completed_weight: completedWeight }
       }
     });
 
     const rl = this.bridge.get('reading-log');
     if (rl) {
-      const segments = todayEntry.unit_indices.map(idx => {
+      const segments = activeEntry.unit_indices.map(idx => {
         const u = readingUnits[idx];
         return u ? { book_id: u.book_id, chapter: u.chapter, chapters: [u.chapter, u.chapter_end || u.chapter] } : null;
       }).filter(Boolean);
-      const verseCount = todayEntry.unit_indices.reduce((sum, idx) => {
+      const verseCount = activeEntry.unit_indices.reduce((sum, idx) => {
         const u = readingUnits[idx];
         return sum + (u ? (u.verse_end || 31) - (u.verse_start || 1) + 1 : 0);
       }, 0);
