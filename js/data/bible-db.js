@@ -75,18 +75,20 @@ static async createDbFromBytes(dbPath, expectedSha256 = null) {
     return db;
   }
 
-  static async checkForUpdates(dbPath) {
+  static async checkForUpdates(dbPath, forceNetwork = false) {
     try {
       if (typeof caches === 'undefined') return { updated: false };
       const cache = await caches.open('bible-database-cache');
       const cached = await cache.match(dbPath);
-      if (!cached) return { updated: false };
+      if (!cached && !forceNetwork) return { updated: false };
 
       const headers = {};
-      const etag = cached.headers ? cached.headers.get('ETag') : null;
-      const lastModified = cached.headers ? cached.headers.get('Last-Modified') : null;
-      if (etag) headers['If-None-Match'] = etag;
-      if (lastModified) headers['If-Modified-Since'] = lastModified;
+      if (!forceNetwork && cached) {
+        const etag = cached.headers ? cached.headers.get('ETag') : null;
+        const lastModified = cached.headers ? cached.headers.get('Last-Modified') : null;
+        if (etag) headers['If-None-Match'] = etag;
+        if (lastModified) headers['If-Modified-Since'] = lastModified;
+      }
 
       // Do not let the browser HTTP cache hide a newer repository artifact.
       const resp = await fetch(dbPath, { headers, cache: 'no-store' });

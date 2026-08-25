@@ -206,7 +206,7 @@ window.WordClassService = class WordClassService {
       try {
         if (AppConfig.WORD_ANNOTATIONS_V2_ENABLED !== false) {
           const manifest = await this._fetchManifest()
-          const db = await BibleDB.createDbFromBytes(AppConfig.WORD_ANNOTATIONS_V2_DB)
+          const db = await BibleDB.createDbFromBytes(AppConfig.WORD_ANNOTATIONS_V2_DB, manifest && manifest.sha256)
           if (db && this._validateV2(db, manifest)) {
             this._db = db
             this._isReady = true
@@ -230,11 +230,29 @@ window.WordClassService = class WordClassService {
   async checkForBackgroundUpdate(bridge) {
     if (!this._isReady || !AppConfig.WORD_ANNOTATIONS_V2_ENABLED || !AppConfig.WORD_ANNOTATIONS_V2_DB) return false
     try {
-      const updateResult = await BibleDB.checkForUpdates(AppConfig.WORD_ANNOTATIONS_V2_DB)
-      if (!updateResult.updated || !updateResult.bytes) return false
-
       this._manifestPromise = null
       const manifest = await this._fetchManifest()
+      const expectedSha = manifest && manifest.sha256
+      const verifiedSha = expectedSha
+        ? await BibleDB._getVerifiedSha(AppConfig.WORD_ANNOTATIONS_V2_DB)
+        : null
+      if (expectedSha && verifiedSha === expectedSha) return false
+
+      // A changed manifest is authoritative. Skip conditional validators so a
+      // stale intermediary cannot return the old database for a new version.
+      const updateResult = await BibleDB.checkForUpdates(
+        AppConfig.WORD_ANNOTATIONS_V2_DB,
+        Boolean(expectedSha && verifiedSha !== expectedSha),
+      )
+      if (!updateResult.updated || !updateResult.bytes) return false
+
+      if (expectedSha) {
+        const actualSha = await BibleDB._sha256Hex(updateResult.bytes)
+        if (actualSha !== BibleDB.SHA_UNAVAILABLE && actualSha !== expectedSha) {
+          console.warn('[WordClassService] downloaded database hash mismatch:', actualSha)
+          return false
+        }
+      }
       const newDb = BibleDB._deserialize(updateResult.bytes)
       if (newDb && this._validateV2(newDb, manifest)) {
         const oldDb = this._db
@@ -244,6 +262,9 @@ window.WordClassService = class WordClassService {
         }
         if (bridge) {
           bridge.emit('render:refresh')
+        }
+        if (expectedSha && expectedSha !== BibleDB.SHA_UNAVAILABLE) {
+          await BibleDB._setVerifiedSha(AppConfig.WORD_ANNOTATIONS_V2_DB, expectedSha)
         }
         return true
       }
@@ -262,7 +283,7 @@ window.WordClassService = class WordClassService {
     if (!AppConfig.WORD_ANNOTATIONS_V2_MANIFEST) return Promise.resolve(null)
     this._manifestPromise = (async () => {
       try {
-        const resp = await fetch(AppConfig.WORD_ANNOTATIONS_V2_MANIFEST)
+        const resp = await fetch(AppConfig.WORD_ANNOTATIONS_V2_MANIFEST, { cache: 'no-store' })
         if (!resp.ok) {
           console.warn('[WordClassService] manifest fetch failed:', resp.status)
           return null
