@@ -81,6 +81,11 @@ window.WordStudyService = class WordStudyService {
   async checkForBackgroundUpdates(bridge) {
     let updatedAny = false;
     try {
+      // Startup calls this check while the initial database loads are still
+      // in flight. Wait for those loads instead of silently skipping them.
+      if (!this._dataReady && this._dataInitPromise) await this._dataInitPromise;
+      if (!this._lexReady && this._lexInitPromise) await this._lexInitPromise;
+
       const dataUrl = (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB)
         ? AppConfig.WORD_STUDY_DATA_DB
         : 'https://repo.focusedword.com/study/bsb_word_data.sqlite';

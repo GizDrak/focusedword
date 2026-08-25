@@ -228,6 +228,10 @@ window.WordClassService = class WordClassService {
   }
 
   async checkForBackgroundUpdate(bridge) {
+    if (!this._isReady) {
+      if (!this._initPromise) return false
+      await this._initPromise
+    }
     if (!this._isReady || !AppConfig.WORD_ANNOTATIONS_V2_ENABLED || !AppConfig.WORD_ANNOTATIONS_V2_DB) return false
     try {
       this._manifestPromise = null
