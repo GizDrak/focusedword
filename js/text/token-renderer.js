@@ -601,11 +601,28 @@ window.TokenRenderer = class TokenRenderer {
     }
     if (!ranges.size) return;
 
+    // A crosswalk can contain nested or partially overlapping ranges. Clip
+    // them before wrapping text so shared characters are emitted only once.
+    const nonOverlapping = [];
+    const sortedRanges = [...ranges.values()].sort((a, b) =>
+      a.charStart - b.charStart ||
+      (b.charEnd - b.charStart) - (a.charEnd - a.charStart)
+    );
+    for (const range of sortedRanges) {
+      const previous = nonOverlapping[nonOverlapping.length - 1];
+      const charStart = previous && range.charStart < previous.charEnd
+        ? previous.charEnd
+        : range.charStart;
+      if (range.charEnd <= charStart) continue;
+      nonOverlapping.push({ ...range, charStart });
+    }
+    if (!nonOverlapping.length) return;
+
     for (const entry of segments) {
       const { node: tn, start: tnIndex, end: tnEnd } = entry;
       const tnText = tn.textContent;
       const rangesIn = [];
-      for (const r of ranges.values()) {
+      for (const r of nonOverlapping) {
         if (r.charStart < tnEnd && r.charEnd > tnIndex) {
           rangesIn.push({
             localStart: Math.max(r.charStart - tnIndex, 0),

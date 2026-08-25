@@ -1,5 +1,13 @@
 # What's New in Focused Word
 
+## v1.0.3 — Word Study Rendering Fix
+
+### Fixed duplicate words with combined study tools
+- Word Study no longer duplicates words or partial words when Word Classes and Word Study are enabled together.
+- Overlapping annotation ranges are safely clipped before rendering, preserving the original verse text.
+
+---
+
 ## v1.0.2 — Sequential Reading Plans & Study Data Updates
 
 ### Sequential Reading Plan Progression
