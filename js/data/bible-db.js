@@ -88,7 +88,8 @@ static async createDbFromBytes(dbPath, expectedSha256 = null) {
       if (etag) headers['If-None-Match'] = etag;
       if (lastModified) headers['If-Modified-Since'] = lastModified;
 
-      const resp = await fetch(dbPath, { headers });
+      // Do not let the browser HTTP cache hide a newer repository artifact.
+      const resp = await fetch(dbPath, { headers, cache: 'no-store' });
       if (resp.status === 304) {
         return { updated: false };
       }

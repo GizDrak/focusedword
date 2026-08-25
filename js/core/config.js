@@ -3,7 +3,9 @@ window.AppConfig = {
   WORD_ANNOTATIONS_V2_ENABLED: true,
   STUDY_ASSET_BASE_URL: 'https://repo.focusedword.com/study',
   WORD_ANNOTATIONS_V2_DB: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.sqlite',
-  WORD_ANNOTATIONS_V2_MANIFEST: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.sqlite.manifest.json',
+  // The hosted Word Classes database is self-validating through its metadata.
+  // No separate manifest is published by the study repository.
+  WORD_ANNOTATIONS_V2_MANIFEST: null,
   WORD_ANNOTATIONS_V2_VOCABULARY: 'https://repo.focusedword.com/study/BSB_token_annotations_v2.vocabulary.json',
   WORD_STUDY_DATA_DB: 'https://repo.focusedword.com/study/bsb_word_data.sqlite',
   LEXICON_DATA_DB: 'https://repo.focusedword.com/study/lexicon_data.sqlite',

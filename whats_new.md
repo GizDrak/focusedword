@@ -9,6 +9,7 @@
 
 ### Background Study Database Updates & Expanded Word Classes
 - **Automatic Background Checks**: Study databases (`BSB_token_annotations_v2.sqlite`, `bsb_word_data.sqlite`, and `lexicon_data.sqlite`) now check for updates in the background on launch when previously cached, ensuring you stay up to date without interrupting your reading or re-downloading fresh installs.
+- **Reliable Revalidation**: Update checks bypass the browser HTTP cache, and Word Classes validation now relies on the database's embedded metadata instead of requesting an unavailable separate manifest.
 - **Additional Word Classes**: Additional words have been added to the Word Classes database for enhanced semantic and grammatical classification across Scripture.
 
 ---
