@@ -126,7 +126,16 @@ window.TokenRenderer = class TokenRenderer {
   _renderParagraphStart(token, ctx) {
     ctx.closeBlock();
     ctx.lastHeadingEl = null;
-    if (!ctx.settings.paragraphBreaks) return;
+    if (!ctx.settings.paragraphBreaks) {
+      // Collapsed paragraphs must still keep their runs apart — a missing
+      // separator glues the final word of one paragraph to the start of the
+      // next (e.g. "by her."And Abram"). Insert a single space when there is
+      // preceding content so the two paragraphs read inline but spaced.
+      if (ctx.verseText.hasChildNodes()) {
+        ctx.verseText.appendChild(document.createTextNode(' '));
+      }
+      return;
+    }
     if (ctx.settings.paragraphMode) {
       if (ctx.verseText.hasChildNodes()) {
         ctx.verseText.appendChild(document.createElement('br'));
