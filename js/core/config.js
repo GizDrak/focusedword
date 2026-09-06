@@ -1,4 +1,5 @@
 window.AppConfig = {
+  APP_VERSION: '1.0.5',
   SQLITE_WASM_URL: '/js/vendor/sqlite-wasm/index.mjs',
   STUDY_ASSET_BASE_URL: 'https://repo.focusedword.com/study',
   WORD_CLASSES_DB_ZIP: 'https://repo.focusedword.com/study/BSB_word_classes.sqlite.zip',

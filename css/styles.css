@@ -1273,6 +1273,91 @@ body.focus-mode .install-banner {
   display: none !important;
 }
 
+/* ========== What's New (Update) Banner ========== */
+.update-banner {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  z-index: 150;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+
+.update-banner.open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.update-banner-body {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.6rem 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.update-banner-text {
+  flex: 1;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.update-banner-text strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.update-btn {
+  flex-shrink: 0;
+  background: var(--accent-color);
+  color: #0A0A0A;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.update-btn:active {
+  opacity: 0.75;
+}
+
+.update-dismiss-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.update-dismiss-btn:hover {
+  opacity: 1;
+}
+
+body.focus-mode .update-banner {
+  display: none !important;
+}
+
 /* ========== iOS Install Instructions Sheet ========== */
 .install-ios-backdrop {
   position: fixed;
@@ -2402,6 +2487,59 @@ body.speed-mode .vt-badge {
 
 .verse-text.vt-style-fold .vt-badge svg {
   display: block;
+}
+
+/* On larger screens (desktop / large tablets) the card is wider, so the
+   corner / tab badges can feel oversized relative to the box. Shrink every
+   style's badge and its reserved space to keep the icon comfortably inside
+   the card. Sizes derive from the per-style custom properties, so overriding
+   the fixed badge px and the --vt-* sizing vars scales each treatment. */
+@media (min-width: 768px) {
+  .verse-container.vt-style-tabs .vt-badge {
+    --vt-foot: 6px;
+    width: 36px;
+    height: 44px;
+  }
+  .verse-container.vt-style-tabs .vt-badge svg {
+    width: 20px;
+    height: 20px;
+  }
+  .verse-container.vt-style-tabs {
+    --vt-reserve: 44px;
+  }
+
+  .verse-container.vt-style-gradient {
+    --vt-reserve: 52px;
+  }
+  .verse-container.vt-style-gradient .vt-badge {
+    top: 50%;
+    width: 34px;
+    height: 34px;
+    transform: translateY(-50%);
+  }
+  .verse-container.vt-style-gradient .vt-badge svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .verse-container.vt-style-fold {
+    --vt-reserve: 48px;
+    --vt-fold: 40px;
+  }
+
+  .verse-container.vt-style-triangle {
+    --vt-reserve: 48px;
+    --vt-fold: 40px;
+  }
+
+  .verse-container.vt-style-medallion {
+    --vt-reserve: 52px;
+    --vt-med: 34px;
+  }
+  .verse-container.vt-style-medallion .vt-badge {
+    top: 50%;
+    transform: translateY(-50%);
+  }
 }
 
 /* Style/mode selectors (Settings → Study submenus). */

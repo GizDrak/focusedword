@@ -235,6 +235,16 @@ window.App = class App {
     settings.init();
     settings._applyTextSettings();
 
+    if (window.UpdateBanner) {
+      const updateBanner = new window.UpdateBanner(bridge);
+      bridge.register('update-banner', updateBanner);
+      updateBanner.init();
+      const dismissBtn = document.getElementById('update-dismiss-btn');
+      if (dismissBtn) dismissBtn.addEventListener('click', () => updateBanner.dismiss());
+      const whatsNewBtn = document.getElementById('update-whats-new-btn');
+      if (whatsNewBtn) whatsNewBtn.addEventListener('click', (e) => { e.preventDefault(); updateBanner.openWhatsNew(); });
+    }
+
     if (window.NoteStore) {
       const noteStore = new window.NoteStore(bridge);
       bridge.register('note-store', noteStore);

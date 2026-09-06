@@ -10,6 +10,11 @@ window.SettingsModule = class SettingsModule {
   }
 
   init() {
+    const version = (window.AppConfig && window.AppConfig.APP_VERSION) || '';
+    if (version) {
+      const label = document.getElementById('settings-version-label');
+      if (label) label.textContent = 'v' + version;
+    }
     this._initEventListeners();
     this._syncUIFromState();
     this._preloadStudyVocabulary();
@@ -918,9 +923,12 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('focus-exit-btn').addEventListener('click', () => this.toggleFocusMode());
   }
 
+  openChangelog() {
+    this._openChangelog();
+  }
+
   openSettings() {
-    if (this.settingsOpen) return;
-    this.settingsOpen = true;
+    if (this.settingsOpen) return;    this.settingsOpen = true;
     const panel = document.getElementById('settings-panel');
     const overlay = document.getElementById('settings-overlay');
     // Capture the element that opened settings so focus restores to the
