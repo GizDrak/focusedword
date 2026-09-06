@@ -2494,7 +2494,7 @@ body.speed-mode .vt-badge {
    style's badge and its reserved space to keep the icon comfortably inside
    the card. Sizes derive from the per-style custom properties, so overriding
    the fixed badge px and the --vt-* sizing vars scales each treatment. */
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .verse-container.vt-style-tabs .vt-badge {
     --vt-foot: 6px;
     width: 36px;
