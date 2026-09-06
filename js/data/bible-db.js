@@ -570,6 +570,126 @@ window.BibleDB = class BibleDB {
     }
   }
 
+  // ─── One-time study-database refresh ──────────────────────────────────────
+  // Epoch gate for a forced local wipe + redownload of all study databases.
+  // Bump STUDY_DB_EPOCH when published study builds must replace every
+  // client-cached copy.
+  static STUDY_DB_EPOCH = 1;
+  static STUDY_DB_EPOCH_KEY = 'focused-word:study-db-epoch';
+
+  // localStorage when it is actually usable (private modes and some test
+  // environments expose a stub without a working API). Without persistent
+  // storage the epoch cannot be recorded, so no wipe is attempted — wiping
+  // on every launch would re-download the databases every time.
+  static _epochStorage() {
+    try {
+      const ls = typeof localStorage !== 'undefined' ? localStorage : null;
+      if (ls && typeof ls.getItem === 'function' && typeof ls.setItem === 'function') return ls;
+    } catch (e) {}
+    return null;
+  }
+
+  static studyDbRefreshNeeded() {
+    const ls = this._epochStorage();
+    if (!ls) return false;
+    try {
+      return ls.getItem(BibleDB.STUDY_DB_EPOCH_KEY) !== String(BibleDB.STUDY_DB_EPOCH);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Every URL form a study database can be cached under: sqlite bytes, zip
+  // distribution, and manifest.
+  static _studyDbUrls() {
+    const out = [];
+    try {
+      for (const cfg of this._studyDbConfigs()) {
+        if (cfg.dbPath) out.push(cfg.dbPath);
+        if (cfg._zipUrl) out.push(cfg._zipUrl);
+        if (cfg._manifestPath) out.push(cfg._manifestPath);
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  // Best-effort wipe of every local trace of study databases: OPFS
+  // generations, IDB study metadata + verified hashes, and cached bytes,
+  // zips, and manifests. Returns true only if every step completed, so a
+  // failed pass retries on the next launch instead of stranding the client
+  // with no databases. Never touches the core Bible database or user data.
+  static async wipeStudyDatabases() {
+    const errors = [];
+    // 1. OPFS generation files.
+    try {
+      const pool = await this._getOpfsPool();
+      if (pool && typeof pool.getFileNames === 'function') {
+        for (const f of pool.getFileNames() || []) {
+          if (typeof f === 'string' && f.indexOf('/study/') === 0) {
+            try { pool.unlink(f); } catch (e) { errors.push(e); }
+          }
+        }
+      }
+    } catch (e) { errors.push(e); }
+    // 2. IDB study metadata + verified hashes (study URLs only — the core
+    // Bible database keeps its verified hash).
+    try {
+      if (typeof window !== 'undefined' && window.idb) {
+        const urls = new Set(this._studyDbUrls());
+        if (typeof window.idb.getAll === 'function' && typeof window.idb.delete === 'function') {
+          const all = await window.idb.getAll('metadata');
+          for (const r of all || []) {
+            if (!r || typeof r.key !== 'string') continue;
+            if (r.key.indexOf('study-opfs:') === 0) {
+              await window.idb.delete('metadata', r.key);
+            } else if (r.key.indexOf('verified-db:') === 0 && urls.has(r.key.slice('verified-db:'.length))) {
+              await window.idb.delete('metadata', r.key);
+            }
+          }
+        }
+      }
+    } catch (e) { errors.push(e); }
+    // 3. Cached bytes, zips, and manifests.
+    try {
+      if (typeof caches !== 'undefined') {
+        const cache = await caches.open('bible-database-cache');
+        const urls = new Set(this._studyDbUrls());
+        const keys = typeof cache.keys === 'function' ? await cache.keys() : [];
+        for (const req of keys || []) {
+          const url = typeof req === 'string' ? req : req && req.url;
+          if (!url) continue;
+          if (urls.has(url) || url.indexOf('/study/') >= 0) {
+            await cache.delete(req);
+          }
+        }
+      }
+    } catch (e) { errors.push(e); }
+    if (errors.length) {
+      console.warn('[BibleDB] study database wipe incomplete:', errors[0]);
+      return false;
+    }
+    return true;
+  }
+
+  // Runs the one-time wipe when this client has not applied the current
+  // epoch yet. Call at boot, before any study database is opened — normal
+  // startup then re-downloads the current builds from the manifests.
+  // Returns true when a wipe ran.
+  static async maybeForceStudyDbRefresh() {
+    if (!this.studyDbRefreshNeeded()) return false;
+    const ok = await this.wipeStudyDatabases();
+    if (!ok) return false;
+    try {
+      const ls = this._epochStorage();
+      if (!ls) return false;
+      ls.setItem(this.STUDY_DB_EPOCH_KEY, String(this.STUDY_DB_EPOCH));
+    } catch (e) {
+      return false;
+    }
+    console.log('[BibleDB] study databases wiped for epoch', this.STUDY_DB_EPOCH, '— will re-download');
+    return true;
+  }
+
   static async getStorageStatus() {
     const databases = [];
     const pool = await this._getOpfsPool();

@@ -15,6 +15,13 @@ window.App = class App {
     bridge.db = new window.BibleDB();
     bridge.bionic = window.BionicParser;
 
+    // One-time study database refresh: drop every locally cached study
+    // database so clients re-download the current builds. Runs before any
+    // study database is opened; normal startup re-fetches afterwards.
+    await window.BibleDB.maybeForceStudyDbRefresh().catch((e) =>
+      console.warn('[app] Study database refresh failed:', e)
+    );
+
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
       document.documentElement.classList.add('ios-device');
     }
