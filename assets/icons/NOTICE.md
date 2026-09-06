@@ -12,6 +12,14 @@ Word and are covered by the project's MIT license (see repository root
   `android/*`, `pwa/icon-192.png`, `pwa/icon-512.png`,
   `pwa/maskable-icon.png`.
 
+## Verse topic badges
+
+- `design/icons/verse_topic_icons/*.svg` — original AI-generated artwork for the
+  ten verse topics (God, Jesus Christ, Salvation, Sin & Judgment, Faith & Trust,
+  Worship & Prayer, Covenant & Law, People of God, History & Nation, Wisdom &
+  Prophecy), slimmed and collapsed to single-tone `currentColor` at build time
+  into `client/js/data/verse-topic-icons.js` (`scripts/slim-verse-topic-icons.mjs`).
+
 ## UI glyphs
 
 - `ui/*.svg` — interface icons created for this project.

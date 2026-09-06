@@ -21,6 +21,15 @@ window.VerseManager = class VerseManager {
     this._stateStore.batch({ currentVerse: verse });
   }
 
+  setPassivePosition(book, chapter, verse, bookName) {
+    if (this._locked) return;
+    const updates = { currentVerse: verse };
+    if (book != null) updates.currentBook = book;
+    if (chapter != null) updates.currentChapter = chapter;
+    if (bookName) updates.currentBookName = bookName;
+    this._stateStore.batch(updates);
+  }
+
   releaseLock() {
     this._locked = false;
     if (this._failsafeTimer) {

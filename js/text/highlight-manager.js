@@ -582,6 +582,76 @@ window.HighlightManager = class HighlightManager {
     return id.replace(/_(?:v)?\d+$/i, '');
   }
 
+  _extractCleanVerseText(verseText) {
+    if (!verseText) return '';
+    const walker = document.createTreeWalker(verseText, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null, false);
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+
+    const isExcluded = (node) => {
+      let parent = node.parentNode;
+      while (parent && parent !== verseText) {
+        if (parent.tagName === 'SUP' ||
+            (parent.classList && (parent.classList.contains('footnote-caller') ||
+                parent.classList.contains('crossref-indicator') ||
+                parent.classList.contains('token-section-heading-ref') ||
+                parent.classList.contains('verse-num')))) {
+          return true;
+        }
+        parent = parent.parentNode;
+      }
+      return false;
+    };
+
+    const OPENING = /[\u2018\u201c\u201b\u00ab([{]/;
+    const CLOSING = /[\u2019\u201d\u00bb)\]},.!?:;]/;
+    let out = '';
+    let lastChar = '';
+    let lastTextParent = null;
+    let boundaryPending = false;
+    let prevWasBionic = false;
+
+    for (const node of nodes) {
+      if (node.nodeType === 1) {
+        boundaryPending = true;
+        continue;
+      }
+      if (isExcluded(node)) {
+        boundaryPending = true;
+        continue;
+      }
+      const raw = node.textContent;
+      if (!raw) {
+        boundaryPending = true;
+        continue;
+      }
+      const parent = node.parentElement;
+      const parentChanged = lastTextParent && parent !== lastTextParent;
+      const adjacentText = lastTextParent && parent === lastTextParent && !boundaryPending;
+      const first = raw[0];
+      if (lastChar && !/\s/.test(lastChar) && !/\s/.test(first) &&
+          (boundaryPending || parentChanged || adjacentText) &&
+          !prevWasBionic && !OPENING.test(lastChar) && !CLOSING.test(first)) {
+        out += ' ';
+      }
+      out += raw.replace(/\u00A0/g, ' ');
+      lastChar = raw[raw.length - 1];
+      lastTextParent = parent;
+      prevWasBionic = !!(parent && parent.tagName === 'B');
+      boundaryPending = false;
+    }
+    return out.replace(/\s{2,}/g, ' ').trim();
+  }
+
+  _cleanCopiedText(text) {
+    if (!text) return text;
+    return text
+      .replace(/\u00A0/g, ' ')
+      .replace(/^(\d+)(?=[^\s.,;:!?)\]}"\u2019\u201d])/, '$1 ')
+      .replace(/([;:,])(?=[A-Za-z\u2018\u201c\u00ab])/g, '$1 ');
+  }
+
   _copyText() {
     const interaction = this.bridge.get('interaction-manager');
     const state = this.bridge.state;
@@ -599,13 +669,7 @@ window.HighlightManager = class HighlightManager {
         const num = parseInt(vn.textContent);
         if (isNaN(num)) continue;
         verseNums.push(num);
-        const fullText = vt.textContent.trim();
-        const numStr = vn.textContent;
-        let clean = fullText;
-        if (fullText.startsWith(numStr)) {
-          clean = fullText.slice(numStr.length).trim();
-        }
-        cleanTexts.push(clean);
+        cleanTexts.push(this._extractCleanVerseText(vt));
       }
 
       if (cleanTexts.length) {
@@ -627,7 +691,7 @@ window.HighlightManager = class HighlightManager {
       }
     }
 
-    if (!text) text = this._activeText || '';
+    if (!text) text = this._cleanCopiedText(this._activeText || '');
     if (!text) return;
 
     let copied = false;
@@ -681,11 +745,8 @@ window.HighlightManager = class HighlightManager {
         const num = parseInt(vn.textContent);
         if (isNaN(num)) continue;
         verseNums.push(num);
-        const clone = vt.cloneNode(true);
-        clone.querySelectorAll('.footnote-caller, .crossref-indicator').forEach(el => el.remove());
-        let clean = clone.textContent.trim();
-        clean = clean.replace(/^(\d+)/, '\x00SUP\x00$1\x00/SUP\x00 ');
-        cleanTexts.push(clean);
+        const body = this._extractCleanVerseText(vt);
+        if (body) cleanTexts.push('\x00SUP\x00' + num + '\x00/SUP\x00 ' + body);
       }
       if (verseNums.length) {
         verseNums.sort((a, b) => a - b);
@@ -701,7 +762,7 @@ window.HighlightManager = class HighlightManager {
       }
     }
 
-    if (!text) text = this._activeText || '';
+    if (!text) text = this._cleanCopiedText(this._activeText || '');
 
     let content = '';
     if (ref || text) {
@@ -826,7 +887,9 @@ window.HighlightManager = class HighlightManager {
       chapter = this.bridge.state.get('currentChapter');
     }
     const highlights = await this.store.getForChapter(bookId, chapter);
-    const containers = document.querySelectorAll('#content .verse-container');
+    const containers = this.bridge.state.get('continuousChapters') === true
+      ? document.querySelectorAll('#content .verse-container[data-book="' + bookId + '"][data-chapter="' + chapter + '"]')
+      : document.querySelectorAll('#content .verse-container');
 
     for (const c of containers) {
       c.classList.remove('highlighted');

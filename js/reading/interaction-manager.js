@@ -312,12 +312,18 @@ window.InteractionManager = class InteractionManager {
   _emitVerseSelection() {
     const firstVerse = Array.from(this.selectedVerses)[0];
     const rect = firstVerse.getBoundingClientRect();
+    const highlightManager = this.bridge.get('highlight-manager');
+    const extract = (vt) => {
+      if (highlightManager && typeof highlightManager._extractCleanVerseText === 'function') {
+        return highlightManager._extractCleanVerseText(vt);
+      }
+      return vt.textContent.replace(/\u00A0/g, ' ').trim();
+    };
     const text = Array.from(this.selectedVerses)
       .map(v => {
         const vt = v.querySelector('.verse-text');
         if (!vt) return '';
-        const parts = Array.from(vt.childNodes).filter(n => n.nodeType === Node.TEXT_NODE || (n.classList && !n.classList.contains('verse-num')));
-        return parts.map(n => n.textContent).join('').trim();
+        return extract(vt);
       })
       .filter(Boolean)
       .join(' ');

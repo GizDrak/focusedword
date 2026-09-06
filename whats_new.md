@@ -1,5 +1,37 @@
 # What's New in Focused Word
 
+## v1.0.5 — Verse Topics
+
+### Verse Topics
+- **See what each verse is about at a glance** — every verse belongs to one of ten topics, from God and Jesus Christ to History & Nation and Wisdom & Prophecy. The verse card is tinted with its topic's color and marked with the topic's own icon, so you can watch a passage move between ideas as you read.
+- **Five display styles** — choose how topics appear: Medallion (default), Corner Fold, Triangle, Gradient Edge, or Tabs. Find them in Settings → Study → Verse Topics.
+- **Make it yours** — recolor any topic, turn individual topics on or off (… menu → Verse Topics), and everything updates instantly.
+- **Works with any Bible translation** — unlike the other study tools, Verse Topics isn't tied to one translation, so your topics follow you wherever you read.
+
+### Faster, smaller study databases
+- **Word Classes and Clear Reading got a speed-up** — their databases have been rebuilt to be smaller, so they download faster, take up less room on your device, and get their colors on screen sooner.
+
+### Fixed
+- **No more small jump between chapters in Scroll mode** — with study features like Word Classes, Clear Reading, or Word Study on, their colors and underlines sometimes finished loading right as you crossed into the next chapter, nudging the text you were reading. Your reading spot now stays exactly where it was.
+- **Study markings stay when you scroll back** — in continuous reading, returning to a chapter you had already passed through kept showing plain text instead of its Word Class colors, Clear Reading dimming, Word Study underlines, or Verse Topic markings. Re-entering a chapter now brings its study markings right back.
+
+---
+
+## v1.0.4 — Continuous Chapters
+
+### Continuous Chapters
+- **Read straight through chapter boundaries** — Scroll and Spotlight modes now flow seamlessly from one chapter into the next. No more tapping "next chapter": keep scrolling or advancing and the next chapter simply continues below the one you're reading.
+- **A rolling three-chapter window** keeps the previous, current, and next chapters ready, so transitions stay instant and smooth — even on phones.
+- **Chapter titles between chapters** — every chapter opens with its full header (emblem, title, and reference) right where the text continues, in both Scroll and Spotlight, so you always know where you are.
+- **In-window swipe** — in Spotlight, swipe horizontally to move verse by verse inside the loaded window while the flow continues across chapters.
+- **Recent history stays complete** — each chapter boundary you cross is recorded in your navigation history automatically.
+- **Your call, always** — Continuous Chapters is on by default and can be turned off any time in Settings, restoring the classic one-chapter-at-a-time reading.
+
+### Fixed
+- **Copied verses keep their spaces** — copying a verse or saving one to Notes no longer runs words together. Poetry lines and red-letter text now extract with the spacing the translation intended, verse numbers no longer glue to the first word when selecting text by hand, and copied text matches the source Bible text exactly.
+
+---
+
 ## v1.0.3 — Word Study Rendering Fix
 
 ### Fixed duplicate words with combined study tools

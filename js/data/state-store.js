@@ -6,7 +6,7 @@ window.StateStore = class StateStore {
     this._immediateKeys = new Set([
       'theme', 'accent', 'bionic', 'bionicStrength',
       'swipeMode', 'spotlightMode', 'speedMode', 'splitMode', 'splitPortrait',
-      'focusMode', 'speedAutoAdvance', 'tapSwipeMode',
+      'focusMode', 'speedAutoAdvance', 'tapSwipeMode', 'continuousChapters',
       'activeBookmarkSet',
       'activeHighlightColor',
       'fontFamily', 'fontSize', 'margins', 'lineSpacing', 'letterSpacing',
@@ -20,7 +20,8 @@ window.StateStore = class StateStore {
       'currentTranslation',
       'currentBook', 'currentChapter', 'currentVerse', 'currentBookName',
       'wordClasses', 'wordClassAxisSettings',
-      'wordStudyEnabled', 'wordStudyMode'
+      'wordStudyEnabled', 'wordStudyMode',
+      'verseTopicsEnabled', 'verseTopicSettings'
     ]);
     this._data = {
       bionic: false,
@@ -40,6 +41,7 @@ window.StateStore = class StateStore {
       focusMode: false,
       speedAutoAdvance: false,
       tapSwipeMode: true,
+      continuousChapters: true,
       currentTranslation: 'BSB',
       activeBookmarkSet: null,
       activeHighlightColor: null,
@@ -68,6 +70,8 @@ window.StateStore = class StateStore {
       clearReadingEnabled: false,
       clearReadingMode: 'off',
       clearReadingToggles: { content: true, pronoun: true, connector: true, relation: true, article: true, negation: true },
+      verseTopicsEnabled: false,
+      verseTopicSettings: null,
       chapterHeaderAlignment: 'skin',
       sectionHeadingAlignment: 'skin',
       verseTextAlignment: 'skin',
@@ -552,6 +556,7 @@ window.StateStore = class StateStore {
         'focused-word:focus-mode': 'focusMode',
         'focused-word:speed-auto-advance': 'speedAutoAdvance',
         'focused-word:tap-swipe': 'tapSwipeMode',
+        'focused-word:continuous-chapters': 'continuousChapters',
         'focused-word:current-translation': 'currentTranslation',
         'focused-word:active-bookmark-set': 'activeBookmarkSet',
         'focused-word:active-highlight-color': 'activeHighlightColor',
@@ -581,6 +586,8 @@ window.StateStore = class StateStore {
         'focused-word:word-class-axis-settings': 'wordClassAxisSettings',
         'focused-word:word-study-enabled': 'wordStudyEnabled',
         'focused-word:word-study-mode': 'wordStudyMode',
+        'focused-word:verse-topics-enabled': 'verseTopicsEnabled',
+        'focused-word:verse-topic-settings': 'verseTopicSettings',
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);

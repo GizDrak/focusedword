@@ -35,8 +35,23 @@ window.ViewManager = class ViewManager {
     if (anyActive) window.scrollTo(0, 0);
   }
 
-  scrollToReadingBand(verseNum) {
-    const el = document.querySelector(`.verse-container[data-verse="${verseNum}"]`);
+  _verseSelector(verseNum, opts) {
+    const state = this.bridge.state;
+    let book = opts && opts.book != null ? opts.book : null;
+    let chapter = opts && opts.chapter != null ? opts.chapter : null;
+    if (book == null && state.get('continuousChapters') === true) {
+      book = state.get('currentBook');
+      chapter = state.get('currentChapter');
+    }
+    let sel = '.verse-container[data-verse="' + verseNum + '"]';
+    if (book != null && chapter != null) {
+      sel = '.verse-container[data-book="' + book + '"][data-chapter="' + chapter + '"][data-verse="' + verseNum + '"]';
+    }
+    return sel;
+  }
+
+  scrollToReadingBand(verseNum, opts) {
+    const el = document.querySelector(this._verseSelector(verseNum, opts));
     if (!el) return;
 
     const content = document.getElementById('content');
@@ -60,14 +75,14 @@ window.ViewManager = class ViewManager {
     this._instantScroll = false;
   }
 
-  scrollToVerse(verseNum) {
+  scrollToVerse(verseNum, opts) {
     if (this._scrollRaf) {
       cancelAnimationFrame(this._scrollRaf);
       this._scrollRaf = null;
     }
 
     const el = verseNum != null
-      ? document.querySelector(`.verse-container[data-verse="${verseNum}"]`)
+      ? document.querySelector(this._verseSelector(verseNum, opts))
       : document.querySelector('.verse-container.active-verse');
     if (!el) { this._instantScroll = false; return; }
 

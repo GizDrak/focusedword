@@ -150,7 +150,8 @@ window.NavigationModule = class NavigationModule {
       this.currentVerses = tokenVerses.map(v => ({
         ...v,
         book_code: bookCode,
-        book_id: bookId
+        book_id: bookId,
+        chapter
       }));
       // Render the chapter immediately; stream word classes / word study
       // enrichment afterwards so switching chapters never blocks on the
@@ -162,70 +163,23 @@ window.NavigationModule = class NavigationModule {
 
       const currentTranslation = this.bridge.state.get('currentTranslation');
       if (currentTranslation === 'BSB') {
-        const wc = this.bridge.get('word-class-service');
-        if (wc && (state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true)) {
+        const anyStudy = state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true || state.get('verseTopicsEnabled') === true;
+        if (anyStudy) {
           // Enrichment is deferred past the first paint so the chapter renders
           // immediately (Phase 1). Annotations are applied to the living DOM in
           // place (Phase 2) and adjacent chapters are prefetched during idle
           // (Phase 3). Never block the initial paint.
           const run = async () => {
             try {
-              if (!wc.isReady) await wc.init(this.bridge);
-              if (!wc.isReady) return;
-              const isStale = () => gen !== this._enrichGen || this.currentVerses !== versesForEnrich || state.get('currentBook') !== bookId || state.get('currentChapter') !== chapter;
-              if (isStale()) return;
+              // In continuous reading the verse DOM is chapter-scoped, so a
+              // late annotation stream can still target its own chapter's
+              // containers even after the reader crossed a boundary.
+              const continuous = () => state.get('continuousChapters') === true &&
+                !state.get('swipeMode') && !state.get('spotlightMode') && !state.get('speedMode') && !state.get('splitMode');
+              const isStale = () => gen !== this._enrichGen ||
+                (!continuous() && (this.currentVerses !== versesForEnrich || state.get('currentBook') !== bookId || state.get('currentChapter') !== chapter));
 
-              const tasks = [];
-              let didEnrich = false;
-
-              if (state.get('wordClasses') === true) {
-                tasks.push(
-                  Promise.resolve(wc.getChapterRenderSpans(bookCode, chapter)).then(spans => {
-                    if (isStale() || state.get('wordClasses') !== true) return;
-                    for (const v of versesForEnrich) {
-                      v.wordClassSpans = spans[v.verse] || [];
-                    }
-                    didEnrich = true;
-                  })
-                );
-              }
-
-              if (state.get('clearReadingEnabled') === true) {
-                tasks.push(
-                  Promise.resolve(wc.getClearReadingSpans(bookCode, chapter)).then(clearReading => {
-                    if (isStale() || state.get('clearReadingEnabled') !== true) return;
-                    for (const v of versesForEnrich) {
-                      v.clearReadingSpans = clearReading[v.verse] || [];
-                    }
-                    didEnrich = true;
-                  })
-                );
-              }
-
-              if (state.get('wordStudyEnabled') === true) {
-                tasks.push(
-                  (async () => {
-                    const ws = this.bridge.get('word-study-service');
-                    if (!ws) return;
-                    try {
-                      if (!ws.dataReady) await ws.initDataDb();
-                      if (isStale() || !ws.dataReady || state.get('wordStudyEnabled') !== true) return;
-                      const cleanTextVerses = {};
-                      for (const v of versesForEnrich) cleanTextVerses[v.verse] = v.clean_text || '';
-                      const studySpans = await ws.getChapterStudySpans(bookCode, chapter, cleanTextVerses, wc);
-                      if (isStale()) return;
-                      for (const v of versesForEnrich) {
-                        v.wordStudySpans = studySpans[v.verse] || [];
-                      }
-                      didEnrich = true;
-                    } catch (e) {
-                      console.warn('[Navigation] Word study span enrichment failed:', e);
-                    }
-                  })()
-                );
-              }
-
-              await Promise.all(tasks);
+              const didEnrich = await this._applyEnrichment(bookId, chapter, versesForEnrich, isStale);
               if (isStale() || !didEnrich) return;
 
               // Phase 2: apply spans onto the living DOM; the render manager
@@ -234,7 +188,7 @@ window.NavigationModule = class NavigationModule {
 
               // Phase 3: idle-time prefetch of the adjacent chapter's spans so
               // the next swipe applies almost instantly.
-              this._prefetchAdjacent(bookId, chapter, wc);
+              this._prefetchAdjacent(bookId, chapter);
             } catch (e) {
               console.warn('[Navigation] Word class enrichment failed:', e);
             }
@@ -254,12 +208,113 @@ window.NavigationModule = class NavigationModule {
     }
   }
 
+  // Shared annotation-span loader used by the streaming enrichment path and
+  // the continuous renderer's background chapters. Mutates `verses` in place
+  // with wordClassSpans / clearReadingSpans / wordStudySpans and returns
+  // whether any spans were attached. `isStale` aborts outdated work.
+  async _applyEnrichment(bookId, chapter, verses, isStale) {
+    const state = this.bridge.state;
+    if (state.get('currentTranslation') !== 'BSB') return false;
+    if (!verses || !verses.length) return false;
+    const bookCode = this.bridge.db.idToCode(bookId);
+    if (!bookCode) return false;
+    const stale = () => (isStale ? isStale() : false);
+
+    const needWc = state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true;
+    const wc = this.bridge.get('word-class-service');
+    if (needWc && wc && !wc.isReady) {
+      try {
+        await wc.init(this.bridge);
+      } catch (e) {
+        console.warn('[Navigation] word class init failed:', e);
+      }
+    }
+    // Word-class-backed tasks are skipped when their database is unavailable,
+    // but verse topics run independently of the word class database.
+    const wcReady = !!(wc && wc.isReady);
+
+    const tasks = [];
+    let didEnrich = false;
+
+    if (state.get('wordClasses') === true && wcReady) {
+      tasks.push(
+        Promise.resolve(wc.getChapterRenderSpans(bookCode, chapter)).then(spans => {
+          if (stale() || state.get('wordClasses') !== true) return;
+          for (const v of verses) {
+            v.wordClassSpans = spans[v.verse] || [];
+          }
+          didEnrich = true;
+        })
+      );
+    }
+
+    if (state.get('clearReadingEnabled') === true && wcReady) {
+      tasks.push(
+        Promise.resolve(wc.getClearReadingSpans(bookCode, chapter)).then(clearReading => {
+          if (stale() || state.get('clearReadingEnabled') !== true) return;
+          for (const v of verses) {
+            v.clearReadingSpans = clearReading[v.verse] || [];
+          }
+          didEnrich = true;
+        })
+      );
+    }
+
+    if (state.get('wordStudyEnabled') === true && wcReady) {
+      tasks.push(
+        (async () => {
+          const ws = this.bridge.get('word-study-service');
+          if (!ws) return;
+          try {
+            if (!ws.dataReady) await ws.initDataDb();
+            if (stale() || !ws.dataReady || state.get('wordStudyEnabled') !== true) return;
+            const cleanTextVerses = {};
+            for (const v of verses) cleanTextVerses[v.verse] = v.clean_text || '';
+            const studySpans = await ws.getChapterStudySpans(bookCode, chapter, cleanTextVerses, wc);
+            if (stale()) return;
+            for (const v of verses) {
+              v.wordStudySpans = studySpans[v.verse] || [];
+            }
+            didEnrich = true;
+          } catch (e) {
+            console.warn('[Navigation] Word study span enrichment failed:', e);
+          }
+        })()
+      );
+    }
+
+    if (state.get('verseTopicsEnabled') === true) {
+      tasks.push(
+        (async () => {
+          const vts = this.bridge.get('verse-topic-service');
+          if (!vts) return;
+          try {
+            if (!vts.isReady) await vts.init(this.bridge);
+            if (stale() || !vts.isReady || state.get('verseTopicsEnabled') !== true) return;
+            const topics = await vts.getChapterTopics(bookCode, chapter);
+            if (stale() || !topics) return;
+            for (const v of verses) {
+              v.verseTopic = topics[v.verse] || null;
+            }
+            didEnrich = true;
+          } catch (e) {
+            console.warn('[Navigation] Verse topic enrichment failed:', e);
+          }
+        })()
+      );
+    }
+
+    await Promise.all(tasks);
+    return didEnrich;
+  }
+
   // Phase 3: warm the annotation caches for the next/previous chapter during
   // idle time so a swipe apply is nearly instant. Errors are swallowed.
-  async _prefetchAdjacent(bookId, chapter, wc) {
-    if (!wc) return;
+  async _prefetchAdjacent(bookId, chapter) {
     const state = this.bridge.state;
-    if (state.get('currentTranslation') !== 'BSB') return;
+    // Annotation prefetch is BSB-only, but verse topics prefetch (and cache
+    // warming) applies to every translation when the feature is enabled.
+    if (state.get('currentTranslation') !== 'BSB' && state.get('verseTopicsEnabled') !== true) return;
     const bookIndex = this.booksCache.findIndex(b => b.id === bookId);
     if (bookIndex < 0) return;
     try {
@@ -283,9 +338,9 @@ window.NavigationModule = class NavigationModule {
       for (const t of targets) {
         if (!t.code) continue;
         if (typeof requestIdleCallback === 'function') {
-          requestIdleCallback(() => this._prefetchCb(t.code, t.chapter, wc), { timeout: 300 });
+          requestIdleCallback(() => this._prefetchCb(t.code, t.chapter), { timeout: 300 });
         } else {
-          setTimeout(() => this._prefetchCb(t.code, t.chapter, wc), 0);
+          setTimeout(() => this._prefetchCb(t.code, t.chapter), 0);
         }
       }
     } catch (e) {
@@ -293,13 +348,21 @@ window.NavigationModule = class NavigationModule {
     }
   }
 
-  _prefetchCb(bookCode, chapter, wc) {
-    if (!wc) return;
+  _prefetchCb(bookCode, chapter) {
     try {
       const state = this.bridge.state;
       const done = () => {
-        if (state.get('wordClasses') === true) wc.getChapterRenderSpans(bookCode, chapter);
-        if (state.get('clearReadingEnabled') === true) wc.getClearReadingSpans(bookCode, chapter);
+        if (state.get('wordClasses') === true || state.get('clearReadingEnabled') === true) {
+          const wc = this.bridge.get('word-class-service');
+          if (wc && wc.isReady) {
+            if (state.get('wordClasses') === true) wc.getChapterRenderSpans(bookCode, chapter);
+            if (state.get('clearReadingEnabled') === true) wc.getClearReadingSpans(bookCode, chapter);
+          }
+        }
+        if (state.get('verseTopicsEnabled') === true) {
+          const vts = this.bridge.get('verse-topic-service');
+          if (vts && vts.isReady) vts.getChapterTopics(bookCode, chapter);
+        }
       };
       Promise.resolve().then(done).catch(() => {});
     } catch (e) {

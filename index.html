@@ -184,6 +184,10 @@
       <span class="more-item-icon">C</span>
       <span class="more-item-label">Clear Reading</span>
     </button>
+    <button class="more-item hidden" id="more-verse-topics" data-action="verse-topics">
+      <span class="more-item-icon">T</span>
+      <span class="more-item-label">Verse Topics</span>
+    </button>
   </div>
 
   <!-- ========== Discover Search Overlay ========== -->
@@ -511,6 +515,13 @@
               <span class="toggle-pill"></span>
             </label>
           </div>
+          <div class="setting-row">
+            <label class="toggle-label-wrapper" for="settings-continuous-chapters">
+              <span class="toggle-text">Continuous Chapters</span>
+              <input type="checkbox" id="settings-continuous-chapters" class="toggle-checkbox">
+              <span class="toggle-pill"></span>
+            </label>
+          </div>
           <div class="setting-row setting-row--slider" id="swipe-max-verses-row" style="display:none;">
             <div style="display:flex;justify-content:space-between;">
               <span>Max Verses per Card</span>
@@ -585,18 +596,26 @@
             <div class="setting-row">
               <label class="toggle-label-wrapper" for="settings-cross-refs">
                 <span class="toggle-text">Cross References</span>
+                <button type="button" class="study-info-btn" id="study-info-cross-refs" title="About Cross References" aria-label="About Cross References">i</button>
                 <input type="checkbox" id="settings-cross-refs" class="toggle-checkbox">
                 <span class="toggle-pill"></span>
               </label>
             </div>
-            <div class="setting-row study-word-classes-row">
-              <label class="toggle-label-wrapper" for="settings-word-classes">
-                <span class="toggle-text">Word Classes</span>
-                <span class="wc-loading" id="wc-loading" aria-live="polite"><span class="wc-spinner"></span> Loading…</span>
-                <button type="button" class="study-info-btn" id="study-info-word-classes" title="About Word Classes" aria-label="About Word Classes">i</button>
-                <input type="checkbox" id="settings-word-classes" class="toggle-checkbox">
-                <span class="toggle-pill"></span>
-              </label>
+            <div class="study-submenu">
+              <div class="study-submenu-header" data-feature="word-classes" aria-expanded="false">
+                <div class="setting-row study-word-classes-row">
+                  <label class="toggle-label-wrapper" for="settings-word-classes">
+                    <span class="toggle-text">Word Classes<svg class="section-chevron study-submenu-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg></span>
+                    <span class="wc-loading" id="wc-loading" aria-live="polite"><span class="wc-spinner"></span> Loading…</span>
+                    <button type="button" class="study-info-btn" id="study-info-word-classes" title="About Word Classes" aria-label="About Word Classes">i</button>
+                    <input type="checkbox" id="settings-word-classes" class="toggle-checkbox">
+                    <span class="toggle-pill"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="study-submenu-body">
+                <div id="study-category-colors"></div>
+              </div>
             </div>
             <div class="setting-row study-word-classes-row" style="margin-top:0.3rem;">
               <label class="toggle-label-wrapper" for="settings-word-study">
@@ -607,16 +626,38 @@
                 <span class="toggle-pill"></span>
               </label>
             </div>
-            <div class="setting-row study-word-classes-row" style="margin-top:0.3rem;">
-              <label class="toggle-label-wrapper" for="settings-clear-reading">
-                <span class="toggle-text">Clear Reading</span>
-                <span class="cr-loading" id="cr-loading" aria-live="polite"><span class="wc-spinner"></span> Loading…</span>
-                <button type="button" class="study-info-btn" id="study-info-clear-reading" title="About Clear Reading" aria-label="About Clear Reading">i</button>
-                <input type="checkbox" id="settings-clear-reading" class="toggle-checkbox">
-                <span class="toggle-pill"></span>
-              </label>
+            <div class="study-submenu" style="margin-top:0.3rem;">
+              <div class="study-submenu-header" data-feature="clear-reading" aria-expanded="false">
+                <div class="setting-row study-word-classes-row">
+                  <label class="toggle-label-wrapper" for="settings-clear-reading">
+                    <span class="toggle-text">Clear Reading<svg class="section-chevron study-submenu-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg></span>
+                    <span class="cr-loading" id="cr-loading" aria-live="polite"><span class="wc-spinner"></span> Loading…</span>
+                    <button type="button" class="study-info-btn" id="study-info-clear-reading" title="About Clear Reading" aria-label="About Clear Reading">i</button>
+                    <input type="checkbox" id="settings-clear-reading" class="toggle-checkbox">
+                    <span class="toggle-pill"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="study-submenu-body">
+                <div id="cr-category-settings"></div>
+              </div>
             </div>
-            <div id="study-category-colors"></div>
+            <div class="study-submenu" style="margin-top:0.3rem;">
+              <div class="study-submenu-header" data-feature="verse-topics" aria-expanded="false">
+                <div class="setting-row study-word-classes-row">
+                  <label class="toggle-label-wrapper" for="settings-verse-topics">
+                    <span class="toggle-text">Verse Topics<svg class="section-chevron study-submenu-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg></span>
+                    <span class="vt-loading" id="vt-loading" aria-live="polite"><span class="wc-spinner"></span> Loading…</span>
+                    <button type="button" class="study-info-btn" id="study-info-verse-topics" title="About Verse Topics" aria-label="About Verse Topics">i</button>
+                    <input type="checkbox" id="settings-verse-topics" class="toggle-checkbox">
+                    <span class="toggle-pill"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="study-submenu-body">
+                <div id="vt-category-colors"></div>
+              </div>
+            </div>
           </div>
       </div>
 
@@ -722,7 +763,7 @@
           <span class="settings-version-sep">•</span>
           <a href="#" id="view-credits" class="settings-changelog-link">Credits</a>
         </div>
-        <span class="settings-version-label">v1.0.3</span>
+        <span class="settings-version-label">v1.0.5</span>
         <button id="view-debug-log" class="debug-gear-btn" aria-label="Debug Log">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
@@ -913,6 +954,7 @@
   <script src="js/data/html.js"></script>
   <script src="js/data/bionic.js"></script>
   <script src="js/data/book-map.js"></script>
+  <script src="js/data/zip.js"></script>
   <script src="js/data/bible-db.js"></script>
   <script src="js/data/word-class-service.js"></script>
   <script src="js/core/debug.js"></script>
@@ -954,6 +996,8 @@
   <script src="js/text/highlight-manager.js"></script>
   <script src="js/data/cross-references.js"></script>
   <script src="js/data/word-study-service.js"></script>
+  <script src="js/data/verse-topic-service.js"></script>
+  <script src="js/data/verse-topic-icons.js"></script>
   <script src="js/word-study/word-study-ui.js"></script>
   <script src="js/cross-refs/cross-refs-ui.js"></script>
   <script src="js/footnotes/footnotes-ui.js"></script>
@@ -964,6 +1008,8 @@
   <script src="js/reading/scroll-mode/block-resolver.js"></script>
   <script src="js/reading/scroll-mode/reading-tracker.js"></script>
   <script src="js/reading/scroll-mode/switcher.js"></script>
+  <script src="js/reading/scroll-mode/chapter-window.js"></script>
+  <script src="js/reading/scroll-mode/continuous-scroller.js"></script>
   <script src="js/text/markdown-parser.js"></script>
   <script src="js/notes/tag-search.js"></script>
   <script src="js/text/token-renderer.js"></script>

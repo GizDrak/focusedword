@@ -467,9 +467,10 @@ html[data-ui-skin="luminous"] {
   border: 1px solid transparent;
 }
 
-[data-ui-skin="luminous"] .verse-container.focused,
-[data-ui-skin="luminous"] #content.spotlight-mode .verse-container.active-verse,
-[data-ui-skin="luminous"] body.split-mode #panel-right-body.spotlight-mode .verse-container.active-verse {
+/* Topic-washed verses keep their inline tint; the focus gradient would hide it. */
+[data-ui-skin="luminous"] .verse-container.focused:not(.verse-topics),
+[data-ui-skin="luminous"] #content.spotlight-mode .verse-container.active-verse:not(.verse-topics),
+[data-ui-skin="luminous"] body.split-mode #panel-right-body.spotlight-mode .verse-container.active-verse:not(.verse-topics) {
   border-color: var(--luminous-hairline);
   background:
     linear-gradient(90deg, var(--luminous-accent-soft), color-mix(in srgb, var(--luminous-accent) 3.5%, transparent));

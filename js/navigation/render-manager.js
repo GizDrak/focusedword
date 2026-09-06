@@ -11,8 +11,8 @@ window.RenderManager = class RenderManager {
     const nav = this.bridge.get('navigation');
     if (!nav || !nav.currentVerses.length) return;
     this.vm.prepare();
-    this._dispatch(nav.currentVerses);
-    this._finalize();
+    const dispatched = this._dispatch(nav.currentVerses);
+    this._finalize(dispatched);
   }
 
   _dispatch(verses) {
@@ -28,12 +28,18 @@ window.RenderManager = class RenderManager {
     } else if (s.get('spotlightMode')) {
       this._scrollSwitcher?.stop();
       this.vm.setMode('spotlight');
-      this.bridge.call('renderer-spotlight', 'render', verses);
+      return this.bridge.call('renderer-spotlight', 'render', verses);
     } else {
-      this.bridge.call('renderer-scroll', 'render', verses);
+      let dispatched = null;
+      if (s.get('continuousChapters') === true && !s.get('splitMode')) {
+        dispatched = this.bridge.call('renderer-scroll', 'renderContinuous', verses);
+      } else {
+        this.bridge.call('renderer-scroll', 'render', verses);
+      }
       if (this._scrollSwitcher) {
         this._scrollSwitcher.stop({ restoreLegacyTracking: false });
       }
+      return dispatched;
     }
   }
 
@@ -47,7 +53,8 @@ window.RenderManager = class RenderManager {
     const flags = {
       wordClasses: mode.get('wordClasses') === true,
       clearReading: mode.get('clearReadingEnabled') === true,
-      wordStudy: mode.get('wordStudyEnabled') === true
+      wordStudy: mode.get('wordStudyEnabled') === true,
+      verseTopics: mode.get('verseTopicsEnabled') === true
     };
     const base = this.base;
     const tr = base && base._tokenRenderer;
@@ -55,8 +62,18 @@ window.RenderManager = class RenderManager {
       this.render();
       return;
     }
-    const touched = tr.applyAnnotationsToDom(verses, flags);
-    if (!touched && this.bridge.state.get('swipeMode') === false && this.bridge.state.get('spotlightMode') === false) {
+    const continuous = mode.get('continuousChapters') === true &&
+      !mode.get('swipeMode') && !mode.get('spotlightMode') && !mode.get('speedMode') && !mode.get('splitMode');
+    let root = null;
+    if (continuous) {
+      const first = verses[0];
+      if (first && first.book_id != null && first.chapter != null) {
+        root = document.querySelector('#content .chapter-section[data-book="' + first.book_id + '"][data-chapter="' + first.chapter + '"]');
+        if (!root) return;
+      }
+    }
+    const touched = tr.applyAnnotationsToDom(verses, flags, root);
+    if (!touched && !continuous && this.bridge.state.get('swipeMode') === false && this.bridge.state.get('spotlightMode') === false) {
       // DOM may not match (e.g. user re-rendered mid-stream); fall back to a
       // full refresh so the annotations still show.
       this.render();
@@ -64,8 +81,9 @@ window.RenderManager = class RenderManager {
     }
   }
 
-  _finalize() {
+  _finalize(dispatched) {
     requestAnimationFrame(() => {
+      Promise.resolve(dispatched).catch(() => {}).then(() => {
       const state = this.bridge.state;
       const verses = this.bridge.get('navigation')?.currentVerses;
       if (!verses) return;
@@ -78,7 +96,8 @@ window.RenderManager = class RenderManager {
         window.verseManager.setIntentional(currentVerse);
       }
 
-      this.base.showChapterHeader(verses, bookName);
+      const continuousSpotlight = state.get('continuousChapters') === true && state.get('spotlightMode') === true;
+      if (!continuousSpotlight) this.base.showChapterHeader(verses, bookName);
       this.base.updateFocusedVerse(currentVerse);
       this.base.showSpeedControls(!!state.get('speedMode'));
 
@@ -102,6 +121,7 @@ window.RenderManager = class RenderManager {
         this.base.applyBookmarks();
         this.base.renderHighlights();
       }
+      });
     });
   }
 

@@ -178,6 +178,7 @@ window.PlansUI = class PlansUI {
     document.getElementById('rgb-next').addEventListener('click', () => this._readingStepNav(1));
     document.getElementById('rgb-complete').addEventListener('click', () => this._readingComplete());
     this.bridge.on('nav:chapter-loaded', () => this._readingCheckChapter());
+    this.bridge.state.onChange('currentChapter', () => this._readingCheckChapter());
 
     const panel = document.getElementById('plans-panel');
     panel.addEventListener('click', (e) => {

@@ -127,6 +127,12 @@ window.ReadingTracker = class ReadingTracker {
     }
   }
 
+  refreshElements() {
+    if (this._blockResolver) {
+      this._blockResolver.refresh();
+    }
+  }
+
   stop() {
     this._running = false;
 

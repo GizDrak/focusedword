@@ -4,6 +4,7 @@ window.App = class App {
     debug.clearLogs();
     const bridge = new window.Bridge(debug);
     window.__debug = debug;
+    window.__app = this;
     this._bridgeRef = bridge;
 
     bridge.state = new window.StateStore();
@@ -70,11 +71,9 @@ window.App = class App {
       const useSkinAccent = !storedAccent || storedAccent === 'skin';
       const resolveAccent = () => {
         if (!useSkinAccent) return storedAccent;
-        const rawTheme = state.get('theme');
-        if (rawTheme && rawTheme !== 'skin') {
-          const resolvedTheme = resolve('theme');
-          return window.ColorTheme?.themeAccentMap[resolvedTheme] || skinDefault('accent');
-        }
+        // When accent is skin-managed, the active skin's preference is the
+        // design authority — don't let the legacy themeAccentMap (gold for
+        // dark/light) override it (e.g. Modern should stay mist).
         return skinDefault('accent');
       };
       if (ct) {
@@ -219,6 +218,7 @@ window.App = class App {
     // Register before settings.init so _refreshWcWhenReady can find the service
     bridge.register('word-class-service', new window.WordClassService());
     bridge.register('word-study-service', new window.WordStudyService());
+    bridge.register('verse-topic-service', new window.VerseTopicService());
 
     bridge.selection = new window.SelectionManager(bridge);
     _splash('Preparing…');
@@ -292,7 +292,14 @@ window.App = class App {
       }
       const ws = bridge.get('word-study-service');
       if (ws && !ws.dataReady) {
-        ws.initDataDb().then(() => ws.initLexDb()).catch(e => console.warn('[WordStudy] startup data init:', e));
+        ws.initDataDb().catch(e => console.warn('[WordStudy] startup data init:', e));
+      }
+    }
+
+    if (bridge.state.get('verseTopicsEnabled') === true) {
+      const vts = bridge.get('verse-topic-service');
+      if (vts && !vts.isReady) {
+        vts.init(bridge).catch(e => console.warn('[VerseTopics] startup init:', e));
       }
     }
 
@@ -364,18 +371,44 @@ window.App = class App {
     setTimeout(() => splashEl.remove(), 500);
     this._handleStartupIntent(bridge);
     this._checkStudyDatabaseUpdates(bridge);
+    this._migrateStudyDatabasesToOpfs();
+  }
+
+  _migrateStudyDatabasesToOpfs() {
+    // Once the app is usable, populate OPFS generations for any study
+    // database that is verified in the byte cache but has no READY OPFS file
+    // yet. This runs in idle time and never holds study DBs open in memory.
+    const idle = () => {
+      window.BibleDB.migrateStudyDatabasesToOpfs().then(() => {
+        window.BibleDB.cleanupOldOpfsGenerations();
+      }).catch(e => {
+        console.warn('[app] Background study DB OPFS migration failed:', e);
+      });
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(idle, { timeout: 8000 });
+    } else {
+      setTimeout(idle, 2500);
+    }
   }
 
   _checkStudyDatabaseUpdates(bridge) {
-    if (bridge.state.get('currentTranslation') !== 'BSB') return;
-    const wc = bridge.get('word-class-service');
-    const ws = bridge.get('word-study-service');
     const checks = [];
-    if (wc && typeof wc.checkForBackgroundUpdate === 'function') {
-      checks.push(wc.checkForBackgroundUpdate(bridge));
+    // Word classes / word study databases are BSB-specific; the verse topics
+    // database is translation-agnostic so it refreshes regardless.
+    if (bridge.state.get('currentTranslation') === 'BSB') {
+      const wc = bridge.get('word-class-service');
+      const ws = bridge.get('word-study-service');
+      if (wc && typeof wc.checkForBackgroundUpdate === 'function') {
+        checks.push(wc.checkForBackgroundUpdate(bridge));
+      }
+      if (ws && typeof ws.checkForBackgroundUpdates === 'function') {
+        checks.push(ws.checkForBackgroundUpdates(bridge));
+      }
     }
-    if (ws && typeof ws.checkForBackgroundUpdates === 'function') {
-      checks.push(ws.checkForBackgroundUpdates(bridge));
+    const vts = bridge.get('verse-topic-service');
+    if (vts && typeof vts.checkForBackgroundUpdate === 'function') {
+      checks.push(vts.checkForBackgroundUpdate(bridge));
     }
     if (checks.length > 0) {
       Promise.allSettled(checks).catch(e => {
@@ -603,6 +636,16 @@ window.App = class App {
     bridge.on('render:chapter', refreshClearReadingItem);
     refreshClearReadingItem();
 
+    const refreshVerseTopicsItem = () => {
+      const item = document.getElementById('more-verse-topics');
+      if (!item) return;
+      const vt = bridge.state?.get('verseTopicsEnabled');
+      item.classList.toggle('hidden', !vt);
+    };
+    bridge.state?.onChange('verseTopicsEnabled', refreshVerseTopicsItem);
+    bridge.on('render:chapter', refreshVerseTopicsItem);
+    refreshVerseTopicsItem();
+
     const renderWcSubmenu = () => {
       if (!_moreSavedHTML) _moreSavedHTML = morePopup.innerHTML;
       morePopup.classList.add('more-wc-open');
@@ -756,6 +799,66 @@ window.App = class App {
       });
     };
 
+    const renderVerseTopicsSubmenu = () => {
+      if (!_moreSavedHTML) _moreSavedHTML = morePopup.innerHTML;
+      morePopup.classList.add('more-wc-open');
+      const vts = bridge.get('verse-topic-service');
+      const topics = vts && vts.isReady ? vts.topics : null;
+      const settings = bridge.state.get('verseTopicSettings') || null;
+      let html = '<button class="more-item" id="vt-sub-back"><span class="more-item-icon">←</span><span class="more-item-label">Back</span></button>';
+      html += '<div class="more-divider"></div>';
+      html += '<div class="more-wc-group">Verse Topics</div>';
+      if (topics && topics.length) {
+        for (const t of topics) {
+          const enabled = !(settings && settings.enabledTopics && settings.enabledTopics[t.topicId] === false);
+          const color = (settings && settings.colors && settings.colors[t.topicId]) || t.color_hex;
+          html += '<div class="more-item more-wc-row vt-cat-row' + (enabled ? '' : ' muted') + '" data-topic="' + t.topicId + '">';
+          const icon = window.VerseTopicIcons && window.VerseTopicIcons[t.topicId];
+          if (icon) {
+            html += '<span class="vt-icon" style="color:' + window.HTMLEscape(color) + '">' + icon + '</span>';
+          } else {
+            html += '<span class="wc-dot" style="background:' + window.HTMLEscape(color) + '"></span>';
+          }
+          html += '<div class="more-wc-info">';
+          html += '<span class="more-item-label">' + window.HTMLEscape(t.name) + '</span>';
+          html += '<span class="more-wc-desc">' + window.HTMLEscape(t.description || '') + '</span>';
+          html += '</div>';
+          html += '<input type="checkbox" class="toggle-checkbox" data-topic="' + t.topicId + '"' + (enabled ? ' checked' : '') + ' style="display:none">';
+          html += '</div>';
+        }
+        html += '<div class="more-divider"></div>';
+        html += '<div class="more-wc-desc" style="padding:8px 14px">Colors are customizable in Settings → Study → Verse Topics.</div>';
+      } else {
+        html += '<div class="more-item more-wc-row muted" data-note="loading"><span class="more-wc-info"><span class="more-item-label">Verse topics are still loading…</span></span></div>';
+      }
+      morePopup.innerHTML = html;
+      morePopup.querySelector('#vt-sub-back').addEventListener('click', (e) => {
+        e.stopPropagation();
+        showMainMenu();
+      });
+      morePopup.querySelectorAll('.vt-cat-row[data-topic]').forEach(row => {
+        row.addEventListener('click', (e) => {
+          const cb = row.querySelector('.toggle-checkbox');
+          if (cb) {
+            cb.checked = !cb.checked;
+            row.classList.toggle('muted', !cb.checked);
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
+      });
+      morePopup.querySelectorAll('.toggle-checkbox[data-topic]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const topicId = Number(cb.dataset.topic);
+          const current = Object.assign({}, bridge.state.get('verseTopicSettings') || {});
+          const enabled = Object.assign({}, current.enabledTopics || {});
+          if (cb.checked) delete enabled[topicId]; else enabled[topicId] = false;
+          current.enabledTopics = enabled;
+          bridge.state.set('verseTopicSettings', current);
+          bridge.emit('render:refresh');
+        });
+      });
+    };
+
     if (!moreMenu?.native) document.addEventListener('click', (e) => {
       if (!morePopup.classList.contains('open')) return;
       if (!morePopup.contains(e.target) && !moreTab.contains(e.target)) {
@@ -784,6 +887,12 @@ window.App = class App {
         if (bridge.state.get('clearReadingEnabled') !== true) return;
         e.stopPropagation();
         renderClearReadingSubmenu();
+        return;
+      }
+      if (item.dataset.action === 'verse-topics') {
+        if (bridge.state.get('verseTopicsEnabled') !== true) return;
+        e.stopPropagation();
+        renderVerseTopicsSubmenu();
         return;
       }
       if (_moreSavedHTML) showMainMenu();
@@ -969,15 +1078,35 @@ window.App = class App {
         bridge._chapterNavLock = true;
         setTimeout(() => { bridge._chapterNavLock = false; }, 800);
         e.preventDefault();
+        const dirName = dx < 0 ? 'left' : 'right';
+        const dir = dx < 0 ? 'next' : 'prev';
+        const s = bridge.state;
+        const continuous = s.get('continuousChapters') === true && !s.get('splitMode');
+
+        if (continuous && !s.get('swipeMode') && !s.get('spotlightMode') && !s.get('speedMode')) {
+          const sr = bridge.get('renderer-scroll');
+          if (sr && sr._continuous && typeof sr._continuous.moveToNeighbor === 'function') {
+            this._slideContent(dirName);
+            sr._continuous.moveToNeighbor(dir);
+            return;
+          }
+        }
+        if (continuous && s.get('spotlightMode')) {
+          const spot = bridge.get('renderer-spotlight');
+          if (spot && typeof spot.moveToNeighbor === 'function' && spot.moveToNeighbor(dir)) {
+            this._slideContent(dirName);
+            return;
+          }
+        }
+
         const el = document.getElementById('content');
-        const dir = dx < 0 ? 'left' : 'right';
-        el.classList.add('chapter-slide', 'slide-out-' + dir);
+        el.classList.add('chapter-slide', 'slide-out-' + dirName);
 
         let done = false;
         const onEnd = () => {
           if (done) return;
           done = true;
-          el.classList.remove('chapter-slide', 'slide-out-' + dir);
+          el.classList.remove('chapter-slide', 'slide-out-' + dirName);
           bridge._chapterNavLock = true;
           setTimeout(() => { bridge._chapterNavLock = false; }, 600);
           if (dx < 0) nav.loadNextChapter();
@@ -1027,6 +1156,14 @@ window.App = class App {
     });
 
     // Edge-tap chapter navigation removed — only horizontal swipe changes chapters
+  }
+
+  _slideContent(dirName) {
+    const el = document.getElementById('content');
+    el.classList.add('chapter-slide', 'slide-out-' + dirName);
+    setTimeout(() => {
+      el.classList.remove('chapter-slide', 'slide-out-' + dirName);
+    }, 280);
   }
 
   _setupClickEvents(bridge) {

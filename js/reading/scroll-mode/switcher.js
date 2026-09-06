@@ -30,11 +30,33 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
         if (!this._bridge || !pos || !pos.verseEl) return;
         if (this._skipTick > 0) { this._skipTick--; return; }
         const num = parseInt(pos.verseEl.dataset.verse, 10);
-        if (num && num !== this._bridge.state.get('currentVerse')) {
+        if (!num) return;
+        const state = this._bridge.state;
+        const book = pos.verseEl.dataset.book != null ? parseInt(pos.verseEl.dataset.book, 10) : null;
+        const chapter = pos.verseEl.dataset.chapter != null ? parseInt(pos.verseEl.dataset.chapter, 10) : null;
+        const crossed = book != null && chapter != null &&
+          (book !== state.get('currentBook') || chapter !== state.get('currentChapter'));
+        if (crossed) {
+          const nav = this._bridge.get('navigation');
+          const bookEntry = nav && nav.booksCache ? nav.booksCache.find(b => b.id === book) : null;
+          const bookName = bookEntry ? bookEntry.name : '';
+          window.verseManager.setPassivePosition(book, chapter, num, bookName);
+          // Bookkeeping only when the passive update landed (verse manager
+          // ignores updates while an intentional navigation holds the lock).
+          if (state.get('currentBook') === book && state.get('currentChapter') === chapter) {
+            const sr = this._bridge.get('renderer-scroll');
+            const verses = sr && sr.continuousWindow
+              ? sr.continuousWindow.peekVerses(book + ':' + chapter)
+              : null;
+            if (nav && verses && verses.length) nav.currentVerses = verses;
+            const nh = this._bridge.get('navigation-history');
+            if (nh) nh.record(book, chapter, num, bookName);
+          }
+        } else if (num !== state.get('currentVerse')) {
           window.verseManager.setPassive(num);
-          const base = this._bridge.get('base-renderer');
-          if (base) base.updateFocusedVerse(num);
         }
+        const base = this._bridge.get('base-renderer');
+        if (base) base.updateFocusedVerse(num, crossed ? { book, chapter } : null);
       }
     });
     this._skipTick = 3;
@@ -52,6 +74,12 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
     this._firstBlockSingleLine = isSingleLine;
     if (this._reader) {
       this._reader.updateFirstBlockHint(isSingleLine);
+    }
+  }
+
+  refreshElements() {
+    if (this._reader) {
+      this._reader.refreshElements();
     }
   }
 

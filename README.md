@@ -192,7 +192,7 @@ The application cleanly divides immutable scripture reference datasets from muta
 │   ├── bsb_v3.sqlite                # Bundled Berean Standard Bible SQLite database
 │   ├── cross_references.db          # Cross-reference database (TSK dataset)
 │   ├── bible_chapters.json          # Chapter titles, summaries, and verse counts
-│   └── BSB_token_annotations_v2.vocabulary.json # Semantic word annotation vocabulary
+│   └── study/                       # Zipped runtime study databases (word classes / word study) + manifests
 │
 └── js/
     ├── app/

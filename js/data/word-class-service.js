@@ -1,6 +1,5 @@
 window.WordClassService = class WordClassService {
-  // v2 annotation backend -------------------------------------------------
-  // Display coloring follows the database's recommended precedence:
+  // Display coloring follows the guide's recommended precedence:
   // referent first, grammar as fallback. Unresolved tokens stay uncolored.
   static AXIS_DISPLAY_PRECEDENCE = ['referent', 'grammar']
 
@@ -91,6 +90,14 @@ window.WordClassService = class WordClassService {
     negation: 'Negation',
   }
 
+  // Token table column that stores the class_value reference for each axis.
+  static AXIS_COLUMNS = {
+    referent: 'referent_id',
+    grammar: 'grammar_id',
+    discourse: 'discourse_id',
+    event_semantics: 'event_semantics_id',
+  }
+
   static getClearReadingLabel(value) {
     return WordClassService.CLEAR_READING_LABELS[value] || value
   }
@@ -107,44 +114,65 @@ window.WordClassService = class WordClassService {
 
   constructor() {
     this._db = null
+    this._studyDb = null
     this._isReady = false
     this._initPromise = null
     this._chapterCache = new Map()
     this._posCache = new Map()
     this._clearReadingCache = new Map()
+    this._verseRangeCache = new Map()
+    this._verseOrdinalCache = new Map()
     this._bridge = null
     this._vocab = null
-    this._wordDataRows = null
-    this._wordDataSha256 = null
-    this._wordDataDb = null
-    this._wordDataValid = null
+    this._classesMeta = null
+    this._axisIds = null
     this._manifest = null
-    this._manifestPromise = null
+    this._studyManifest = null
+    this._manifestPromises = {}
+    this._registerMigrationOpeners()
+  }
+
+  _registerMigrationOpeners() {
+    try {
+      if (BibleDB && typeof BibleDB._registerStudyDbOpener === 'function') {
+        const svc = this
+        BibleDB._registerStudyDbOpener('word-classes', AppConfig.WORD_CLASSES_DB, async () => {
+          const manifest = await svc._fetchManifest(AppConfig.WORD_CLASSES_DB_MANIFEST, 'classes')
+          return BibleDB.openStudyDb({
+            dbPath: AppConfig.WORD_CLASSES_DB,
+            expectedSha256: manifest && manifest.sha256,
+            validate: (candidate) => svc._validate(candidate, manifest),
+            label: 'word-classes',
+            zip: AppConfig.WORD_CLASSES_DB_ZIP && manifest ? { url: AppConfig.WORD_CLASSES_DB_ZIP, manifest } : null,
+          })
+        })
+        if (AppConfig.WORD_STUDY_DB) {
+          BibleDB._registerStudyDbOpener('word-study', AppConfig.WORD_STUDY_DB, async () => {
+            const manifest = await svc._fetchManifest(AppConfig.WORD_STUDY_DB_MANIFEST, 'study')
+            return BibleDB.openStudyDb({
+              dbPath: AppConfig.WORD_STUDY_DB,
+              expectedSha256: manifest && manifest.sha256,
+              validate: (candidate) => svc._validateStudy(candidate, manifest),
+              label: 'word-study',
+              zip: AppConfig.WORD_STUDY_DB_ZIP && manifest ? { url: AppConfig.WORD_STUDY_DB_ZIP, manifest } : null,
+            })
+          })
+        }
+      }
+    } catch (e) { /* ignore */ }
   }
 
   get isReady() { return this._isReady }
   get manifest() { return this._manifest }
+  get studyManifest() { return this._studyManifest }
 
+  // The vocabulary ships inside the database (class_value/axis tables), so
+  // this is only an accessor now; it resolves once the database has loaded.
   async preloadVocabulary() {
-    if (this._vocab || !AppConfig.WORD_ANNOTATIONS_V2_VOCABULARY) return this._vocab
-    try {
-      const resp = await fetch(AppConfig.WORD_ANNOTATIONS_V2_VOCABULARY)
-      if (!resp.ok) return null
-      const payload = await resp.json()
-      const groups = {}
-      for (const row of payload.axes || []) {
-        if (!groups[row.axis]) groups[row.axis] = []
-        groups[row.axis].push({ value: row.value, definition: row.definition })
-      }
-      this._vocab = { axes: WordClassService.AXIS_DISPLAY_PRECEDENCE.map(axis => ({ axis, values: groups[axis] || [] })) }
-      return this._vocab
-    } catch (e) {
-      console.warn('[WordClassService] vocabulary preload failed:', e)
-      return null
-    }
+    return this._vocab
   }
 
-  // --- v2 axis helpers ----------------------------------------------------
+  // --- axis helpers -------------------------------------------------------
 
   static getAxisKey(axis, value) { return axis + ':' + value }
 
@@ -195,6 +223,22 @@ window.WordClassService = class WordClassService {
     return WordClassService.isAxisEnabled(axisSettings, axis)
   }
 
+  async _openDb(dbPath, sha256, validate, label, zip = null) {
+    if (BibleDB && typeof BibleDB.openStudyDb === 'function') {
+      return BibleDB.openStudyDb({ dbPath, expectedSha256: sha256 || null, validate: validate || null, label, zip: zip || null })
+    }
+    return BibleDB.createDbFromBytes(dbPath, sha256 || null, zip ? { zip } : undefined)
+  }
+
+  async _acceptDbBytes(dbPath, bytes, sha256, validate, label) {
+    if (!bytes || !bytes.byteLength) return null
+    if (BibleDB && typeof BibleDB.acceptStudyDbBytes === 'function') {
+      return BibleDB.acceptStudyDbBytes({ dbPath, bytes, expectedSha256: sha256 || null, validate: validate || null, label })
+    }
+    const db = await BibleDB._deserialize(bytes)
+    return db
+  }
+
   async init(bridge) {
     if (this._isReady) return true
     if (this._initPromise) return this._initPromise
@@ -204,17 +248,22 @@ window.WordClassService = class WordClassService {
 
     this._initPromise = (async () => {
       try {
-        if (AppConfig.WORD_ANNOTATIONS_V2_ENABLED !== false) {
-          const manifest = await this._fetchManifest()
-          const db = await BibleDB.createDbFromBytes(AppConfig.WORD_ANNOTATIONS_V2_DB, manifest && manifest.sha256)
-          if (db && this._validateV2(db, manifest)) {
-            this._db = db
-            this._isReady = true
-            return true
-          }
-          if (db) { try { db.close() } catch (e) {} }
+        const manifest = await this._fetchManifest(AppConfig.WORD_CLASSES_DB_MANIFEST, 'classes')
+        const db = await this._openDb(
+          AppConfig.WORD_CLASSES_DB,
+          manifest && manifest.sha256,
+          (candidate) => this._validate(candidate, manifest),
+          'word-classes',
+          AppConfig.WORD_CLASSES_DB_ZIP && manifest ? { url: AppConfig.WORD_CLASSES_DB_ZIP, manifest } : null
+        )
+        if (db && this._validate(db, manifest)) {
+          this._db = db
+          await this._openStudyCompanion()
+          this._isReady = true
+          return true
         }
-        console.warn('[WordClassService] BSB_token_annotations_v2.sqlite unavailable or failed validation')
+        if (db) { try { db.close() } catch (e) {} }
+        console.warn('[WordClassService] word classes database unavailable or failed validation')
         this._initPromise = null
         return false
       } catch (e) {
@@ -227,48 +276,121 @@ window.WordClassService = class WordClassService {
     return this._initPromise
   }
 
+  // The word-study companion (crosswalk) is optional: word-class coloring
+  // works without it, only the study links degrade (guide §8).
+  async _openStudyCompanion() {
+    try {
+      const manifest = await this._fetchManifest(AppConfig.WORD_STUDY_DB_MANIFEST, 'study')
+      const db = await this._openDb(
+        AppConfig.WORD_STUDY_DB,
+        manifest && manifest.sha256,
+        (candidate) => this._validateStudy(candidate, manifest),
+        'word-study',
+        AppConfig.WORD_STUDY_DB_ZIP && manifest ? { url: AppConfig.WORD_STUDY_DB_ZIP, manifest } : null
+      )
+      if (db && this._validateStudy(db, manifest)) {
+        this._studyDb = db
+      } else {
+        if (db) { try { db.close() } catch (e) {} }
+        console.warn('[WordClassService] word study database unavailable or failed companion check — crosswalk disabled')
+      }
+    } catch (e) {
+      console.warn('[WordClassService] word study database load failed — crosswalk disabled:', e)
+    }
+  }
+
   async checkForBackgroundUpdate(bridge) {
     if (!this._isReady) {
       if (!this._initPromise) return false
       await this._initPromise
     }
-    if (!this._isReady || !AppConfig.WORD_ANNOTATIONS_V2_ENABLED || !AppConfig.WORD_ANNOTATIONS_V2_DB) return false
+    if (!this._isReady || !AppConfig.WORD_CLASSES_DB) return false
     try {
-      this._manifestPromise = null
-      const manifest = await this._fetchManifest()
+      const classesUpdated = await this._checkCompanionUpdate('classes', bridge)
+      let studyUpdated = false
+      if (AppConfig.WORD_STUDY_DB) {
+        studyUpdated = await this._checkCompanionUpdate('study', bridge)
+      }
+      return classesUpdated || studyUpdated
+    } catch (e) {
+      console.warn('[WordClassService] background update check failed:', e)
+      return false
+    }
+  }
+
+  async _checkCompanionUpdate(kind, bridge) {
+    const isClasses = kind === 'classes'
+    const dbPath = isClasses ? AppConfig.WORD_CLASSES_DB : AppConfig.WORD_STUDY_DB
+    const zipUrl = isClasses ? AppConfig.WORD_CLASSES_DB_ZIP : AppConfig.WORD_STUDY_DB_ZIP
+    const manifestUrl = isClasses ? AppConfig.WORD_CLASSES_DB_MANIFEST : AppConfig.WORD_STUDY_DB_MANIFEST
+    if (!dbPath) return false
+    try {
+      this._manifestPromises[kind] = null
+      const manifest = await this._fetchManifest(manifestUrl, kind)
+      if (zipUrl && !manifest) {
+        console.warn('[WordClassService] manifest unavailable for', zipUrl, '— skipping update (fail closed)')
+        return false
+      }
       const expectedSha = manifest && manifest.sha256
       const verifiedSha = expectedSha
-        ? await BibleDB._getVerifiedSha(AppConfig.WORD_ANNOTATIONS_V2_DB)
+        ? await BibleDB._getVerifiedSha(dbPath)
         : null
       if (expectedSha && verifiedSha === expectedSha) return false
 
       // A changed manifest is authoritative. Skip conditional validators so a
       // stale intermediary cannot return the old database for a new version.
       const updateResult = await BibleDB.checkForUpdates(
-        AppConfig.WORD_ANNOTATIONS_V2_DB,
+        zipUrl || dbPath,
         Boolean(expectedSha && verifiedSha !== expectedSha),
       )
       if (!updateResult.updated || !updateResult.bytes) return false
 
-      if (expectedSha) {
+      let bytes = updateResult.bytes
+      if (zipUrl) {
+        const resolved = await BibleDB.extractZipResource(updateResult.bytes, manifest)
+        if (!resolved || !resolved.bytes) {
+          console.warn('[WordClassService] downloaded zip failed verification:', zipUrl)
+          return false
+        }
+        bytes = resolved.bytes
+      } else if (expectedSha) {
         const actualSha = await BibleDB._sha256Hex(updateResult.bytes)
         if (actualSha !== BibleDB.SHA_UNAVAILABLE && actualSha !== expectedSha) {
           console.warn('[WordClassService] downloaded database hash mismatch:', actualSha)
           return false
         }
       }
-      const newDb = BibleDB._deserialize(updateResult.bytes)
-      if (newDb && this._validateV2(newDb, manifest)) {
-        const oldDb = this._db
-        this._db = newDb
-        if (oldDb && oldDb !== newDb) {
-          try { oldDb.close() } catch (e) {}
+
+      const validate = (candidate) => (isClasses
+        ? this._validate(candidate, manifest)
+        : this._validateStudy(candidate, manifest))
+      const newDb = await this._acceptDbBytes(
+        dbPath,
+        bytes,
+        expectedSha || null,
+        validate,
+        isClasses ? 'word-classes' : 'word-study'
+      )
+      if (newDb && validate(newDb)) {
+        if (isClasses) {
+          const oldDb = this._db
+          this._db = newDb
+          if (oldDb && oldDb !== newDb) {
+            try { oldDb.close() } catch (e) {}
+          }
+        } else {
+          const oldDb = this._studyDb
+          this._studyDb = newDb
+          if (oldDb && oldDb !== newDb) {
+            try { oldDb.close() } catch (e) {}
+          }
         }
+        this.invalidateAllCache()
         if (bridge) {
           bridge.emit('render:refresh')
         }
         if (expectedSha && expectedSha !== BibleDB.SHA_UNAVAILABLE) {
-          await BibleDB._setVerifiedSha(AppConfig.WORD_ANNOTATIONS_V2_DB, expectedSha)
+          await BibleDB._setVerifiedSha(dbPath, expectedSha)
         }
         return true
       }
@@ -277,86 +399,86 @@ window.WordClassService = class WordClassService {
       }
       return false
     } catch (e) {
-      console.warn('[WordClassService] background update check failed:', e)
+      console.warn('[WordClassService] update check failed for', kind, e)
       return false
     }
   }
 
-  _fetchManifest() {
-    if (this._manifestPromise) return this._manifestPromise
-    if (!AppConfig.WORD_ANNOTATIONS_V2_MANIFEST) return Promise.resolve(null)
-    this._manifestPromise = (async () => {
+  _fetchManifest(url, kind) {
+    if (this._manifestPromises[kind]) return this._manifestPromises[kind]
+    if (!url) return Promise.resolve(null)
+    this._manifestPromises[kind] = (async () => {
       try {
-        const resp = await fetch(AppConfig.WORD_ANNOTATIONS_V2_MANIFEST, { cache: 'no-store' })
+        const resp = await fetch(url, { cache: 'no-store' })
         if (!resp.ok) {
           console.warn('[WordClassService] manifest fetch failed:', resp.status)
           return null
         }
         const manifest = await resp.json()
-        this._manifest = manifest
+        if (kind === 'classes') this._manifest = manifest
+        else this._studyManifest = manifest
         return manifest
       } catch (e) {
         console.warn('[WordClassService] manifest load error:', e)
         return null
       }
     })()
-    return this._manifestPromise
+    return this._manifestPromises[kind]
   }
 
-  _validateV2(db, manifest) {
+  _validate(db, manifest) {
     try {
       const tables = new Set()
       const rows = []
       db.exec({ sql: "SELECT name FROM sqlite_master WHERE type = 'table'", rowMode: 'object', resultRows: rows })
       for (const r of rows) tables.add(r.name)
-      for (const t of ['tokens', 'token_annotations', 'axis_values', 'source_word_map', 'token_source_links', 'metadata']) {
+      for (const t of ['token', 'class_value', 'axis', 'verse', 'book', 'metadata']) {
         if (!tables.has(t)) {
-          console.warn('[WordClassService] v2 database missing table:', t)
+          console.warn('[WordClassService] classes database missing table:', t)
           return false
         }
       }
 
-      const metaRows = []
-      db.exec({ sql: 'SELECT key, value FROM metadata', rowMode: 'object', resultRows: metaRows })
-      const meta = {}
-      for (const r of metaRows) meta[r.key] = r.value
+      const meta = this._readMeta(db)
+      if (meta.translation_id !== 'BSB') {
+        console.warn('[WordClassService] classes database translation mismatch:', meta.translation_id)
+        return false
+      }
+      if (meta.resource_type !== 'word-classes') {
+        console.warn('[WordClassService] classes database resource_type mismatch:', meta.resource_type)
+        return false
+      }
+      if (String(meta.runtime_schema_version) !== '1') {
+        console.warn('[WordClassService] classes database unsupported runtime schema version:', meta.runtime_schema_version)
+        return false
+      }
+      if (!meta.compatibility_id) {
+        console.warn('[WordClassService] classes database missing compatibility_id')
+        return false
+      }
+      if (manifest) {
+        if (manifest.runtimeSchemaVersion != null && String(manifest.runtimeSchemaVersion) !== String(meta.runtime_schema_version)) {
+          console.warn('[WordClassService] classes manifest runtime schema mismatch:', manifest.runtimeSchemaVersion)
+          return false
+        }
+        if (manifest.translationId != null && manifest.translationId !== meta.translation_id) {
+          console.warn('[WordClassService] classes manifest translation mismatch:', manifest.translationId)
+          return false
+        }
+      }
 
-      if (meta.canonical_schema_version !== '2') {
-        console.warn('[WordClassService] v2 database has unsupported schema version:', meta.canonical_schema_version)
-        return false
-      }
-      if (meta.focused_schema_version !== '1') {
-        console.warn('[WordClassService] v2 database has unsupported focused schema version:', meta.focused_schema_version)
-        return false
-      }
-      if (meta.accepted_only !== 'true') {
-        console.warn('[WordClassService] v2 database is not accepted-only:', meta.accepted_only)
-        return false
-      }
-      if (meta.unresolved_representation !== 'absent') {
-        console.warn('[WordClassService] v2 database unresolved_representation is not "absent":', meta.unresolved_representation)
-        return false
-      }
-      // The authoritative schema gate is the database metadata above
-      // (meta.focused_schema_version === '1'). The manifest field is
-      // optional belt-and-suspenders: reject only when it is present and
-      // disagrees, so an export that omits it still loads.
-      if (manifest && manifest.focused_schema_version != null && manifest.focused_schema_version !== 1) {
-        console.warn('[WordClassService] v2 manifest focused schema version mismatch:', manifest.focused_schema_version)
-        return false
-      }
-      if (meta.recommended_display_precedence) {
-        try {
-          const precedence = JSON.parse(meta.recommended_display_precedence)
-          if (Array.isArray(precedence) && precedence.length) WordClassService.AXIS_DISPLAY_PRECEDENCE = precedence
-        } catch (e) { /* keep default */ }
-      }
-      if (meta.word_data_rows != null) this._wordDataRows = parseInt(meta.word_data_rows, 10)
-      if (meta.word_data_sha256) this._wordDataSha256 = meta.word_data_sha256
+      this._classesMeta = meta
+
+      this._axisIds = {}
+      const axisRows = []
+      db.exec({ sql: 'SELECT axis_id, name FROM axis', rowMode: 'object', resultRows: axisRows })
+      for (const r of axisRows) this._axisIds[r.name] = r.axis_id
 
       const vocabRows = []
       db.exec({
-        sql: "SELECT axis, value, definition FROM axis_values WHERE axis IN (?, ?) ORDER BY axis, value",
+        sql: `SELECT a.name AS axis, cv.value, cv.definition
+              FROM class_value cv JOIN axis a ON a.axis_id = cv.axis_id
+              WHERE a.name IN (?, ?)`,
         bind: [WordClassService.AXIS_DISPLAY_PRECEDENCE[0], WordClassService.AXIS_DISPLAY_PRECEDENCE[1]],
         rowMode: 'object',
         resultRows: vocabRows,
@@ -374,9 +496,157 @@ window.WordClassService = class WordClassService {
 
       return true
     } catch (e) {
-      console.warn('[WordClassService] v2 database validation error:', e)
+      console.warn('[WordClassService] classes database validation error:', e)
       return false
     }
+  }
+
+  _validateStudy(db, manifest) {
+    try {
+      const tables = new Set()
+      const rows = []
+      db.exec({ sql: "SELECT name FROM sqlite_master WHERE type = 'table'", rowMode: 'object', resultRows: rows })
+      for (const r of rows) tables.add(r.name)
+      for (const t of ['crosswalk', 'verse', 'book', 'metadata']) {
+        if (!tables.has(t)) {
+          console.warn('[WordClassService] study database missing table:', t)
+          return false
+        }
+      }
+
+      const meta = this._readMeta(db)
+      if (meta.translation_id !== 'BSB') {
+        console.warn('[WordClassService] study database translation mismatch:', meta.translation_id)
+        return false
+      }
+      if (meta.resource_type !== 'word-study') {
+        console.warn('[WordClassService] study database resource_type mismatch:', meta.resource_type)
+        return false
+      }
+      if (String(meta.runtime_schema_version) !== '1') {
+        console.warn('[WordClassService] study database unsupported runtime schema version:', meta.runtime_schema_version)
+        return false
+      }
+      if (manifest) {
+        if (manifest.runtimeSchemaVersion != null && String(manifest.runtimeSchemaVersion) !== String(meta.runtime_schema_version)) {
+          console.warn('[WordClassService] study manifest runtime schema mismatch:', manifest.runtimeSchemaVersion)
+          return false
+        }
+        if (manifest.translationId != null && manifest.translationId !== meta.translation_id) {
+          console.warn('[WordClassService] study manifest translation mismatch:', manifest.translationId)
+          return false
+        }
+      }
+
+      // Companion lock (guide §7): the crosswalk is only valid for the exact
+      // classes build it was generated against.
+      const classesMeta = this._classesMeta
+      if (classesMeta) {
+        for (const key of ['translation_id', 'compatibility_id', 'runtime_schema_version', 'source_classes_master_sha256']) {
+          if (classesMeta[key] && meta[key] !== classesMeta[key]) {
+            console.warn('[WordClassService] study database companion mismatch on', key, '— crosswalk disabled')
+            return false
+          }
+        }
+      }
+
+      return true
+    } catch (e) {
+      console.warn('[WordClassService] study database validation error:', e)
+      return false
+    }
+  }
+
+  _readMeta(db) {
+    const metaRows = []
+    db.exec({ sql: 'SELECT key, value FROM metadata', rowMode: 'object', resultRows: metaRows })
+    const meta = {}
+    for (const r of metaRows) meta[r.key] = r.value
+    return meta
+  }
+
+  // --- verse id mapping ----------------------------------------------------
+  // Callers address verses with "BOOK.CHAPTER.VERSE" strings while the runtime
+  // databases use integer verse_id ordinals. These helpers translate between
+  // the two and cache the (per-version stable) mappings.
+
+  _verseRangeForChapter(bookCode, chapter) {
+    const key = bookCode + '.' + chapter
+    if (this._verseRangeCache.has(key)) return this._verseRangeCache.get(key)
+    let range = null
+    try {
+      const rows = []
+      this._db.exec({
+        sql: `SELECT MIN(v.verse_id) AS lo, MAX(v.verse_id) AS hi
+              FROM verse v JOIN book b ON b.book_id = v.book_id
+              WHERE b.book_code = ? AND v.chapter = ?`,
+        bind: [bookCode, chapter],
+        rowMode: 'object',
+        resultRows: rows,
+      })
+      if (rows[0] && rows[0].lo != null) range = { lo: rows[0].lo, hi: rows[0].hi }
+    } catch (e) {
+      console.warn('[WordClassService] verse range lookup failed:', e)
+    }
+    this._verseRangeCache.set(key, range)
+    return range
+  }
+
+  async _verseOrdinal(verseId) {
+    if (typeof verseId === 'number') return verseId
+    if (this._verseOrdinalCache.has(verseId)) return this._verseOrdinalCache.get(verseId)
+    const parts = String(verseId || '').split('.')
+    if (parts.length !== 3 || !this._db) return null
+    let ordinal = null
+    try {
+      const rows = []
+      this._db.exec({
+        sql: `SELECT v.verse_id
+              FROM verse v JOIN book b ON b.book_id = v.book_id
+              WHERE b.book_code = ? AND v.chapter = ? AND v.verse = ?`,
+        bind: [parts[0], parseInt(parts[1], 10), parseInt(parts[2], 10)],
+        rowMode: 'object',
+        resultRows: rows,
+      })
+      if (rows[0]) ordinal = rows[0].verse_id
+    } catch (e) {
+      console.warn('[WordClassService] verse ordinal lookup failed:', e)
+    }
+    this._verseOrdinalCache.set(verseId, ordinal)
+    return ordinal
+  }
+
+  async _refsForOrdinals(ids) {
+    const out = []
+    const wanted = (ids || []).filter(id => id != null)
+    if (!wanted.length || !this._db) return out
+    const byId = {}
+    try {
+      const rows = []
+      const placeholders = wanted.map(() => '?').join(', ')
+      this._db.exec({
+        sql: `SELECT v.verse_id, b.book_code, v.chapter, v.verse
+              FROM verse v JOIN book b ON b.book_id = v.book_id
+              WHERE v.verse_id IN (${placeholders})`,
+        bind: wanted,
+        rowMode: 'object',
+        resultRows: rows,
+      })
+      for (const r of rows) byId[r.verse_id] = r
+    } catch (e) {
+      console.warn('[WordClassService] verse ref lookup failed:', e)
+      return out
+    }
+    for (const id of wanted) {
+      const r = byId[id]
+      if (r) out.push({
+        verseId: `${r.book_code}.${r.chapter}.${r.verse}`,
+        bookCode: r.book_code,
+        chapter: r.chapter,
+        verse: r.verse,
+      })
+    }
+    return out
   }
 
   _cacheKey(bookCode, chapter) {
@@ -418,31 +688,32 @@ window.WordClassService = class WordClassService {
   // --- chapter spans ------------------------------------------------------
 
   async getChapterRenderSpans(bookCode, chapter) {
-    return this._getChapterRenderSpansV2(bookCode, chapter)
-  }
-
-  async _getChapterRenderSpansV2(bookCode, chapter) {
     const key = this._cacheKey(bookCode, chapter)
     if (this._chapterCache.has(key)) return this._chapterCache.get(key)
     if (!this._db) return {}
 
     const result = {}
     try {
+      const range = this._verseRangeForChapter(bookCode, chapter)
+      if (!range) return result
       const rows = []
       this._db.exec({
-        sql: `SELECT t.token_id, t.verse_id, t.surface, t.word_index, t.char_start, t.char_end, ta.axis, ta.value
-              FROM tokens t
-              JOIN token_annotations ta ON ta.token_id = t.token_id
-              WHERE t.verse_id LIKE ?
-              ORDER BY t.token_index, ta.axis`,
-        bind: [key + '.%'],
+        sql: `SELECT t.token_id, v.verse AS verse_num, t.surface, t.word_index, t.char_start, t.char_end,
+                     a.name AS axis, cv.value
+              FROM token t
+              JOIN verse v ON v.verse_id = t.verse_id
+              JOIN class_value cv ON cv.value_id IN (t.referent_id, t.grammar_id, t.discourse_id, t.event_semantics_id)
+              JOIN axis a ON a.axis_id = cv.axis_id
+              WHERE t.verse_id BETWEEN ? AND ?
+              ORDER BY t.token_index`,
+        bind: [range.lo, range.hi],
         rowMode: 'object',
         resultRows: rows,
       })
 
       const perVerse = {}
       for (const r of rows) {
-        const verseNum = parseInt(r.verse_id.split('.').pop(), 10)
+        const verseNum = r.verse_num
         if (!perVerse[verseNum]) perVerse[verseNum] = new Map()
         const map = perVerse[verseNum]
         let tok = map.get(r.token_id)
@@ -486,29 +757,28 @@ window.WordClassService = class WordClassService {
   // or value toggles — every token's role is returned so the renderer can
   // dim/emphasize it.
   async getClearReadingSpans(bookCode, chapter) {
-    return this._getClearReadingSpansV2(bookCode, chapter)
-  }
-
-  async _getClearReadingSpansV2(bookCode, chapter) {
     const key = this._cacheKey(bookCode, chapter)
     if (this._clearReadingCache.has(key)) return this._clearReadingCache.get(key)
     if (!this._db) return {}
 
     const result = {}
     try {
+      const range = this._verseRangeForChapter(bookCode, chapter)
+      if (!range) return result
       const rows = []
       this._db.exec({
-        sql: `SELECT t.token_id, t.verse_id, t.surface, t.word_index, t.char_start, t.char_end, ta.value
-              FROM tokens t
-              JOIN token_annotations ta ON ta.token_id = t.token_id
-              WHERE t.verse_id LIKE ? AND ta.axis = 'discourse'
+        sql: `SELECT t.token_id, v.verse AS verse_num, t.surface, t.word_index, t.char_start, t.char_end, cv.value
+              FROM token t
+              JOIN verse v ON v.verse_id = t.verse_id
+              JOIN class_value cv ON cv.value_id = t.discourse_id
+              WHERE t.verse_id BETWEEN ? AND ?
               ORDER BY t.token_index`,
-        bind: [key + '.%'],
+        bind: [range.lo, range.hi],
         rowMode: 'object',
         resultRows: rows,
       })
       for (const r of rows) {
-        const verseNum = parseInt(r.verse_id.split('.').pop(), 10)
+        const verseNum = r.verse_num
         if (!result[verseNum]) result[verseNum] = []
         result[verseNum].push({
           tokenId: r.token_id,
@@ -532,73 +802,70 @@ window.WordClassService = class WordClassService {
     return this.init(bridge)
   }
 
-  // --- word study crosswalk -----------------------------------------------
+  // --- word study crosswalk ------------------------------------------------
 
-  // Validate the loaded bsb_word_data.sqlite against the v2 metadata before
-  // trusting the embedded crosswalk. Without a match the links are treated as
-  // unresolved.
+  // Kept for API compatibility: the crosswalk now lives in the dedicated
+  // BSB_word_study.sqlite companion and no longer depends on bsb_word_data
+  // row fingerprints (guide §6/§11).
   setWordData(db) {
-    if (!db) {
-      this._wordDataDb = null
-      this._wordDataValid = false
-      return
-    }
-    this._wordDataDb = db
-    try {
-      const rows = []
-      db.exec({ sql: 'SELECT COUNT(*) AS cnt FROM bible_word_data', rowMode: 'object', resultRows: rows })
-      const actual = rows[0]?.cnt ?? -1
-      if (this._wordDataRows != null && actual === this._wordDataRows) {
-        this._wordDataValid = true
-      } else {
-        console.warn('[WordClassService] bsb_word_data.sqlite rows mismatch (got', actual, 'expected', this._wordDataRows, ') — crosswalk disabled')
-        this._wordDataValid = false
-      }
-    } catch (e) {
-      console.warn('[WordClassService] bsb_word_data validation error:', e)
-      this._wordDataValid = false
-    }
+    this._wordDataDb = db || null
   }
 
   async getChapterWordPositions(bookCode, chapter) {
-    return this._getChapterWordPositionsV2(bookCode, chapter)
-  }
-
-  async _getChapterWordPositionsV2(bookCode, chapter) {
     const key = this._cacheKey(bookCode, chapter)
     if (this._posCache.has(key)) return this._posCache.get(key)
-    if (!this._db) return {}
-    if (this._wordDataValid !== true) {
-      console.warn('[WordClassService] word study crosswalk not validated — no source links resolved')
-      return {}
-    }
+    if (!this._db || !this._studyDb) return {}
 
     const result = {}
     try {
-      const rows = []
-      this._db.exec({
-        sql: `SELECT t.token_id, t.verse_id, t.surface, t.word_index, t.char_start, t.char_end,
-                     swm.client_word_position
-              FROM tokens t
-              JOIN token_source_links tsl ON tsl.token_id = t.token_id
-              JOIN source_word_map swm ON swm.source_word_id = tsl.source_word_id
-              WHERE t.verse_id LIKE ?
-              ORDER BY t.token_index`,
-        bind: [key + '.%'],
+      const range = this._verseRangeForChapter(bookCode, chapter)
+      if (!range) return result
+
+      const cwRows = []
+      this._studyDb.exec({
+        sql: `SELECT cw.token_id, v.verse AS verse_num, cw.client_word_position
+              FROM crosswalk cw JOIN verse v ON v.verse_id = cw.verse_id
+              WHERE cw.verse_id BETWEEN ? AND ?`,
+        bind: [range.lo, range.hi],
         rowMode: 'object',
-        resultRows: rows,
+        resultRows: cwRows,
       })
-      for (const r of rows) {
-        const verseNum = parseInt(r.verse_id.split('.').pop(), 10)
-        if (!result[verseNum]) result[verseNum] = []
-        result[verseNum].push({
+      if (!cwRows.length) {
+        this._posCache.set(key, result)
+        return result
+      }
+
+      const tokenRows = []
+      this._db.exec({
+        sql: `SELECT token_id, surface, word_index, char_start, char_end, token_index
+              FROM token
+              WHERE verse_id BETWEEN ? AND ?`,
+        bind: [range.lo, range.hi],
+        rowMode: 'object',
+        resultRows: tokenRows,
+      })
+      const tokenById = new Map()
+      for (const r of tokenRows) tokenById.set(r.token_id, r)
+
+      const perVerse = {}
+      for (const r of cwRows) {
+        const tok = tokenById.get(r.token_id)
+        if (!tok) continue
+        if (!perVerse[r.verse_num]) perVerse[r.verse_num] = []
+        perVerse[r.verse_num].push({
           tokenId: r.token_id,
-          surface: r.surface,
-          wordIndex: r.word_index,
-          charStart: r.char_start,
-          charEnd: r.char_end,
+          surface: tok.surface,
+          wordIndex: tok.word_index,
+          charStart: tok.char_start,
+          charEnd: tok.char_end,
           wordPosition: r.client_word_position,
+          _order: tok.token_index,
         })
+      }
+      for (const [verseNum, list] of Object.entries(perVerse)) {
+        list.sort((a, b) => (a._order ?? 0) - (b._order ?? 0))
+        for (const item of list) delete item._order
+        result[verseNum] = list
       }
     } catch (e) {
       console.error('[WordClassService] getChapterWordPositions error:', e)
@@ -611,35 +878,36 @@ window.WordClassService = class WordClassService {
 
   async getTokenClassificationFromWordPosition(verseId, wordPosition, tokenId) {
     if (!this._isReady) return null
-    return this._getTokenClassificationV2(verseId, wordPosition, tokenId)
+    return this._getTokenClassification(verseId, wordPosition, tokenId, 0)
   }
 
-  async _getTokenClassificationV2(verseId, wordPosition, tokenId) {
-    let tid = tokenId
-    if (!tid) {
+  async _getTokenClassification(verseId, wordPosition, tokenId, depth) {
+    let tid = tokenId != null ? tokenId : null
+    let ordinal = null
+    if (tid == null) {
+      ordinal = await this._verseOrdinal(verseId)
+      if (!ordinal || !this._studyDb) return null
       const rows = []
       try {
-        this._db.exec({
-          sql: `SELECT tsl.token_id
-                FROM token_source_links tsl
-                JOIN source_word_map swm ON swm.source_word_id = tsl.source_word_id
-                WHERE swm.verse_id = ? AND swm.client_word_position = ?
-                LIMIT 1`,
-          bind: [verseId, wordPosition],
+        this._studyDb.exec({
+          sql: 'SELECT token_id FROM crosswalk WHERE verse_id = ? AND client_word_position = ? LIMIT 1',
+          bind: [ordinal, wordPosition],
           rowMode: 'object',
           resultRows: rows,
         })
       } catch (e) {
         console.warn('[WordClassService] token lookup by word position error:', e)
       }
-      tid = rows[0]?.token_id || null
+      tid = rows[0]?.token_id ?? null
     }
-    if (!tid) return null
+    if (tid == null) return null
 
     const tokRows = []
     try {
       this._db.exec({
-        sql: 'SELECT token_id, verse_id, surface, char_start, char_end FROM tokens WHERE token_id = ?',
+        sql: `SELECT token_id, verse_id, surface, char_start, char_end,
+                     referent_id, grammar_id, discourse_id, event_semantics_id
+              FROM token WHERE token_id = ?`,
         bind: [tid],
         rowMode: 'object',
         resultRows: tokRows,
@@ -651,54 +919,75 @@ window.WordClassService = class WordClassService {
     if (!tokRows.length) return null
 
     const t = tokRows[0]
-    const annRows = []
-    try {
-      this._db.exec({
-        sql: 'SELECT axis, value FROM token_annotations WHERE token_id = ?',
-        bind: [tid],
-        rowMode: 'object',
-        resultRows: annRows,
-      })
-    } catch (e) {
-      console.warn('[WordClassService] token annotations error:', e)
-      return null
-    }
+    const axes = this._axesForToken(t)
 
-    if (!annRows.length && wordPosition != null) {
-      const linked = []
-      try {
-        this._db.exec({
-          sql: `SELECT tsl.token_id
-                FROM token_source_links tsl
-                JOIN source_word_map swm ON swm.source_word_id = tsl.source_word_id
-                JOIN token_annotations ta ON ta.token_id = tsl.token_id
-                WHERE swm.verse_id = ? AND swm.client_word_position = ?
-                LIMIT 1`,
-          bind: [verseId, wordPosition],
-          rowMode: 'object',
-          resultRows: linked,
-        })
-      } catch (e) { /* ignore */ }
-      if (linked[0] && linked[0].token_id !== tid) {
-        return this._getTokenClassificationV2(verseId, wordPosition, linked[0].token_id)
+    // A crosswalk position can resolve to several tokens (e.g. a multi-word
+    // phrase). If the first carries no classification, try its siblings.
+    if (!Object.keys(axes).length && wordPosition != null && depth < 1 && this._studyDb) {
+      if (ordinal == null) ordinal = await this._verseOrdinal(verseId)
+      if (ordinal) {
+        const linked = []
+        try {
+          this._studyDb.exec({
+            sql: `SELECT token_id FROM crosswalk
+                  WHERE verse_id = ? AND client_word_position = ? AND token_id != ?
+                  LIMIT 1`,
+            bind: [ordinal, wordPosition, tid],
+            rowMode: 'object',
+            resultRows: linked,
+          })
+        } catch (e) { /* ignore */ }
+        if (linked[0] && linked[0].token_id != null) {
+          return this._getTokenClassification(verseId, wordPosition, linked[0].token_id, depth + 1)
+        }
       }
     }
 
-    const axes = {}
-    for (const a of annRows) axes[a.axis] = a.value
-
-    const entries = this._buildAxisEntries(axes)
+    const refs = await this._refsForOrdinals([t.verse_id])
     const display = this._resolveDisplay(axes)
-
     return {
       tokenId: t.token_id,
-      verseId: t.verse_id,
+      verseId: refs[0] ? refs[0].verseId : t.verse_id,
       surface: t.surface,
       wordPosition,
       axes,
       display: display ? { axis: display.axis, value: display.value } : null,
-      entries,
+      entries: this._buildAxisEntries(axes),
     }
+  }
+
+  _axesForToken(t) {
+    const ids = {
+      referent: t.referent_id,
+      grammar: t.grammar_id,
+      discourse: t.discourse_id,
+      event_semantics: t.event_semantics_id,
+    }
+    const present = Object.values(ids).filter(id => id != null)
+    if (!present.length) return {}
+    const rows = []
+    try {
+      const placeholders = present.map(() => '?').join(', ')
+      this._db.exec({
+        sql: `SELECT cv.value_id, cv.value, a.name AS axis
+              FROM class_value cv JOIN axis a ON a.axis_id = cv.axis_id
+              WHERE cv.value_id IN (${placeholders})`,
+        bind: present,
+        rowMode: 'object',
+        resultRows: rows,
+      })
+    } catch (e) {
+      console.warn('[WordClassService] token class lookup error:', e)
+      return {}
+    }
+    const byId = {}
+    for (const r of rows) byId[r.value_id] = r
+    const axes = {}
+    for (const [axis, id] of Object.entries(ids)) {
+      const cv = id != null ? byId[id] : null
+      if (cv) axes[cv.axis] = cv.value
+    }
+    return axes
   }
 
   _buildAxisEntries(axes) {
@@ -732,7 +1021,7 @@ window.WordClassService = class WordClassService {
   async getConcordance(params = {}) {
     if (!this._isReady) return { rows: [], total: 0 }
     if (params.axis && params.value != null) {
-      return this._getConcordanceV2(params.axis, params.value, params.limit, params.offset)
+      return this._getConcordance(params.axis, params.value, params.limit, params.offset)
     }
     return { rows: [], total: 0 }
   }
@@ -749,7 +1038,10 @@ window.WordClassService = class WordClassService {
     return raw
   }
 
-  async _getConcordanceV2(axis, value, limit, offset) {
+  async _getConcordance(axis, value, limit, offset) {
+    const column = WordClassService.AXIS_COLUMNS[axis]
+    const axisId = this._axisIds ? this._axisIds[axis] : null
+    if (!column || !axisId || !this._db) return { rows: [], total: 0 }
     const lim = Math.min(limit || 50, 200)
     const off = offset || 0
     const dbValues = this._concordanceDbValues(axis, value)
@@ -759,10 +1051,10 @@ window.WordClassService = class WordClassService {
       const countRows = []
       this._db.exec({
         sql: `SELECT COUNT(DISTINCT t.verse_id) AS cnt
-              FROM token_annotations ta
-              JOIN tokens t ON t.token_id = ta.token_id
-              WHERE ta.axis = ? AND ta.value IN (${placeholders})`,
-        bind: [axis, ...binds],
+              FROM token t
+              JOIN class_value cv ON cv.value_id = t.${column}
+              WHERE cv.axis_id = ? AND cv.value IN (${placeholders})`,
+        bind: [axisId, ...binds],
         rowMode: 'object',
         resultRows: countRows,
       })
@@ -771,20 +1063,17 @@ window.WordClassService = class WordClassService {
       const rows = []
       this._db.exec({
         sql: `SELECT DISTINCT t.verse_id
-              FROM token_annotations ta
-              JOIN tokens t ON t.token_id = ta.token_id
-              WHERE ta.axis = ? AND ta.value IN (${placeholders})
+              FROM token t
+              JOIN class_value cv ON cv.value_id = t.${column}
+              WHERE cv.axis_id = ? AND cv.value IN (${placeholders})
               ORDER BY t.verse_id
               LIMIT ? OFFSET ?`,
-        bind: [axis, ...binds, lim, off],
+        bind: [axisId, ...binds, lim, off],
         rowMode: 'object',
         resultRows: rows,
       })
-      const mapped = rows.map(r => {
-        const parts = r.verse_id.split('.')
-        return { verseId: r.verse_id, bookCode: parts[0], chapter: parseInt(parts[1], 10), verse: parseInt(parts[2], 10) }
-      })
-      return { rows: mapped, total }
+      const refs = await this._refsForOrdinals(rows.map(r => r.verse_id))
+      return { rows: refs, total }
     } catch (e) {
       console.warn('[WordClassService] getConcordance error:', e)
       return { rows: [], total: 0 }
@@ -855,16 +1144,24 @@ window.WordClassService = class WordClassService {
       try { this._db.close() } catch (e) { /* ignore */ }
       this._db = null
     }
+    if (this._studyDb) {
+      try { this._studyDb.close() } catch (e) { /* ignore */ }
+      this._studyDb = null
+    }
     this._chapterCache.clear()
     this._posCache.clear()
     this._clearReadingCache.clear()
+    this._verseRangeCache.clear()
+    this._verseOrdinalCache.clear()
     this._isReady = false
     this._initPromise = null
     this._bridge = null
     this._vocab = null
+    this._classesMeta = null
+    this._axisIds = null
     this._wordDataDb = null
-    this._wordDataValid = null
     this._manifest = null
-    this._manifestPromise = null
+    this._studyManifest = null
+    this._manifestPromises = {}
   }
 }

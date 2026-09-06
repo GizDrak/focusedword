@@ -724,7 +724,6 @@ window.BookmarksUI = class BookmarksUI {
         }
         if (e.target.closest('.bm-delete')) return;
         this.closeSlideUp();
-        this.closeModal();
         if (notesUI) notesUI.loadNote(note);
       });
 
@@ -981,7 +980,6 @@ window.BookmarksUI = class BookmarksUI {
     });
     window.verseManager.setIntentional(verseTarget);
     this.bridge.call('navigation', 'loadChapter', item.bookId, item.chapter);
-    this.closeModal();
     this.closeSlideUp();
   }
 

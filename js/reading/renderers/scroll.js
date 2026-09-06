@@ -2,6 +2,11 @@ window.ScrollRenderer = class ScrollRenderer {
   constructor(bridge, base) {
     this.bridge = bridge;
     this.base = base;
+    this._continuous = null;
+  }
+
+  get continuousWindow() {
+    return this._continuous ? this._continuous.window : null;
   }
 
   async render(verses) {
@@ -9,6 +14,17 @@ window.ScrollRenderer = class ScrollRenderer {
     const state = this.bridge.state;
     const content = document.getElementById('content');
     await this._renderVerses(verses, content);
+    if (!this._scrollTrackingDisabled) {
+      this._setupScrollTracking();
+    }
+  }
+
+  async renderContinuous(verses) {
+    if (!this._continuous) {
+      this._continuous = new window.ContinuousScroller(this.bridge, this.base);
+    }
+    this._pendingRender = true;
+    await this._continuous.render(verses);
     if (!this._scrollTrackingDisabled) {
       this._setupScrollTracking();
     }
@@ -155,15 +171,37 @@ window.ScrollRenderer = class ScrollRenderer {
     const bottomWeight = Math.max(0, (scrollFraction - 0.88) / 0.12);
     const referencePoint = viewportCenter * (1 - bottomWeight) + viewportBottom * bottomWeight;
 
-    let active = parseInt(containers[0].dataset.verse);
+    let activeEl = containers[0];
     for (let i = containers.length - 1; i >= 0; i--) {
       if (containers[i].getBoundingClientRect().top <= referencePoint) {
-        active = parseInt(containers[i].dataset.verse);
+        activeEl = containers[i];
         break;
       }
     }
+    const active = parseInt(activeEl.dataset.verse);
+    if (!active) return;
 
-    if (active !== this._lastSyncVerse) {
+    const state = this.bridge.state;
+    const book = activeEl.dataset.book != null ? parseInt(activeEl.dataset.book, 10) : null;
+    const chapter = activeEl.dataset.chapter != null ? parseInt(activeEl.dataset.chapter, 10) : null;
+    const crossed = book != null && chapter != null &&
+      (book !== state.get('currentBook') || chapter !== state.get('currentChapter'));
+
+    if (crossed) {
+      const nav = this.bridge.get('navigation');
+      const bookEntry = nav && nav.booksCache ? nav.booksCache.find(b => b.id === book) : null;
+      const bookName = bookEntry ? bookEntry.name : '';
+      window.verseManager.setPassivePosition(book, chapter, active, bookName);
+      if (state.get('currentBook') === book && state.get('currentChapter') === chapter) {
+        const w = this.continuousWindow;
+        const verses = w ? w.peekVerses(book + ':' + chapter) : null;
+        if (nav && verses && verses.length) nav.currentVerses = verses;
+        const nh = this.bridge.get('navigation-history');
+        if (nh) nh.record(book, chapter, active, bookName);
+        this._lastSyncVerse = active;
+      }
+      this.base.updateFocusedVerse(active, { book, chapter });
+    } else if (active !== this._lastSyncVerse) {
       this._lastSyncVerse = active;
       window.verseManager.setPassive(active);
       this.base.updateFocusedVerse(active);

@@ -22,8 +22,8 @@ window.SettingsModule = class SettingsModule {
     wc.preloadVocabulary().then(() => {
       this._renderStudySection();
       if (this._wcKeyOpen) this.openStudyInfo('word-classes');
-      // Also refresh once the full annotation DB finishes loading, in case the
-      // compact vocabulary JSON and DB-driven vocabulary diverge.
+      // Also refresh once the full annotation DB finishes loading, in case
+      // the vocabulary arrived with a later database generation.
       if (!wc.isReady && !this._wcReadyPoller) {
         this._wcReadyPoller = setInterval(() => {
           if (wc.isReady) {
@@ -73,6 +73,7 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-ui-skin').value = state.get('uiSkin');
     document.getElementById('settings-poetry').checked = _rs('poetryFormatting', true) === true;
     document.getElementById('settings-paragraph-mode').checked = _rs('paragraphMode', false) === true;
+    document.getElementById('settings-continuous-chapters').checked = state.get('continuousChapters') === true;
     document.getElementById('settings-swipe-max-verses').value = state.get('swipeMaxVerses');
     document.getElementById('settings-swipe-max-verses-label').textContent = state.get('swipeMaxVerses');
     this._syncSwipeMaxVersesVisibility(state.get('paragraphBreaks'));
@@ -83,6 +84,8 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-word-classes').checked = state.get('wordClasses') === true;
     const crCb = document.getElementById('settings-clear-reading');
     if (crCb) crCb.checked = state.get('clearReadingEnabled') === true;
+    const vtCb = document.getElementById('settings-verse-topics');
+    if (vtCb) vtCb.checked = state.get('verseTopicsEnabled') === true;
     document.getElementById('speed-auto-advance').checked = state.get('speedAutoAdvance');
     const _bionicStr = window.UISkins ? window.UISkins.resolveSetting('bionicStrength', state.get('bionicStrength')) : state.get('bionicStrength');
     document.getElementById('settings-strength').value = _bionicStr;
@@ -110,6 +113,8 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-background-texture').checked = _rs('backgroundTexture', true) === true;
     document.querySelectorAll('#settings-panel input[type="range"]').forEach(input => this._updateRangeFill(input));
     this._renderStudySection();
+    this._renderVerseTopicsSection();
+    this._renderClearReadingSection();
     this._applyTextSettings();
   }
 
@@ -304,12 +309,12 @@ window.SettingsModule = class SettingsModule {
         const isOverridden = settings && settings.colors && settings.colors[v.key] !== undefined
           && settings.colors[v.key].toUpperCase() !== WordClassService.getAxisDefaultColor(group.axis, v.value).toUpperCase();
         html += '<div class="study-sub-row">';
-        html += '<span class="study-sub-name" style="color:inherit"><span class="study-cat-dot" style="background:' + window.HTMLEscape(v.color) + '" id="study-dot-' + v.key + '"></span>' + window.HTMLEscape(v.label) + '</span>';
+        html += '<span class="study-sub-name" style="color:inherit">' + window.HTMLEscape(v.label) + '</span>';
         html += '<div class="study-category-actions">';
         html += '<label class="toggle-label-wrapper" style="margin:0">';
         html += '<input type="checkbox" class="toggle-checkbox study-cat-toggle" data-axis="' + window.HTMLEscape(group.axis) + '" data-value="' + window.HTMLEscape(v.value) + '"' + (v.enabled ? ' checked' : '') + '>';
         html += '<span class="toggle-pill"></span></label>';
-        html += '<input type="color" class="study-cat-color-input" data-axis="' + window.HTMLEscape(group.axis) + '" data-value="' + window.HTMLEscape(v.value) + '" value="' + window.HTMLEscape(v.hex || v.color) + '" title="Change color">';
+        html += '<input type="color" class="study-cat-color-input" data-axis="' + window.HTMLEscape(group.axis) + '" data-value="' + window.HTMLEscape(v.value) + '" value="' + window.HTMLEscape(isOverridden ? settings.colors[v.key] : v.hex) + '" title="Change color">';
         html += '<button class="study-cat-reset" data-axis="' + window.HTMLEscape(group.axis) + '" data-value="' + window.HTMLEscape(v.value) + '" title="Reset to default"' + (isOverridden ? '' : ' style="visibility:hidden"') + '>↺</button>';
         html += '</div></div>';
       }
@@ -398,13 +403,14 @@ window.SettingsModule = class SettingsModule {
       colors[key] = colorInput.value;
       current.colors = colors;
       state.set('wordClassAxisSettings', current);
-      const dot = document.getElementById('study-dot-' + key);
-      if (dot) dot.style.background = colorInput.value;
       const resetBtn = colorInput.closest('.study-sub-row')?.querySelector('.study-cat-reset');
       if (resetBtn) {
         const def = WordClassService.getAxisDefaultColor(colorInput.dataset.axis, colorInput.dataset.value);
         resetBtn.style.visibility = (colorInput.value.toUpperCase() !== def.toUpperCase()) ? '' : 'hidden';
       }
+      // Span colors are baked at enrichment time, so the open chapter must be
+      // re-enriched for the new color to appear.
+      this._scheduleWordClassRecolor();
       return;
     }
 
@@ -417,13 +423,29 @@ window.SettingsModule = class SettingsModule {
       if (Object.keys(colors).length) current.colors = colors; else delete current.colors;
       state.set('wordClassAxisSettings', (current.values || current.colors || current.axes) ? current : null);
       const def = WordClassService.getAxisDefaultColor(resetBtn.dataset.axis, resetBtn.dataset.value);
-      const dot = document.getElementById('study-dot-' + key);
-      if (dot) dot.style.background = WordClassService.getAxisColor(resetBtn.dataset.axis, resetBtn.dataset.value, null);
       const input = wrap.querySelector('.study-cat-color-input[data-axis="' + resetBtn.dataset.axis + '"][data-value="' + resetBtn.dataset.value + '"]');
       if (input) input.value = def;
       resetBtn.style.visibility = 'hidden';
+      this._scheduleWordClassRecolor();
       return;
     }
+  }
+
+  // Word-class span colors are resolved when a chapter is enriched, so a color
+  // change needs a re-enrich of the open chapter to become visible. Debounced
+  // because rapid picker changes would otherwise stack loadChapter calls.
+  _scheduleWordClassRecolor() {
+    if (this._wcRecolorTimer) clearTimeout(this._wcRecolorTimer);
+    this._wcRecolorTimer = setTimeout(() => {
+      this._wcRecolorTimer = null;
+      const state = this.bridge.state;
+      const nav = this.bridge.get('navigation');
+      if (nav) {
+        nav.loadChapter(state.get('currentBook'), state.get('currentChapter')).catch(() => {});
+      } else {
+        this.bridge.emit('render:refresh');
+      }
+    }, 150);
   }
 
   _initStudyListeners() {
@@ -443,9 +465,206 @@ window.SettingsModule = class SettingsModule {
     wrap.addEventListener('click', this._wcHandler);
   }
 
+  _renderVerseTopicsSection() {
+    const wrap = document.getElementById('vt-category-colors');
+    if (!wrap) return;
+    const state = this.bridge.state;
+    const enabled = state.get('verseTopicsEnabled') === true;
+    wrap.style.display = enabled ? '' : 'none';
+    if (!enabled) return;
+
+    const settings = state.get('verseTopicSettings') || null;
+    const vts = this.bridge.get('verse-topic-service');
+    const topics = vts && vts.isReady ? vts.topics : null;
+    if (!topics || !topics.length) {
+      wrap.innerHTML = '<div class="study-category-hint">Verse topics are still loading. Open Settings again shortly to adjust colors.</div>';
+      return;
+    }
+
+    const styleSetting = settings && settings.style;
+    const style = (styleSetting === 'tabs' || styleSetting === 'gradient' || styleSetting === 'triangle' || styleSetting === 'fold') ? styleSetting : 'medallion';
+    let html = '<div class="study-category-row">';
+    html += '<div class="study-category-label"><span>Topic Style</span></div>';
+    html += '<div class="study-category-actions"></div></div>';
+    html += '<div class="study-sub-row">';
+    html += '<select class="vt-style-select" data-vt-style aria-label="Verse topic style">';
+    for (const [value, label] of [['fold', 'Corner Fold'], ['triangle', 'Triangle'], ['medallion', 'Medallion'], ['gradient', 'Gradient Edge'], ['tabs', 'Tabs']]) {
+      html += '<option value="' + value + '"' + (style === value ? ' selected' : '') + '>' + label + '</option>';
+    }
+    html += '</select></div>';
+
+    html += '<div class="study-category-row">';
+    html += '<div class="study-category-label"><span>Topic Colors</span></div>';
+    html += '<div class="study-category-actions"></div></div>';
+
+    for (const t of topics) {
+      const overridden = settings && settings.colors && settings.colors[t.topicId] !== undefined;
+      const color = (overridden ? settings.colors[t.topicId] : t.color_hex);
+      const isOverridden = overridden && settings.colors[t.topicId].toUpperCase() !== t.color_hex.toUpperCase();
+      html += '<div class="study-sub-row" data-vt-topic="' + t.topicId + '">';
+      const icon = window.VerseTopicIcons && window.VerseTopicIcons[t.topicId];
+      if (icon) {
+        html += '<span class="vt-icon" style="color:' + window.HTMLEscape(color) + '">' + icon + '</span>';
+      }
+      html += '<span class="study-sub-name" style="color:inherit">' + window.HTMLEscape(t.name) + '</span>';
+      html += '<div class="study-category-actions">';
+      html += '<input type="color" class="study-cat-color-input" data-vt-topic="' + t.topicId + '" value="' + window.HTMLEscape(color) + '" title="Change color">';
+      html += '<button class="study-cat-reset" data-vt-topic="' + t.topicId + '" title="Reset to default"' + (isOverridden ? '' : ' style="visibility:hidden"') + '>↺</button>';
+      html += '</div></div>';
+    }
+
+    wrap.innerHTML = html;
+    this._initVerseTopicListeners();
+  }
+
+  _initVerseTopicListeners() {
+    const wrap = document.getElementById('vt-category-colors');
+    if (!wrap) return;
+    if (this._vtHandler) {
+      wrap.removeEventListener('change', this._vtHandler);
+      wrap.removeEventListener('click', this._vtHandler);
+    }
+    this._vtHandler = (e) => {
+      this._handleVerseTopicChange(e, wrap);
+    };
+    wrap.addEventListener('change', this._vtHandler);
+    wrap.addEventListener('click', this._vtHandler);
+  }
+
+  _handleVerseTopicChange(e, wrap) {
+    const state = this.bridge.state;
+    const vts = this.bridge.get('verse-topic-service');
+
+    if (e.type === 'change' && e.target.closest('.vt-style-select[data-vt-style]')) {
+      const styleSelect = e.target.closest('.vt-style-select[data-vt-style]');
+      const current = Object.assign({}, state.get('verseTopicSettings') || {});
+      current.style = styleSelect.value;
+      state.set('verseTopicSettings', current);
+      this.bridge.emit('render:refresh');
+      return;
+    }
+
+    const colorInput = e.target.closest('.study-cat-color-input[data-vt-topic]');
+    if (colorInput) {
+      const topicId = Number(colorInput.dataset.vtTopic);
+      const current = Object.assign({}, state.get('verseTopicSettings') || {});
+      const colors = Object.assign({}, current.colors || {});
+      colors[topicId] = colorInput.value;
+      current.colors = colors;
+      state.set('verseTopicSettings', current);
+      const row = colorInput.closest('.study-sub-row');
+      const resetBtn = row && row.querySelector('.study-cat-reset');
+      if (resetBtn) {
+        const def = vts && vts.getTopicById ? (vts.getTopicById(topicId) || {}).color_hex : null;
+        resetBtn.style.visibility = (def && colorInput.value.toUpperCase() !== def.toUpperCase()) ? '' : 'hidden';
+      }
+      const rowIcon = row && row.querySelector('.vt-icon');
+      if (rowIcon) rowIcon.style.color = colorInput.value;
+      this.bridge.emit('render:refresh');
+      return;
+    }
+
+    const resetBtn = e.target.closest('.study-cat-reset[data-vt-topic]');
+    if (resetBtn) {
+      const topicId = Number(resetBtn.dataset.vtTopic);
+      const current = Object.assign({}, state.get('verseTopicSettings') || {});
+      const colors = Object.assign({}, current.colors || {});
+      delete colors[topicId];
+      if (Object.keys(colors).length) current.colors = colors; else delete current.colors;
+      // Keep the style choice even when the last color override is removed.
+      const hasColors = current.colors && Object.keys(current.colors).length;
+      state.set('verseTopicSettings', (hasColors || current.style) ? current : null);
+      const def = vts && vts.getTopicById ? (vts.getTopicById(topicId) || {}).color_hex : '#888888';
+      const input = wrap.querySelector('.study-cat-color-input[data-vt-topic="' + topicId + '"]');
+      if (input) input.value = def;
+      const rowIcon = resetBtn.closest('.study-sub-row')?.querySelector('.vt-icon');
+      if (rowIcon) rowIcon.style.color = def;
+      resetBtn.style.visibility = 'hidden';
+      this.bridge.emit('render:refresh');
+      return;
+    }
+  }
+
+  _renderClearReadingSection() {
+    const wrap = document.getElementById('cr-category-settings');
+    if (!wrap) return;
+    const state = this.bridge.state;
+    const enabled = state.get('clearReadingEnabled') === true;
+    wrap.style.display = enabled ? '' : 'none';
+    if (!enabled) return;
+
+    const WCS = window.WordClassService;
+    const values = (WCS && WCS.CLEAR_READING_VALUES) || [];
+    const mode = state.get('clearReadingMode') === 'strong' ? 'strong' : 'soft';
+    const toggles = state.get('clearReadingToggles') || {};
+
+    let html = '<div class="study-category-row">';
+    html += '<div class="study-category-label"><span>Mode</span></div>';
+    html += '<div class="study-category-actions"></div></div>';
+    html += '<div class="study-sub-row">';
+    html += '<select class="cr-mode-select" data-cr-mode aria-label="Clear Reading mode">';
+    html += '<option value="soft"' + (mode === 'soft' ? ' selected' : '') + '>Soft</option>';
+    html += '<option value="strong"' + (mode === 'strong' ? ' selected' : '') + '>Strong</option>';
+    html += '</select></div>';
+
+    html += '<div class="study-category-row">';
+    html += '<div class="study-category-label"><span>Categories</span></div>';
+    html += '<div class="study-category-actions"></div></div>';
+
+    for (const v of values) {
+      const on = toggles[v.value] !== false;
+      const label = (WCS && WCS.getClearReadingLabel) ? WCS.getClearReadingLabel(v.value) : v.value;
+      html += '<div class="study-sub-row' + (on ? '' : ' muted') + '" data-cr-value="' + window.HTMLEscape(v.value) + '">';
+      html += '<span class="study-sub-name">' + window.HTMLEscape(label) + '</span>';
+      html += '<div class="study-category-actions">';
+      html += '<label class="toggle-label-wrapper" style="margin:0">';
+      html += '<input type="checkbox" class="toggle-checkbox cr-cat-toggle" data-value="' + window.HTMLEscape(v.value) + '"' + (on ? ' checked' : '') + '>';
+      html += '<span class="toggle-pill"></span></label>';
+      html += '</div></div>';
+    }
+
+    wrap.innerHTML = html;
+    this._initClearReadingListeners();
+  }
+
+  _initClearReadingListeners() {
+    const wrap = document.getElementById('cr-category-settings');
+    if (!wrap) return;
+    if (this._crHandler) {
+      wrap.removeEventListener('change', this._crHandler);
+      wrap.removeEventListener('click', this._crHandler);
+    }
+    this._crHandler = (e) => {
+      this._handleClearReadingChange(e, wrap);
+    };
+    wrap.addEventListener('change', this._crHandler);
+    wrap.addEventListener('click', this._crHandler);
+  }
+
+  _handleClearReadingChange(e, wrap) {
+    const state = this.bridge.state;
+
+    if (e.type === 'change' && e.target.closest('.cr-mode-select[data-cr-mode]')) {
+      state.set('clearReadingMode', e.target.closest('.cr-mode-select[data-cr-mode]').value);
+      this.bridge.emit('render:refresh');
+      return;
+    }
+
+    const toggle = e.target.closest('.cr-cat-toggle[data-value]');
+    if (toggle) {
+      const current = Object.assign({}, state.get('clearReadingToggles') || {});
+      current[toggle.dataset.value] = toggle.checked;
+      state.set('clearReadingToggles', current);
+      const row = toggle.closest('.study-sub-row');
+      if (row) row.classList.toggle('muted', !toggle.checked);
+      this.bridge.emit('render:refresh');
+    }
+  }
+
   async _onWordClassesToggle(enabled) {
     this.bridge.state.set('wordClasses', enabled);
     this._renderStudySection();
+    this._syncStudySubmenu('word-classes', enabled);
     if (enabled) {
       const loading = document.getElementById('wc-loading');
       if (loading) loading.classList.add('visible');
@@ -537,6 +756,8 @@ window.SettingsModule = class SettingsModule {
           state.set('clearReadingMode', 'soft');
         }
         state.set('clearReadingEnabled', true);
+        this._renderClearReadingSection();
+        this._syncStudySubmenu('clear-reading', true);
         const nav = this.bridge.get('navigation');
         if (nav) {
           await nav.loadChapter(state.get('currentBook'), state.get('currentChapter'));
@@ -553,6 +774,8 @@ window.SettingsModule = class SettingsModule {
     }
 
     state.set('clearReadingEnabled', false);
+    this._renderClearReadingSection();
+    this._syncStudySubmenu('clear-reading', false);
     const nav = this.bridge.get('navigation');
     if (nav) {
       await nav.loadChapter(state.get('currentBook'), state.get('currentChapter'));
@@ -564,6 +787,46 @@ window.SettingsModule = class SettingsModule {
   _applyRedLetterColor() {
     const color = this.bridge.state.get('redLetterColor') || '#BC3636';
     document.documentElement.style.setProperty('--wj-color', color);
+  }
+
+  async _onVerseTopicsToggle(enabled) {
+    const state = this.bridge.state;
+    const loading = document.getElementById('vt-loading');
+    if (enabled) {
+      if (loading) loading.classList.add('visible');
+      try {
+        const vts = this.bridge.get('verse-topic-service');
+        if (vts && !vts.isReady) {
+          await vts.init(this.bridge);
+        }
+        state.set('verseTopicsEnabled', true);
+        // Render after the state flip: the section bails out (display:none,
+        // empty) while the feature still reads as disabled.
+        this._renderVerseTopicsSection();
+        this._syncStudySubmenu('verse-topics', true);
+        const nav = this.bridge.get('navigation');
+        if (nav) {
+          await nav.loadChapter(state.get('currentBook'), state.get('currentChapter'));
+        } else {
+          this.bridge.emit('render:refresh');
+        }
+      } catch (e) {
+        console.error('[VerseTopics] enable failed:', e);
+        state.set('verseTopicsEnabled', false);
+      } finally {
+        if (loading) loading.classList.remove('visible');
+      }
+      return;
+    }
+
+    state.set('verseTopicsEnabled', false);
+    this._syncStudySubmenu('verse-topics', false);
+    const nav = this.bridge.get('navigation');
+    if (nav) {
+      await nav.loadChapter(state.get('currentBook'), state.get('currentChapter'));
+    } else {
+      this.bridge.emit('render:refresh');
+    }
   }
 
   _initEventListeners() {
@@ -601,10 +864,14 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('settings-word-classes').addEventListener('change', (e) => this._onWordClassesToggle(e.target.checked));
     document.getElementById('settings-word-study').addEventListener('change', (e) => this._onWordStudyToggle(e.target.checked));
     document.getElementById('settings-clear-reading').addEventListener('change', (e) => this._onClearReadingToggle(e.target.checked));
+    const vtCb = document.getElementById('settings-verse-topics');
+    if (vtCb) vtCb.addEventListener('change', (e) => this._onVerseTopicsToggle(e.target.checked));
     const studyInfo = {
+      'study-info-cross-refs': 'cross-references',
       'study-info-word-classes': 'word-classes',
       'study-info-word-study': 'word-study',
       'study-info-clear-reading': 'clear-reading',
+      'study-info-verse-topics': 'verse-topics',
     };
     Object.entries(studyInfo).forEach(([id, feature]) => {
       const infoBtn = document.getElementById(id);
@@ -614,6 +881,10 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('wckey-overlay').addEventListener('click', () => this._closeWordClassKey());
     document.getElementById('settings-cross-refs').addEventListener('change', (e) => this._setCrossRefs(e.target.checked));
     document.getElementById('speed-auto-advance').addEventListener('change', (e) => this.bridge.state.set('speedAutoAdvance', e.target.checked));
+    document.getElementById('settings-continuous-chapters').addEventListener('change', (e) => {
+      this.bridge.state.set('continuousChapters', e.target.checked);
+      this.bridge.emit('render:refresh');
+    });
 
     document.getElementById('speed-wpm').addEventListener('input', (e) => this._onWpmChange(parseInt(e.target.value, 10)));
 
@@ -642,6 +913,8 @@ window.SettingsModule = class SettingsModule {
       header.addEventListener('click', () => this._toggleSection(header));
     });
 
+    this._initStudySubmenus();
+
     document.getElementById('focus-exit-btn').addEventListener('click', () => this.toggleFocusMode());
   }
 
@@ -662,6 +935,12 @@ window.SettingsModule = class SettingsModule {
     panel.removeAttribute('aria-hidden');
     panel.inert = false;
     overlay.removeAttribute('aria-hidden');
+    // Refresh the study color sections: their content is built once at boot,
+    // so a study DB that finished loading after boot would otherwise keep
+    // showing the "still loading" hint.
+    this._renderStudySection();
+    this._renderVerseTopicsSection();
+    this._renderClearReadingSection();
     const base = this.bridge.get('base-renderer');
     if (base) {
       this._cleanupFocus = base.trapFocus(panel, opener, document.querySelector('#settings-panel .section-header'));
@@ -679,6 +958,7 @@ window.SettingsModule = class SettingsModule {
     overlay.setAttribute('aria-hidden', 'true');
     this._closeAccentDropdown();
     document.querySelectorAll('.section-header').forEach(h => h.setAttribute('aria-expanded', 'false'));
+    document.querySelectorAll('.study-submenu-header').forEach(h => h.setAttribute('aria-expanded', 'false'));
     if (this._cleanupFocus) { this._cleanupFocus(); this._cleanupFocus = null; }
   }
 
@@ -723,8 +1003,8 @@ window.SettingsModule = class SettingsModule {
     document.documentElement.dataset.theme = resolved;
     const saved = this.bridge.state.get('accent');
     if (!saved || saved === 'skin') {
-      const defaultAccent = name === 'skin'
-        ? (window.UISkins ? (UISkins.resolvePreference('accent') || 'gold') : 'gold')
+      const defaultAccent = window.UISkins
+        ? (UISkins.resolvePreference('accent') || 'gold')
         : (ColorTheme.themeAccentMap[name] || 'gold');
       const ct = this.bridge.get('color-theme');
       if (ct) {
@@ -991,13 +1271,21 @@ window.SettingsModule = class SettingsModule {
     if (!body || !panel) return;
 
     const descriptions = {
+      'cross-references': {
+        title: 'Cross References',
+        body: '<p>Verses with related passages are marked with a †.</p><p>Tap the † to read Scriptures elsewhere in the Bible that echo, quote, or explain the verse — the most relevant ones come first — without leaving the page. Cross References work with any translation.</p>',
+      },
       'word-study': {
         title: 'Word Study',
-        body: '<p>Word Study gives you a closer look at a word in the Bible.</p><p>Tap a word to see its original form, pronunciation, grammar, Strong’s number, definitions, and other places where it appears.</p>',
+        body: '<p>Word Study looks up the original Hebrew or Greek behind any word you tap.</p><p>You get the original word, how to say it, what it means, its grammar and Strong’s number — plus a full lexicon entry and other places the same word appears, so you can follow a word across Scripture.</p>',
       },
       'clear-reading': {
         title: 'Clear Reading',
-        body: '<p>Clear Reading helps the main ideas in a passage stand out.</p><p>Choose Soft or Strong mode to reduce the emphasis of connecting words, articles, and other supporting words. You can adjust each type of word and keep important words such as negation easy to notice.</p>',
+        body: '<p>Clear Reading quiets the small linking words so the main ideas stand out.</p><p>Choose Soft to gently fade pronouns, connectors, articles, and other supporting words, or Strong to dim them further. Fine-tune each word type yourself, and important little words like "not" always stay easy to notice.</p>',
+      },
+      'verse-topics': {
+        title: 'Verse Topics',
+        body: '<p>Verse Topics show what each verse is about, at a glance.</p><p>Every verse belongs to one of ten topics — God, Jesus Christ, Salvation, Sin &amp; Judgment, History &amp; Nation, and more — and is shaded with that topic’s color, so you can watch a passage move between ideas as you read. Unlike the other study tools, topics work with any Bible translation.</p><p>Recolor a topic or switch individual ones on and off, and pick from five display styles, all in Settings &gt; Study.</p>',
       },
     };
 
@@ -1010,7 +1298,7 @@ window.SettingsModule = class SettingsModule {
       if (title) title.textContent = 'Word Classes';
       const wc = this.bridge.get('word-class-service');
       const groups = wc && wc.getAxisSettings ? wc.getAxisSettings() : null;
-      let html = '<p>Word Classes add helpful colors to words in the BSB translation, making it easier to notice what a passage is talking about. Adjust the colors and labels in Settings &gt; Study.</p>';
+      let html = '<p>Word Classes color words by what they mean — people, places, times, and ideas each get their own color, so the shape of a passage becomes visible at a glance.</p><p>They work with the BSB translation. Recolor a class or switch individual ones on and off in Settings &gt; Study; your full color guide is listed below.</p>';
       if (groups && groups.length) {
         html += '<div class="wckey-list">';
         for (const group of groups) {
@@ -1025,8 +1313,6 @@ window.SettingsModule = class SettingsModule {
           }
         }
         html += '</div>';
-      } else {
-        html += '<p>Word Class colors are still loading. Open this again shortly to see the color guide.</p>';
       }
       body.innerHTML = html;
     }
@@ -1224,6 +1510,52 @@ window.SettingsModule = class SettingsModule {
     header.setAttribute('aria-expanded', !expanded);
   }
 
+  _initStudySubmenus() {
+    document.querySelectorAll('.study-submenu-header').forEach(header => {
+      header.addEventListener('click', () => this._toggleStudySubmenu(header));
+      const label = header.querySelector('.toggle-label-wrapper');
+      if (label) {
+        label.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Clicking the label makes the browser forward a click to the hidden
+          // checkbox; that forwarded event targets the input itself and must
+          // toggle the feature natively (the change handler then expands or
+          // collapses via _syncStudySubmenu). Same for clicks on the pill.
+          if (e.target.closest('.toggle-checkbox') || e.target.closest('.toggle-pill')) return;
+          // With the feature enabled, clicking the row expands the submenu
+          // instead of flipping the feature; when disabled it falls through
+          // and enables it.
+          const feature = header.dataset.feature;
+          if (this._studySubmenuEnabled(feature)) {
+            e.preventDefault();
+            this._toggleStudySubmenu(header);
+          }
+        });
+      }
+    });
+  }
+
+  _studySubmenuEnabled(feature) {
+    const state = this.bridge.state;
+    if (feature === 'verse-topics') return state.get('verseTopicsEnabled') === true;
+    if (feature === 'clear-reading') return state.get('clearReadingEnabled') === true;
+    return state.get('wordClasses') === true;
+  }
+
+  _toggleStudySubmenu(header) {
+    const feature = header.dataset.feature;
+    // Color controls only apply while the feature is on, so a disabled
+    // submenu stays collapsed.
+    if (!this._studySubmenuEnabled(feature)) return;
+    const expanded = header.getAttribute('aria-expanded') === 'true';
+    header.setAttribute('aria-expanded', !expanded);
+  }
+
+  _syncStudySubmenu(feature, enabled) {
+    const header = document.querySelector('.study-submenu-header[data-feature="' + feature + '"]');
+    if (header) header.setAttribute('aria-expanded', enabled ? 'true' : 'false');
+  }
+
   async resetSettings() {
     const confirmed = await this._confirmDialog({
       title: 'Reset settings',
@@ -1261,7 +1593,9 @@ window.SettingsModule = class SettingsModule {
       verseTextAlignment: 'skin',
       verseNumberPlacement: 'skin',
       wordClasses: false,
-      clearReadingEnabled: false
+      clearReadingEnabled: false,
+      verseTopicsEnabled: false,
+      verseTopicSettings: null
     });
     const ct = this.bridge.get('color-theme');
     const resolvedTheme = this._resolveTheme('skin');

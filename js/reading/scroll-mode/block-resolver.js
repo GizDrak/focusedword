@@ -19,8 +19,7 @@ window.BlockResolver = class BlockResolver {
   }
 
   start() {
-    this._elements = Array.from(document.querySelectorAll(this._selector));
-    this._detectFirstBlock();
+    this.refresh();
 
     let _vvResizeTimer = null;
     this._onVVResize = () => {
@@ -50,6 +49,11 @@ window.BlockResolver = class BlockResolver {
     this._firstBlockThreshold = this._firstBlockSingleLine
       ? this._getVH() * 0.25
       : lineHeight * 2;
+  }
+
+  refresh() {
+    this._elements = Array.from(document.querySelectorAll(this._selector));
+    this._detectFirstBlock();
   }
 
   getElements() {

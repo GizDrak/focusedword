@@ -7,8 +7,10 @@ window.TokenRenderer = class TokenRenderer {
   renderChapter(verses, bionic, strength, settings) {
     const frag = document.createDocumentFragment();
     for (const v of verses) {
-      const el = this._renderVerseTokens(v.verse, v.tokens, bionic, strength, settings, v.wordClassSpans, v.wordStudySpans, v.clearReadingSpans);
+      const el = this._renderVerseTokens(v.verse, v.tokens, bionic, strength, settings, v.wordClassSpans, v.wordStudySpans, v.clearReadingSpans, v.verseTopic);
       if (!el) continue;
+      if (v.book_id != null) el.dataset.book = v.book_id;
+      if (v.chapter != null) el.dataset.chapter = v.chapter;
       let child = el.firstChild;
       while (child) {
         const next = child.nextSibling;
@@ -23,7 +25,7 @@ window.TokenRenderer = class TokenRenderer {
     return frag;
   }
 
-  _renderVerseTokens(verseNum, tokens, bionic, strength, settings, wordClassSpans, wordStudySpans, clearReadingSpans) {
+  _renderVerseTokens(verseNum, tokens, bionic, strength, settings, wordClassSpans, wordStudySpans, clearReadingSpans, verseTopic) {
     if (!tokens || !tokens.length) return null;
     settings = Object.assign({ redLetter: true, footnotes: true, sectionHeadings: true, poetryFormatting: true, paragraphBreaks: false, paragraphMode: false }, settings);
 
@@ -112,12 +114,30 @@ window.TokenRenderer = class TokenRenderer {
       this._applyWordStudyTargets(ctx.verseText, wordStudySpans);
     }
 
+    if (this._isVerseTopicActive(verseTopic)) {
+      this._applyVerseTopicTint(ctx.container, verseTopic);
+      this._ensureVerseTopicBadge(ctx.container, verseTopic);
+    }
+
+    const appliedFlags = [];
+    if (this._wordClassesEnabled && wordClassSpans && wordClassSpans.length) appliedFlags.push('wc');
+    if (this._clearReadingEnabled && clearReadingSpans && clearReadingSpans.length) appliedFlags.push('cr');
+    if (this._wordStudyMode && wordStudySpans && wordStudySpans.length) appliedFlags.push('ws');
+    if (this._isVerseTopicActive(verseTopic)) appliedFlags.push('vt');
+    if (appliedFlags.length) {
+      ctx.container.dataset.annotationFlags = appliedFlags.join(',');
+    }
+
     // Show a small loading spinner on verses whose annotations stream in after
-    // the first paint (word classes / clear reading / word study enabled but
-    // spans not attached yet). Removed by applyAnnotationsToDom once applied.
-    if (this._wordClassesEnabled || this._clearReadingEnabled || this._wordStudyMode) {
-      const pending = this._streamingPending(wordClassSpans, clearReadingSpans, wordStudySpans);
+    // the first paint (word classes / clear reading / word study / verse
+    // topics enabled but spans not attached yet). Removed by
+    // applyAnnotationsToDom once applied.
+    if (this._wordClassesEnabled || this._clearReadingEnabled || this._wordStudyMode || this._verseTopicsEnabled) {
+      const pending = this._streamingPending(wordClassSpans, clearReadingSpans, wordStudySpans, verseTopic);
       ctx.container.classList.toggle('wordstudy-pending', pending);
+      if (!pending) {
+        ctx.container.dataset.wcApplied = '1';
+      }
     }
 
     return ctx.container;
@@ -471,6 +491,96 @@ window.TokenRenderer = class TokenRenderer {
       && this.bridge.state.get('currentTranslation') === 'BSB';
   }
 
+  get _verseTopicsEnabled() {
+    // Translation-agnostic: the topics database is keyed by book code.
+    return this.bridge && this.bridge.state
+      && this.bridge.state.get('verseTopicsEnabled') === true;
+  }
+
+  _isVerseTopicActive(topic) {
+    if (!this._verseTopicsEnabled || !topic || !topic.color_hex) return false;
+    const settings = this.bridge && this.bridge.state ? this.bridge.state.get('verseTopicSettings') || null : null;
+    if (settings && settings.enabledTopics && settings.enabledTopics[topic.topicId] === false) return false;
+    return true;
+  }
+
+  // Display color for a topic: settings override wins over the DB default.
+  _resolveTopicColor(topic, overrides) {
+    if (overrides && overrides.colors && overrides.colors[topic.topicId]) {
+      return overrides.colors[topic.topicId];
+    }
+    return topic.color_hex;
+  }
+
+  // Visual treatment for verse topics: 'medallion' (default: subtle topic
+  // tint + topic stroke card with the bare circular icon inside the
+  // upper-right), 'fold' (theme stroke + folded corner with the icon set in
+  // the flap), 'triangle' (theme stroke + solid topic-color corner triangle
+  // with the icon centered in it), 'gradient' (right-side glow + edge stroke
+  // + bare circular icon), or 'tabs' (right-edge bookmark tab). All share the
+  // same topic data/colors/icons.
+  _verseTopicStyle() {
+    const s = this.bridge && this.bridge.state ? this.bridge.state.get('verseTopicSettings') : null;
+    const style = s && s.style;
+    return (style === 'tabs' || style === 'gradient' || style === 'triangle' || style === 'fold') ? style : 'medallion';
+  }
+
+  _applyVerseTopicTint(container, topic) {
+    if (!container || !this._isVerseTopicActive(topic)) return;
+    const style = this._verseTopicStyle();
+    container.classList.add('verse-topics', 'vt-style-' + style);
+    const overrides = this.bridge && this.bridge.state ? this.bridge.state.get('verseTopicSettings') || null : null;
+    const color = this._resolveTopicColor(topic, overrides);
+    // Accent exposed for CSS: fold/gradient layers, stroke ring, tab feet.
+    container.style.setProperty('--vt-accent', color);
+    if (style === 'tabs') {
+      // Light wash so the verse box reads as a distinct region behind the tab.
+      // !important keeps skin/focus backgrounds from swallowing the tint.
+      container.style.setProperty('background-color', window.VerseTopicService.toRgba(color, 0.10), 'important');
+    } else {
+      // gradient / fold: the card treatment comes from CSS layers derived
+      // from --vt-accent so themes can tune the strengths.
+      container.style.removeProperty('background-color');
+    }
+  }
+
+  _ensureVerseTopicBadge(container, topic) {
+    if (!container || !topic) return;
+    const existing = container.querySelector(':scope > .vt-badge');
+    if (existing) existing.remove();
+    const overrides = this.bridge && this.bridge.state ? this.bridge.state.get('verseTopicSettings') || null : null;
+    const color = this._resolveTopicColor(topic, overrides);
+    let svg = null;
+    if (window.VerseTopicIcons && window.VerseTopicIcons[topic.topicId]) {
+      svg = window.VerseTopicIcons[topic.topicId];
+    }
+    if (!svg) return;
+    const badge = document.createElement('span');
+    badge.className = 'vt-badge';
+    badge.dataset.vtBadge = topic.topicId;
+    badge.setAttribute('aria-hidden', 'true');
+    badge.title = topic.name;
+    const style = this._verseTopicStyle();
+    badge.style.setProperty('--vt-accent', color);
+    if (style === 'gradient' || style === 'medallion') {
+      // Gradient / medallion: the badge is the bare circular topic icon
+      // picking up the accent via currentColor.
+      badge.style.removeProperty('background-color');
+      badge.style.color = color;
+    } else {
+      // Tabs / fold / triangle: the icon sits on a solid block of the topic
+      // accent, so the glyph is a high-contrast monochrome computed from the
+      // luminance.
+      badge.style.backgroundColor = color;
+      const fg = window.VerseTopicService && window.VerseTopicService.contrastFor
+        ? window.VerseTopicService.contrastFor(color)
+        : '#ffffff';
+      badge.style.color = fg;
+    }
+    badge.innerHTML = svg;
+    container.appendChild(badge);
+  }
+
   _collectWordSegments(verseText) {
     const walker = document.createTreeWalker(verseText, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null, false);
     const allNodes = [];
@@ -762,7 +872,7 @@ window.TokenRenderer = class TokenRenderer {
   // A verse shows the streaming spinner until its annotation spans arrive. It
   // is pending when a streaming feature is active but the corresponding spans
   // have not been attached yet (first paint happens before enrichment).
-  _streamingPending(wordClassSpans, clearReadingSpans, wordStudySpans) {
+  _streamingPending(wordClassSpans, clearReadingSpans, wordStudySpans, verseTopic) {
     const active = this.bridge && this.bridge.state;
     if (!active) return false;
     if (this._wordClassesEnabled) {
@@ -777,6 +887,9 @@ window.TokenRenderer = class TokenRenderer {
       const spans = wordStudySpans || [];
       if (!spans.length) return true;
     }
+    if (this._verseTopicsEnabled) {
+      if (!verseTopic || !verseTopic.color_hex) return true;
+    }
     return false;
   }
 
@@ -784,15 +897,20 @@ window.TokenRenderer = class TokenRenderer {
   // DOM without re-rendering the chapter. Used by the streaming enrichment path
   // in NavigationModule so annotations stream in past the initial paint instead
   // of forcing a full chapter rebuild. Returns the number of verses touched.
-  applyAnnotationsToDom(verses, flags) {
+  applyAnnotationsToDom(verses, flags, root) {
     const state = this.bridge && this.bridge.state;
     if (!state) return 0;
     const speedOn = state.get('speedMode') === true;
     if (speedOn) return 0;
 
+    const scope = root || document;
     let touched = 0;
     for (const v of verses) {
-      const container = document.querySelector('.verse-container[data-verse="' + v.verse + '"]:not(.section-heading-container)');
+      let sel = '.verse-container[data-verse="' + v.verse + '"]:not(.section-heading-container)';
+      if (v.book_id != null && v.chapter != null) {
+        sel = '.verse-container[data-book="' + v.book_id + '"][data-chapter="' + v.chapter + '"][data-verse="' + v.verse + '"]:not(.section-heading-container)';
+      }
+      const container = scope.querySelector(sel);
       if (!container) continue;
       const verseText = container.querySelector(':scope > .verse-text') || container.querySelector('.verse-text');
       if (!verseText) continue;
@@ -800,23 +918,36 @@ window.TokenRenderer = class TokenRenderer {
       const doWordClasses = !!(flags && flags.wordClasses) && Array.isArray(v.wordClassSpans) && v.wordClassSpans.length;
       const doClearReading = !!(flags && flags.clearReading) && Array.isArray(v.clearReadingSpans) && v.clearReadingSpans.length;
       const doWordStudy = !!(flags && flags.wordStudy) && Array.isArray(v.wordStudySpans) && v.wordStudySpans.length;
-      if (!doWordClasses && !doClearReading && !doWordStudy) continue;
+      const doVerseTopic = !!(flags && flags.verseTopics) && this._isVerseTopicActive(v.verseTopic);
+      if (!doWordClasses && !doClearReading && !doWordStudy && !doVerseTopic) continue;
 
-      if (container.dataset.wcApplied === '1') continue;
+      const applied = (container.dataset.annotationFlags || '').split(',').filter(Boolean);
+      const todo = [];
+      if (doWordClasses && !applied.includes('wc')) todo.push('wc');
+      if (doClearReading && !applied.includes('cr')) todo.push('cr');
+      if (doWordStudy && !applied.includes('ws')) todo.push('ws');
+      if (doVerseTopic && !applied.includes('vt')) todo.push('vt');
 
-      if (doWordClasses && this._wordClassesEnabled) {
+      if (todo.includes('wc') && this._wordClassesEnabled) {
         this._applyWordClassColors(verseText, v.wordClassSpans);
       }
-      if (doClearReading && this._clearReadingEnabled) {
+      if (todo.includes('cr') && this._clearReadingEnabled) {
         this._applyClearReadingDimming(verseText, v.clearReadingSpans);
       }
-      if (doWordStudy && this._wordStudyMode) {
+      if (todo.includes('ws') && this._wordStudyMode) {
         this._applyWordStudyTargets(verseText, v.wordStudySpans);
       }
+      if (todo.includes('vt') && this._verseTopicsEnabled) {
+        this._applyVerseTopicTint(container, v.verseTopic);
+        this._ensureVerseTopicBadge(container, v.verseTopic);
+      }
 
+      if (todo.length) {
+        container.dataset.annotationFlags = [...applied, ...todo].join(',');
+        touched++;
+      }
       container.classList.remove('wordstudy-pending');
       container.dataset.wcApplied = '1';
-      touched++;
     }
     return touched;
   }

@@ -1771,9 +1771,9 @@ html.android-device[data-ui-skin="modern"] #plans-panel.compressed {
 
 [data-ui-skin="modern"] #error-message,
 [data-ui-skin="modern"] [data-ui-component="error-message"] {
-  color: #FFD6DE;
-  border: 1px solid rgba(244, 114, 182, 0.2);
-  background: rgba(88, 28, 52, 0.45);
+  color: var(--error-text);
+  border: 1px solid color-mix(in srgb, var(--error-border) 70%, transparent);
+  background: color-mix(in srgb, var(--error-bg) 45%, transparent);
   border-radius: 12px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);

@@ -1098,6 +1098,28 @@ body {
   border: 1px solid rgba(128,128,128,0.3);
 }
 
+/* Topic artwork in the verse topic ledgers (More menu list and Settings
+   color rows). Single-tone SVGs recolored via `color` (fill="currentColor"). */
+.vt-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vt-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.more-wc-row.muted .vt-icon {
+  filter: grayscale(1);
+}
+.study-sub-row .vt-icon {
+  width: 22px;
+  height: 22px;
+}
+
 .cr-mode-row {
   display: flex;
   gap: 0.35rem;
@@ -1936,6 +1958,464 @@ body.split-mode .desktop-chapter-bar {
 
 .verse-container:active {
   background: var(--verse-focus-bg);
+}
+
+/* Verse Topics: five selectable treatments (Settings → Study → Verse Topics).
+   'medallion' (default): subtle topic tint + thin topic stroke on the card,
+   with the bare circular topic icon sitting large inside the upper-right.
+   'fold': neutral card with theme stroke, top-right corner folded down in the
+   topic color with the icon set into the flap.
+   'triangle': neutral card with theme stroke, solid topic-color triangle in
+   the top-right corner with the icon centered in it.
+   'gradient': neutral card, topic color enters from the right as a soft glow,
+   a 2px topic stroke rings top/right/bottom edges fading toward the left, and
+   the badge is the bare circular icon near the upper-right.
+   'tabs': light topic wash (inline, set by the renderer) plus a fixed-height
+   topic-colored tab, vertically centered and pinned flush to the right edge.
+   Paragraph mode is inline text and keeps badges hidden. */
+.verse-container.verse-topics {
+  position: relative;
+}
+
+.verse-container.verse-topics:has(.vt-badge) {
+  padding-right: calc(var(--verse-padding-x, 1rem) + var(--vt-reserve, 56px)) !important;
+}
+
+/* Skin scroll-mode padding shorthands would otherwise clobber the badge
+   reservation above (classic / luminous set `padding: 0.25rem var(--verse-padding-x)`). */
+body.scroll-mode .verse-container.verse-topics:has(.vt-badge),
+#content.spotlight-mode .verse-container.verse-topics:has(.vt-badge),
+body.split-mode #panel-right-body.spotlight-mode .verse-container.verse-topics:has(.vt-badge) {
+  padding-right: calc(var(--verse-padding-x, 1rem) + var(--vt-reserve, 56px)) !important;
+}
+
+/* Shared badge base for both topic styles. */
+.verse-container.verse-topics .vt-badge {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  line-height: 0;
+  z-index: 1;
+}
+
+/* 'tabs' style: fixed-height bookmark tab, vertically centered. The
+   max-height clamp keeps it inside very short verse boxes (translateY(-50%)
+   resolves against the clamped height, so it stays centered as it shrinks).
+   Flush inside the card edge so the whole tab stays in the viewport. */
+.verse-container.vt-style-tabs .vt-badge {
+  --vt-foot: 8px;
+  top: 50%;
+  height: 60px;
+  max-height: calc(100% - 1.2rem);
+  transform: translateY(-50%);
+  right: 0;
+  width: 48px;
+  border-radius: 0.55rem 0 0 0.55rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  /* Gloss and base shade layered over the accent set inline by the renderer. */
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 38%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.2));
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+.verse-container.vt-style-tabs .vt-badge svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+/* Contoured feet: small concave fillets where the tab's top and bottom edges
+   meet the card edge, so the tab reads as grown into the box. Painted with
+   the accent exposed by the renderer as --vt-accent. */
+.vt-style-tabs .vt-badge::before,
+.vt-style-tabs .vt-badge::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: var(--vt-foot, 8px);
+  height: var(--vt-foot, 8px);
+}
+
+.vt-style-tabs .vt-badge::before {
+  top: calc(-1 * var(--vt-foot, 8px));
+  background: radial-gradient(circle at 0 0, transparent calc(var(--vt-foot, 8px) - 1px), var(--vt-accent, transparent) var(--vt-foot, 8px));
+}
+
+.vt-style-tabs .vt-badge::after {
+  bottom: calc(-1 * var(--vt-foot, 8px));
+  background: radial-gradient(circle at 0 100%, transparent calc(var(--vt-foot, 8px) - 1px), var(--vt-accent, transparent) var(--vt-foot, 8px));
+}
+
+/* 'gradient' style: the card keeps the neutral theme surface with a very
+   light topic tint across the whole box; topic color enters from the right as
+   a soft ambient glow, a 2px stroke rings the card — the theme's neutral
+   border color on the left, blending into the topic color toward the right
+   edge — and the badge is the bare circular topic icon near the upper-right.
+   Everything derives from --vt-accent (set inline by the renderer). */
+.verse-container.vt-style-gradient {
+  --vt-reserve: 72px;
+  --vt-glow-color: color-mix(in srgb, var(--vt-accent) 16%, transparent);
+  --vt-stroke-color: color-mix(in srgb, var(--vt-accent) 80%, transparent);
+  --vt-edge-neutral: var(--border-light, rgba(128, 128, 128, 0.3));
+  background-image: linear-gradient(to left, var(--vt-glow-color), transparent 42%);
+  box-shadow: inset 0 0 0 2px var(--vt-edge-neutral);
+  /* Stroked cards need breathing room so neighbouring rings don't touch. */
+  margin-bottom: 0.45rem;
+}
+
+/* Lighter touch on light themes so the glow stays ambient, not panel-like. */
+[data-theme="light"] .verse-container.vt-style-gradient,
+[data-theme="sepia"] .verse-container.vt-style-gradient,
+[data-theme="icy-wind"] .verse-container.vt-style-gradient,
+[data-theme="clay"] .verse-container.vt-style-gradient {
+  --vt-glow-color: color-mix(in srgb, var(--vt-accent) 11%, transparent);
+  --vt-stroke-color: color-mix(in srgb, var(--vt-accent) 60%, transparent);
+}
+
+/* Topic stroke: strongest down the right edge, easing in across the top and
+   bottom; the left portion is masked out so the neutral theme stroke (inset
+   box-shadow above) shows through there. */
+.verse-container.vt-style-gradient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--vt-stroke-color);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 55%, #000 92%);
+  mask-image: linear-gradient(to right, transparent 0, transparent 55%, #000 92%);
+  pointer-events: none;
+}
+
+/* The topic icons are already circular — the badge is the bare icon. */
+.verse-container.vt-style-gradient .vt-badge {
+  top: 1rem;
+  right: 1rem;
+  width: 46px;
+  height: 46px;
+  max-height: none;
+  transform: none;
+  border: none;
+  border-left: none;
+  background-image: none;
+  box-shadow: none;
+}
+
+.verse-container.vt-style-gradient .vt-badge::before,
+.verse-container.vt-style-gradient .vt-badge::after {
+  content: none;
+}
+
+.verse-container.vt-style-gradient .vt-badge svg {
+  width: 46px;
+  height: 46px;
+}
+
+/* 'fold' style: the card stays on the theme surface (no tint — every card
+   reads as the same theme color) with a neutral theme-colored stroke, and the
+   top-right corner is clipped along the fold diagonal where a topic-colored
+   flap folds down over it, with the topic icon set into the flap. Everything
+   derives from --vt-accent (set inline by the renderer). */
+.verse-container.vt-style-fold {
+  --vt-reserve: 64px;
+  --vt-fold: 52px;
+  --vt-edge-neutral: var(--border-light, rgba(128, 128, 128, 0.3));
+  /* Cut the card corner along the fold diagonal — stroke ring and any card
+     shadows stop at the fold edge. The cut's vertical extent clamps with the
+     card height (min()) so it always matches the flap's hypotenuse — short
+     swipe cards included. */
+  clip-path: polygon(0 0, calc(100% - var(--vt-fold, 52px)) 0, 100% min(var(--vt-fold, 52px), 100%), 100% 100%, 0 100%);
+  /* Stroked cards need breathing room so neighbouring rings don't touch. */
+  margin-bottom: 0.45rem;
+}
+
+/* Topic stroke: consistent 2px ring in the UI theme's border color around the
+   rounded card (clipped at the fold corner). */
+.verse-container.vt-style-fold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--vt-edge-neutral);
+  pointer-events: none;
+}
+
+/* The flap: a square pinned to the corner, clipped to the folded triangle
+   (hypotenuse from top-left to bottom-right). Slightly clamped so very short
+   verses don't let the flap hang past the card. Selector matches the shared
+   badge base's specificity so the icon anchoring below wins. */
+.verse-container.vt-style-fold .vt-badge,
+.verse-text.vt-style-fold .vt-badge {
+  top: 0;
+  right: 0;
+  width: min(var(--vt-fold, 52px), 100%);
+  height: min(var(--vt-fold, 52px), 100%);
+  max-height: none;
+  transform: none;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  background-image:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 50%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.2));
+  box-shadow: none;
+  /* Layered fold shadow: tight contact line plus a softer cast. */
+  filter:
+    drop-shadow(-2px 2px 2px rgba(0, 0, 0, 0.3))
+    drop-shadow(-4px 5px 7px rgba(0, 0, 0, 0.2));
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+  /* Anchor the icon into the triangle's right-angle corner (bottom-left) —
+     that keeps it clear of the hypotenuse so it can run larger than an
+     incenter-fit glyph would allow. */
+  justify-content: flex-start;
+  align-items: flex-end;
+  padding: 0 0 calc(var(--vt-fold, 52px) * 0.02) calc(var(--vt-fold, 52px) * 0.02);
+}
+
+.verse-container.vt-style-fold .vt-badge::before,
+.verse-container.vt-style-fold .vt-badge::after,
+.verse-text.vt-style-fold .vt-badge::before,
+.verse-text.vt-style-fold .vt-badge::after {
+  content: none;
+}
+
+/* Icon sized to the flap's inscribed capacity (corner-anchored). */
+.verse-container.vt-style-fold .vt-badge svg,
+.verse-text.vt-style-fold .vt-badge svg {
+  width: calc(var(--vt-fold, 52px) * 0.5);
+  height: calc(var(--vt-fold, 52px) * 0.5);
+}
+
+#content.swipe-mode .verse-deck .verse-container.card--current .vt-badge {
+  display: inline-flex !important;
+}
+
+body.paragraph-mode:not(.swipe-mode):not(.spotlight-mode) .vt-badge,
+body.speed-mode .vt-badge {
+  display: none !important;
+}
+
+/* Merged paragraph cards render each verse as a .verse-text inside one deck
+   card; per-verse badges are compact so several stay legible. */
+.verse-text.verse-topics:has(.vt-badge) {
+  position: relative;
+  padding-right: 34px;
+}
+
+.verse-text.verse-topics {
+  border-radius: 0.2em;
+}
+
+.verse-text.verse-topics .vt-badge {
+  position: absolute;
+  top: 0.35rem;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  line-height: 0;
+  z-index: 1;
+}
+
+.verse-text.vt-style-tabs .vt-badge {
+  --vt-foot: 6px;
+  width: 26px;
+  height: 42px;
+  border-radius: 0.45rem 0 0 0.45rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 40%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.18));
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.22),
+    0 1px 1px rgba(0, 0, 0, 0.12);
+}
+
+.verse-text.vt-style-tabs .vt-badge svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+.verse-text.vt-style-gradient:has(.vt-badge) {
+  padding-right: 40px;
+}
+
+.verse-text.vt-style-gradient .vt-badge {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-left: none;
+  background-image: none;
+  box-shadow: none;
+}
+
+.verse-text.vt-style-gradient .vt-badge svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.verse-text.vt-style-fold:has(.vt-badge) {
+  padding-right: 36px;
+}
+
+.verse-text.vt-style-fold .vt-badge {
+  --vt-fold: 28px;
+}
+
+/* 'triangle' style: same neutral card + theme stroke as fold, but the
+   upper-right corner carries a solid topic-color triangle — no corner cut and
+   no fold shadow — with the topic icon centered in the triangle. */
+.verse-container.vt-style-triangle {
+  --vt-reserve: 64px;
+  --vt-fold: 52px; /* shares the corner sizing var with the fold style */
+  --vt-edge-neutral: var(--border-light, rgba(128, 128, 128, 0.3));
+  margin-bottom: 0.45rem;
+}
+
+.verse-container.vt-style-triangle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--vt-edge-neutral);
+  pointer-events: none;
+}
+
+/* Corner triangle: the upper-right half of the corner square (hypotenuse from
+   top-left to bottom-right), with the card's rounded top-right corner kept.
+   Selector matches the shared badge base's specificity so the icon anchoring
+   below wins. */
+.verse-container.vt-style-triangle .vt-badge,
+.verse-text.vt-style-triangle .vt-badge {
+  top: 0;
+  right: 0;
+  width: min(var(--vt-fold, 52px), 100%);
+  height: min(var(--vt-fold, 52px), 100%);
+  max-height: none;
+  transform: none;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  border-top-right-radius: inherit;
+  background-image: none;
+  box-shadow: none;
+  filter: none;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  /* Anchor the icon to the triangle's right-angle corner (top-right) so it
+     centers optically without straddling the hypotenuse. */
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: calc(var(--vt-fold, 52px) * 0.02) calc(var(--vt-fold, 52px) * 0.02) 0 0;
+}
+
+.verse-container.vt-style-triangle .vt-badge::before,
+.verse-container.vt-style-triangle .vt-badge::after,
+.verse-text.vt-style-triangle .vt-badge::before,
+.verse-text.vt-style-triangle .vt-badge::after {
+  content: none;
+}
+
+/* Icon sized to the triangle's inscribed capacity. */
+.verse-container.vt-style-triangle .vt-badge svg,
+.verse-text.vt-style-triangle .vt-badge svg {
+  width: calc(var(--vt-fold, 52px) * 0.5);
+  height: calc(var(--vt-fold, 52px) * 0.5);
+}
+
+.verse-text.vt-style-triangle:has(.vt-badge) {
+  padding-right: 36px;
+}
+
+.verse-text.vt-style-triangle .vt-badge {
+  --vt-fold: 28px;
+}
+
+/* 'medallion' style: icon-forward — the card carries a subtle topic tint
+   (stronger toward the right) and a thin topic stroke, and the bare circular
+   topic icon sits large inside the upper-right of the card. No seal rings or
+   shadows; the artwork itself is the indicator. */
+.verse-container.vt-style-medallion {
+  --vt-reserve: 72px;
+  --vt-med: 46px;
+  --vt-tint-color: color-mix(in srgb, var(--vt-accent) 7%, transparent);
+  --vt-stroke-color: color-mix(in srgb, var(--vt-accent) 55%, transparent);
+  --vt-glow-color: color-mix(in srgb, var(--vt-accent) 13%, transparent);
+  background-image:
+    linear-gradient(to left, var(--vt-glow-color), transparent 55%),
+    linear-gradient(var(--vt-tint-color), var(--vt-tint-color));
+  box-shadow: inset 0 0 0 2px var(--vt-stroke-color);
+  margin-bottom: 0.45rem;
+}
+
+/* Subtler tint and stroke on light themes so Scripture stays dominant. */
+[data-theme="light"] .verse-container.vt-style-medallion,
+[data-theme="sepia"] .verse-container.vt-style-medallion,
+[data-theme="icy-wind"] .verse-container.vt-style-medallion,
+[data-theme="clay"] .verse-container.vt-style-medallion {
+  --vt-tint-color: color-mix(in srgb, var(--vt-accent) 4%, transparent);
+  --vt-stroke-color: color-mix(in srgb, var(--vt-accent) 35%, transparent);
+  --vt-glow-color: color-mix(in srgb, var(--vt-accent) 8%, transparent);
+}
+
+/* Bare circular icon, fully inside the card. Selector matches the shared
+   badge base's specificity. */
+.verse-container.vt-style-medallion .vt-badge,
+.verse-text.vt-style-medallion .vt-badge {
+  top: 1rem;
+  right: 1rem;
+  width: var(--vt-med, 46px);
+  height: var(--vt-med, 46px);
+  max-height: none;
+  transform: none;
+}
+
+.verse-container.vt-style-medallion .vt-badge::before,
+.verse-container.vt-style-medallion .vt-badge::after,
+.verse-text.vt-style-medallion .vt-badge::before,
+.verse-text.vt-style-medallion .vt-badge::after {
+  content: none;
+}
+
+/* Icon fills the badge so the artwork shows at full size. */
+.verse-container.vt-style-medallion .vt-badge svg,
+.verse-text.vt-style-medallion .vt-badge svg {
+  width: 100%;
+  height: 100%;
+}
+
+.verse-text.vt-style-medallion:has(.vt-badge) {
+  padding-right: 36px;
+}
+
+.verse-text.vt-style-medallion .vt-badge {
+  --vt-med: 28px;
+  top: 0.25rem;
+  right: 0;
+}
+
+.verse-text.vt-style-fold .vt-badge svg {
+  display: block;
+}
+
+/* Style/mode selectors (Settings → Study submenus). */
+.vt-style-select,
+.cr-mode-select {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.35));
+  background: var(--bg-elevated, transparent);
+  color: var(--text-primary, inherit);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
 }
 
 .verse-text {
@@ -6672,14 +7152,6 @@ body.focus-mode .focus-exit-btn:hover {
   gap: 0.5rem;
   min-width: 0;
 }
-.study-cat-dot {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  border: 1px solid rgba(128,128,128,0.3);
-}
 .study-category-hint {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -6730,6 +7202,36 @@ body.focus-mode .focus-exit-btn:hover {
 }
 .study-word-classes-row .toggle-label-wrapper {
   flex: 1;
+}
+
+.study-submenu-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.study-submenu-header .setting-row {
+  flex: 1;
+  min-width: 0;
+}
+.study-submenu-chevron {
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+.study-submenu-header[aria-expanded="false"] .study-submenu-chevron {
+  transform: rotate(-90deg);
+}
+.study-submenu-body {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+}
+.study-submenu-header[aria-expanded="true"] + .study-submenu-body {
+  max-height: 9999px;
+  opacity: 1;
+}
+.study-submenu-body > div {
+  padding: 0.2rem 0 0.4rem 1rem;
 }
 
 .study-sub-expand {
@@ -6812,6 +7314,10 @@ body.focus-mode .focus-exit-btn:hover {
   gap: 0.5rem;
 }
 
+.study-sub-row.muted {
+  opacity: 0.45;
+}
+
 .study-sub-name {
   flex: 1;
   min-width: 0;
@@ -6854,6 +7360,18 @@ body.focus-mode .focus-exit-btn:hover {
   white-space: nowrap;
 }
 .cr-loading.visible {
+  display: inline-flex;
+}
+.vt-loading {
+  display: none;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--accent-color);
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+.vt-loading.visible {
   display: inline-flex;
 }
 .wc-spinner {

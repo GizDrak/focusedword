@@ -231,15 +231,26 @@ window.SwipeRenderer = class SwipeRenderer {
       const el = document.createElement('div');
       el.className = 'verse-container paragraph-card';
       el.dataset.verse = card.verses[0].verse;
+      const tr = new window.TokenRenderer(this.bridge);
       for (const vData of card.verses) {
           if (vData.tokens) {
           const wc = vData.raw ? vData.raw.wordClassSpans : null;
           const ws = vData.raw ? vData.raw.wordStudySpans : null;
           const cr = vData.raw ? vData.raw.clearReadingSpans : null;
-          const verseEl = new window.TokenRenderer(this.bridge)._renderVerseTokens(vData.verse, vData.tokens, bionic, strength, settings || this.base._getSettings(), wc, ws, cr);
+          const verseEl = tr._renderVerseTokens(vData.verse, vData.tokens, bionic, strength, settings || this.base._getSettings(), wc, ws, cr);
           if (verseEl) {
+            const topic = vData.raw ? vData.raw.verseTopic : null;
+            const verseTextEl = verseEl.querySelector(':scope > .verse-text');
+            const strayBadge = verseEl.querySelector(':scope > .vt-badge');
+            if (strayBadge) strayBadge.remove();
             while (verseEl.firstChild) {
               el.appendChild(verseEl.firstChild);
+            }
+            // Paragraph cards merge verse containers into one flowing block, so
+            // per-verse topic tints (and badges) move onto each verse's own .verse-text.
+            if (verseTextEl && topic && topic.color_hex) {
+              tr._applyVerseTopicTint(verseTextEl, topic);
+              tr._ensureVerseTopicBadge(verseTextEl, topic);
             }
           }
         } else {
@@ -264,7 +275,7 @@ window.SwipeRenderer = class SwipeRenderer {
       const wc = card.raw ? card.raw.wordClassSpans : null;
       const ws = card.raw ? card.raw.wordStudySpans : null;
       const cr = card.raw ? card.raw.clearReadingSpans : null;
-      el = new window.TokenRenderer(this.bridge)._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings(), wc, ws, cr);
+      el = new window.TokenRenderer(this.bridge)._renderVerseTokens(card.verse, card.tokens, bionic, strength, settings || this.base._getSettings(), wc, ws, cr, card.raw ? card.raw.verseTopic : null);
     }
     if (!el) {
       el = document.createElement('div');

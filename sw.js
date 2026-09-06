@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v82';
+const CACHE_NAME = 'focused-word-v103';
 const DB_CACHE = 'bible-database-cache';
 
 const REQUIRED_SHELL = [
@@ -17,7 +17,7 @@ const OPTIONAL_SHELL = [
   '/js/data/html.js',
   '/js/data/bionic.js',
   '/js/data/word-class-service.js',
-  '/scripture/BSB_token_annotations_v2.vocabulary.json',
+  '/js/data/zip.js',
   '/js/text/markdown-parser.js',
   '/js/notes/tag-cache-utils.js',
   '/js/data/legacy-migration.js',
@@ -62,6 +62,7 @@ const OPTIONAL_SHELL = [
   '/js/text/highlight-manager.js',
   '/js/notes/notes-ui.js',
   '/js/data/word-study-service.js',
+  '/js/data/verse-topic-service.js',
   '/js/word-study/word-study-ui.js',
   '/js/cross-refs/cross-refs-ui.js',
   '/js/footnotes/footnotes-ui.js',
@@ -77,6 +78,8 @@ const OPTIONAL_SHELL = [
   '/js/reading/scroll-mode/block-resolver.js',
   '/js/reading/scroll-mode/reading-tracker.js',
   '/js/reading/scroll-mode/switcher.js',
+  '/js/reading/scroll-mode/chapter-window.js',
+  '/js/reading/scroll-mode/continuous-scroller.js',
   '/js/vendor/sqlite-wasm/index.mjs',
   '/js/vendor/sqlite-wasm/sqlite3.wasm',
   '/assets/icons/pwa/icon-512.png',

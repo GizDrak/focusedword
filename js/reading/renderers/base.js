@@ -96,39 +96,16 @@ window.BaseRenderer = class BaseRenderer {
       return;
     }
 
+    if (state.get('continuousChapters') === true &&
+        !state.get('swipeMode') && !state.get('spotlightMode') && !state.get('speedMode')) {
+      chapterHeader.classList.add('header-hidden');
+      return;
+    }
+
     const bookId = state.get('currentBook');
     const chapter = state.get('currentChapter');
 
-    const emblemEl = document.getElementById('chapter-emblem');
-    if (emblemEl) {
-      emblemEl.innerHTML = this._getEmblemSvg(bookId);
-    }
-
-    const _rc = (key, def) => {
-      const raw = state.get(key);
-      if (raw !== 'skin' || !window.UISkins) return raw;
-      const skin = UISkins.getActive();
-      if (skin && key in (skin.preferences || {})) return skin.preferences[key];
-      return UISkins._builtinDefaults[key] !== undefined ? UISkins._builtinDefaults[key] : def;
-    };
-    const showTitle = _rc('chapterTitle', true);
-    const titleEl = document.getElementById('chapter-title');
-    if (titleEl) {
-      if (showTitle) {
-        const cs = this.bridge.get('chapter-summary');
-        const summary = cs ? cs.getSummary(bookId, chapter) : ChapterSummary.getSummary(bookId, chapter);
-        titleEl.textContent = summary || this._extractChapterTitle(verses[0]?.clean_text || verses[0]?.text || '');
-        titleEl.style.display = '';
-      } else {
-        titleEl.style.display = 'none';
-      }
-    }
-
-    const subtitleEl = document.getElementById('chapter-subtitle');
-    if (subtitleEl) {
-      const count = verses.filter(v => v.verse > 0).length;
-      subtitleEl.textContent = bookName + ' ' + chapter + ' \u00B7 ' + count + ' verses';
-    }
+    this.renderChapterHeaderInto(chapterHeader, bookId, chapter, bookName, verses);
 
     if (state.get('swipeMode')) return;
 
@@ -141,6 +118,41 @@ window.BaseRenderer = class BaseRenderer {
     if (wasHidden) {
       void chapterHeader.offsetHeight;
       chapterHeader.style.transition = '';
+    }
+  }
+
+  renderChapterHeaderInto(headerEl, bookId, chapter, bookName, verses) {
+    const state = this.bridge.state;
+
+    const emblemEl = headerEl.querySelector('.chapter-emblem');
+    if (emblemEl) {
+      emblemEl.innerHTML = this._getEmblemSvg(bookId);
+    }
+
+    const _rc = (key, def) => {
+      const raw = state.get(key);
+      if (raw !== 'skin' || !window.UISkins) return raw;
+      const skin = UISkins.getActive();
+      if (skin && key in (skin.preferences || {})) return skin.preferences[key];
+      return UISkins._builtinDefaults[key] !== undefined ? UISkins._builtinDefaults[key] : def;
+    };
+    const showTitle = _rc('chapterTitle', true);
+    const titleEl = headerEl.querySelector('.chapter-title');
+    if (titleEl) {
+      if (showTitle) {
+        const cs = this.bridge.get('chapter-summary');
+        const summary = cs ? cs.getSummary(bookId, chapter) : ChapterSummary.getSummary(bookId, chapter);
+        titleEl.textContent = summary || this._extractChapterTitle(verses && verses[0] ? (verses[0].clean_text || verses[0].text || '') : '');
+        titleEl.style.display = '';
+      } else {
+        titleEl.style.display = 'none';
+      }
+    }
+
+    const subtitleEl = headerEl.querySelector('.chapter-subtitle');
+    if (subtitleEl) {
+      const count = (verses || []).filter(v => v.verse > 0).length;
+      subtitleEl.textContent = bookName + ' ' + chapter + ' \u00B7 ' + count + ' verses';
     }
   }
 
@@ -173,10 +185,25 @@ window.BaseRenderer = class BaseRenderer {
     return verse.tokens.every(t => t.type === 'section_heading');
   }
 
-  updateFocusedVerse(verseNum) {
+  _verseContainerSelector(verseNum, opts) {
+    const state = this.bridge.state;
+    let book = opts && opts.book != null ? opts.book : null;
+    let chapter = opts && opts.chapter != null ? opts.chapter : null;
+    if (book == null && state.get('continuousChapters') === true) {
+      book = state.get('currentBook');
+      chapter = state.get('currentChapter');
+    }
+    let sel = '.verse-container[data-verse="' + verseNum + '"]:not(.section-heading-container)';
+    if (book != null && chapter != null) {
+      sel = '.verse-container[data-book="' + book + '"][data-chapter="' + chapter + '"][data-verse="' + verseNum + '"]:not(.section-heading-container)';
+    }
+    return sel;
+  }
+
+  updateFocusedVerse(verseNum, opts) {
     document.querySelectorAll('.verse-container.focused:not(.section-heading-container)').forEach(el => el.classList.remove('focused'));
     if (!verseNum) return;
-    const target = document.querySelector('.verse-container[data-verse="' + verseNum + '"]');
+    const target = document.querySelector(this._verseContainerSelector(verseNum, opts));
     if (target) {
       target.classList.add('focused');
     }
@@ -297,7 +324,9 @@ window.BaseRenderer = class BaseRenderer {
       const im = this.bridge.get('interaction-manager');
       if (im && im.selectionMode) return;
       e.stopPropagation();
-      await this._showCrossRefBar(this._currentBookId, this._currentChapter, verseNum);
+      const bookId = parseInt(container.dataset.book, 10) || this._currentBookId;
+      const chapter = parseInt(container.dataset.chapter, 10) || this._currentChapter;
+      await this._showCrossRefBar(bookId, chapter, verseNum);
     });
     const children = Array.from(verseText.children);
     let target = null;
@@ -520,17 +549,22 @@ window.BaseRenderer = class BaseRenderer {
     if (el) el.classList.toggle('hidden', !show);
   }
 
-  async applyBookmarks() {
+  async applyBookmarks(targetBookId, targetChapter) {
     const selection = this.bridge.selection;
     if (!selection) return;
     const state = this.bridge.state;
+    const bookId = targetBookId != null ? targetBookId : state.get('currentBook');
+    const chapter = targetChapter != null ? targetChapter : state.get('currentChapter');
     const [chapterBm, sets] = await Promise.all([
-      selection.getBookmarksForChapter(state.get('currentBook'), state.get('currentChapter')),
+      selection.getBookmarksForChapter(bookId, chapter),
       selection.getAllBookmarkSets()
     ]);
     const setMap = {};
     for (const s of sets) setMap[s.id] = s.color;
-    for (const c of document.querySelectorAll('.verse-container')) {
+    const containers = state.get('continuousChapters') === true
+      ? document.querySelectorAll('#content .verse-container[data-book="' + bookId + '"][data-chapter="' + chapter + '"]')
+      : document.querySelectorAll('.verse-container');
+    for (const c of containers) {
       c.style.borderLeft = '';
       c.style.paddingLeft = '';
       const num = parseInt(c.querySelector('.verse-num').textContent);

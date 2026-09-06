@@ -1292,7 +1292,7 @@ class NotesUI {
       el.addEventListener('click', () => {
         this._dismissTagResults();
         const bm = this.bridge.get('bookmarks-ui');
-        if (bm) { bm.closeModal(); bm.closeSlideUp(); }
+        if (bm) bm.closeSlideUp();
         const ns = this.bridge.get('note-store');
         if (!ns) return;
         const note = ns.getNoteById(el.dataset.id);
@@ -1304,7 +1304,7 @@ class NotesUI {
       el.addEventListener('click', () => {
         this._dismissTagResults();
         const bm = this.bridge.get('bookmarks-ui');
-        if (bm) { bm.closeModal(); bm.closeSlideUp(); }
+        if (bm) bm.closeSlideUp();
         const nav = this.bridge.get('navigation');
         if (nav) {
           const book = parseInt(el.dataset.book);
@@ -1366,7 +1366,7 @@ class NotesUI {
     const panel = document.getElementById('notes-panel');
     if (!panel) return;
     const bm = this.bridge.get('bookmarks-ui');
-    if (bm) { bm.closeModal(); bm.closeSlideUp(); }
+    if (bm) bm.closeSlideUp();
     await this._state.ready();
     this._open = true;
     panel.classList.remove('hidden', 'compressed');

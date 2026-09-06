@@ -11,6 +11,67 @@ window.WordStudyService = class WordStudyService {
     this._spanCache = new Map();
     this._cacheLimit = 1500;
     this._spanCacheLimit = 32;
+    this._manifestPromises = {};
+    this._manifests = {};
+    this._registerMigrationOpeners();
+  }
+
+  _registerMigrationOpeners() {
+    try {
+      if (BibleDB && typeof BibleDB._registerStudyDbOpener === 'function') {
+        const svc = this;
+        if (AppConfig.WORD_STUDY_DATA_DB) {
+          BibleDB._registerStudyDbOpener('word-data', AppConfig.WORD_STUDY_DATA_DB, async () =>
+            svc._openStudyDb('data'));
+        }
+        if (AppConfig.LEXICON_DATA_DB) {
+          BibleDB._registerStudyDbOpener('lexicon', AppConfig.LEXICON_DATA_DB, async () =>
+            svc._openStudyDb('lexicon'));
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  _resourceConfig(kind) {
+    if (kind === 'data') {
+      return {
+        dbPath: (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB)
+          ? AppConfig.WORD_STUDY_DATA_DB
+          : 'https://repo.focusedword.com/study/bsb_word_data.sqlite',
+        zipUrl: (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB_ZIP) || null,
+        manifestUrl: (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB_MANIFEST) || null,
+        label: 'word-data',
+      };
+    }
+    return {
+      dbPath: (typeof AppConfig !== 'undefined' && AppConfig.LEXICON_DATA_DB)
+        ? AppConfig.LEXICON_DATA_DB
+        : 'https://repo.focusedword.com/study/lexicon_data.sqlite',
+      zipUrl: (typeof AppConfig !== 'undefined' && AppConfig.LEXICON_DATA_DB_ZIP) || null,
+      manifestUrl: (typeof AppConfig !== 'undefined' && AppConfig.LEXICON_DATA_DB_MANIFEST) || null,
+      label: 'lexicon',
+    };
+  }
+
+  _fetchManifest(url, kind) {
+    if (this._manifestPromises[kind]) return this._manifestPromises[kind];
+    if (!url) return Promise.resolve(null);
+    this._manifestPromises[kind] = (async () => {
+      try {
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (!resp.ok) {
+          console.warn('[WordStudyService] manifest fetch failed:', url, resp.status);
+          return null;
+        }
+        const manifest = await resp.json();
+        this._manifests[kind] = manifest;
+        return manifest;
+      } catch (e) {
+        console.warn('[WordStudyService] manifest load error:', url, e);
+        return null;
+      }
+    })();
+    return this._manifestPromises[kind];
   }
 
   _setLru(map, key, value, limit) {
@@ -28,15 +89,36 @@ window.WordStudyService = class WordStudyService {
     return this._dataReady || !!this._dataInitPromise;
   }
 
+  async _openStudyDb(kind) {
+    const cfg = this._resourceConfig(kind);
+    if (!cfg.dbPath) return null;
+    const manifest = await this._fetchManifest(cfg.manifestUrl, kind);
+    const zip = cfg.zipUrl && manifest ? { url: cfg.zipUrl, manifest } : null;
+    if (BibleDB && typeof BibleDB.openStudyDb === 'function') {
+      return BibleDB.openStudyDb({
+        dbPath: cfg.dbPath,
+        expectedSha256: manifest ? manifest.sha256 : null,
+        label: cfg.label,
+        zip,
+      });
+    }
+    return BibleDB.createDbFromBytes(cfg.dbPath, manifest ? manifest.sha256 : null, zip ? { zip } : undefined);
+  }
+
+  async _acceptDb(dbPath, bytes, sha256, label) {
+    if (!bytes || !bytes.byteLength) return null;
+    if (BibleDB && typeof BibleDB.acceptStudyDbBytes === 'function') {
+      return BibleDB.acceptStudyDbBytes({ dbPath: dbPath, bytes, expectedSha256: sha256 || null, label });
+    }
+    return BibleDB._deserialize(bytes);
+  }
+
   async initDataDb() {
     if (this._dataReady) return true;
     if (this._dataInitPromise) return this._dataInitPromise;
     this._dataInitPromise = (async () => {
       try {
-        const url = (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB)
-          ? AppConfig.WORD_STUDY_DATA_DB
-          : 'https://repo.focusedword.com/study/bsb_word_data.sqlite';
-        const db = await BibleDB.createDbFromBytes(url);
+        const db = await this._openStudyDb('data');
         if (!db) {
           this._dataInitPromise = null;
           return false;
@@ -58,10 +140,7 @@ window.WordStudyService = class WordStudyService {
     if (this._lexInitPromise) return this._lexInitPromise;
     this._lexInitPromise = (async () => {
       try {
-        const url = (typeof AppConfig !== 'undefined' && AppConfig.LEXICON_DATA_DB)
-          ? AppConfig.LEXICON_DATA_DB
-          : 'https://repo.focusedword.com/study/lexicon_data.sqlite';
-        const db = await BibleDB.createDbFromBytes(url);
+        const db = await this._openStudyDb('lexicon');
         if (!db) {
           this._lexInitPromise = null;
           return false;
@@ -86,45 +165,8 @@ window.WordStudyService = class WordStudyService {
       if (!this._dataReady && this._dataInitPromise) await this._dataInitPromise;
       if (!this._lexReady && this._lexInitPromise) await this._lexInitPromise;
 
-      const dataUrl = (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB)
-        ? AppConfig.WORD_STUDY_DATA_DB
-        : 'https://repo.focusedword.com/study/bsb_word_data.sqlite';
-      const lexUrl = (typeof AppConfig !== 'undefined' && AppConfig.LEXICON_DATA_DB)
-        ? AppConfig.LEXICON_DATA_DB
-        : 'https://repo.focusedword.com/study/lexicon_data.sqlite';
-
-      if (this._dataReady) {
-        const dataRes = await BibleDB.checkForUpdates(dataUrl);
-        if (dataRes.updated && dataRes.bytes) {
-          const newDb = BibleDB._deserialize(dataRes.bytes);
-          if (newDb) {
-            const oldDb = this._dataDb;
-            this._dataDb = newDb;
-            if (oldDb && oldDb !== newDb) {
-              try { oldDb.close(); } catch (e) {}
-            }
-            this._spanCache.clear();
-            this._cache.clear();
-            updatedAny = true;
-          }
-        }
-      }
-
-      if (this._lexReady) {
-        const lexRes = await BibleDB.checkForUpdates(lexUrl);
-        if (lexRes.updated && lexRes.bytes) {
-          const newDb = BibleDB._deserialize(lexRes.bytes);
-          if (newDb) {
-            const oldDb = this._lexDb;
-            this._lexDb = newDb;
-            if (oldDb && oldDb !== newDb) {
-              try { oldDb.close(); } catch (e) {}
-            }
-            this._cache.clear();
-            updatedAny = true;
-          }
-        }
-      }
+      if (this._dataReady) updatedAny = (await this._checkResourceUpdate('data')) || updatedAny;
+      if (this._lexReady) updatedAny = (await this._checkResourceUpdate('lexicon')) || updatedAny;
 
       if (updatedAny && bridge) {
         const wc = bridge.get('word-class-service');
@@ -136,6 +178,71 @@ window.WordStudyService = class WordStudyService {
       return updatedAny;
     } catch (e) {
       console.warn('[WordStudyService] background update check failed:', e);
+      return false;
+    }
+  }
+
+  // Manifest-driven background update for one distribution. When the repo
+  // serves a zip, the downloaded container is verified (zip + sqlite hashes)
+  // before the inflated payload is accepted.
+  async _checkResourceUpdate(kind) {
+    const cfg = this._resourceConfig(kind);
+    if (!cfg.dbPath) return false;
+    try {
+      this._manifestPromises[kind] = null;
+      const manifest = await this._fetchManifest(cfg.manifestUrl, kind);
+      if (cfg.zipUrl && !manifest) {
+        console.warn('[WordStudyService] manifest unavailable for', cfg.zipUrl, '— skipping update (fail closed)');
+        return false;
+      }
+      const expectedSha = manifest ? manifest.sha256 : null;
+      const verifiedSha = expectedSha
+        ? await BibleDB._getVerifiedSha(cfg.dbPath)
+        : null;
+      if (expectedSha && verifiedSha === expectedSha) return false;
+
+      // A changed manifest is authoritative. Skip conditional validators so a
+      // stale intermediary cannot return the old database for a new version.
+      const updateResult = await BibleDB.checkForUpdates(
+        cfg.zipUrl || cfg.dbPath,
+        Boolean(expectedSha && verifiedSha !== expectedSha),
+      );
+      if (!updateResult.updated || !updateResult.bytes) return false;
+
+      let bytes = updateResult.bytes;
+      if (cfg.zipUrl) {
+        const resolved = await BibleDB.extractZipResource(updateResult.bytes, manifest);
+        if (!resolved || !resolved.bytes) {
+          console.warn('[WordStudyService] downloaded zip failed verification:', cfg.zipUrl);
+          return false;
+        }
+        bytes = resolved.bytes;
+      } else if (expectedSha) {
+        const actualSha = await BibleDB._sha256Hex(bytes);
+        if (actualSha !== BibleDB.SHA_UNAVAILABLE && actualSha !== expectedSha) {
+          console.warn('[WordStudyService] downloaded database hash mismatch:', actualSha);
+          return false;
+        }
+      }
+
+      const newDb = await this._acceptDb(cfg.dbPath, bytes, expectedSha, cfg.label);
+      if (newDb) {
+        const current = kind === 'data' ? this._dataDb : this._lexDb;
+        if (kind === 'data') this._dataDb = newDb;
+        else this._lexDb = newDb;
+        if (current && current !== newDb) {
+          try { current.close(); } catch (e) {}
+        }
+        this._spanCache.clear();
+        this._cache.clear();
+        if (expectedSha && expectedSha !== BibleDB.SHA_UNAVAILABLE) {
+          await BibleDB._setVerifiedSha(cfg.dbPath, expectedSha);
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('[WordStudyService] update check failed for', kind, e);
       return false;
     }
   }
@@ -604,5 +711,7 @@ window.WordStudyService = class WordStudyService {
     this._cache.clear();
     this._pendingStudies.clear();
     this._spanCache.clear();
+    this._manifestPromises = {};
+    this._manifests = {};
   }
 };
