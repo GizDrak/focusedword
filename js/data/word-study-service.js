@@ -37,7 +37,7 @@ window.WordStudyService = class WordStudyService {
       return {
         dbPath: (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB)
           ? AppConfig.WORD_STUDY_DATA_DB
-          : 'https://repo.focusedword.com/study/bsb_word_data.sqlite',
+          : 'https://repo.focusedword.com/study/BSB_word_data.sqlite',
         zipUrl: (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB_ZIP) || null,
         manifestUrl: (typeof AppConfig !== 'undefined' && AppConfig.WORD_STUDY_DATA_DB_MANIFEST) || null,
         label: 'word-data',
@@ -127,7 +127,7 @@ window.WordStudyService = class WordStudyService {
         this._dataReady = true;
         return true;
       } catch (e) {
-        console.error('[WordStudyService] bsb_word_data init error:', e);
+        console.error('[WordStudyService] BSB_word_data init error:', e);
         this._dataInitPromise = null;
         return false;
       }

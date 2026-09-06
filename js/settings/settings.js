@@ -709,7 +709,7 @@ window.SettingsModule = class SettingsModule {
         }
         if (ws && !ws.dataReady) {
           const ok = await ws.initDataDb();
-          if (!ok) throw new Error('bsb_word_data failed to load');
+          if (!ok) throw new Error('BSB_word_data failed to load');
           await ws.initLexDb();
         }
         state.set('wordStudyEnabled', true);
