@@ -14,7 +14,12 @@ window.HomePlanWidget = class HomePlanWidget {
   }
 
   _createEl() {
-    if (document.getElementById('home-plan-widget')) return;
+    const existing = document.getElementById('home-plan-widget');
+    if (existing) {
+      this._el = existing;
+      this._bindElementEvents();
+      return;
+    }
     const contentEl = document.getElementById('content');
     if (!contentEl) return;
     const el = document.createElement('div');
@@ -52,11 +57,24 @@ window.HomePlanWidget = class HomePlanWidget {
       window.UISkins.decorate(document.getElementById('hpw-read-btn'), 'reading-plan-action');
       window.UISkins.decorate(document.getElementById('hpw-close-btn'), 'reading-plan-dismiss');
     }
+    this._bindElementEvents();
+  }
+
+  _bindElementEvents() {
+    if (!this._el) return;
+    const readBtn = this._el.querySelector('#hpw-read-btn');
+    const closeBtn = this._el.querySelector('#hpw-close-btn');
+    if (readBtn && !readBtn._hpwBound) {
+      readBtn._hpwBound = true;
+      readBtn.addEventListener('click', () => this._startReading());
+    }
+    if (closeBtn && !closeBtn._hpwBound) {
+      closeBtn._hpwBound = true;
+      closeBtn.addEventListener('click', () => this._dismiss());
+    }
   }
 
   _bindEvents() {
-    document.getElementById('hpw-read-btn').addEventListener('click', () => this._startReading());
-    document.getElementById('hpw-close-btn').addEventListener('click', () => this._dismiss());
     window.addEventListener('sync-module-updated', (e) => {
       if (e.detail === 'plans') this._checkVisibility();
     });
@@ -64,6 +82,8 @@ window.HomePlanWidget = class HomePlanWidget {
 
   _checkVisibility() {
     if (!this._enabled) return;
+    if (!this._el || !this._el.isConnected) this._createEl();
+    if (!this._el) return;
     const activePlan = this._getActivePlanWithTodaysReading();
     if (activePlan) {
       this._show(activePlan.plan, activePlan.scheduleEntry, activePlan.todayUnits);
@@ -91,8 +111,9 @@ window.HomePlanWidget = class HomePlanWidget {
   }
 
   _show(plan, scheduleEntry, todayUnits) {
-    const nameEl = document.getElementById('hpw-plan-name');
-    const passagesEl = document.getElementById('hpw-passages');
+    const nameEl = this._el && this._el.querySelector('#hpw-plan-name');
+    const passagesEl = this._el && this._el.querySelector('#hpw-passages');
+    if (!nameEl || !passagesEl) return;
     const today = this._today();
     const isBehind = scheduleEntry && scheduleEntry.date < today;
     nameEl.textContent = (isBehind ? 'Catch-up: ' : '') + (plan.name || 'Reading Plan');

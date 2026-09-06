@@ -206,6 +206,7 @@ window.WordStudyService = class WordStudyService {
       const updateResult = await BibleDB.checkForUpdates(
         cfg.zipUrl || cfg.dbPath,
         Boolean(expectedSha && verifiedSha !== expectedSha),
+        cfg.zipUrl ? BibleDB._versionedResourceUrl(cfg.zipUrl, manifest) : cfg.dbPath,
       );
       if (!updateResult.updated || !updateResult.bytes) return false;
 

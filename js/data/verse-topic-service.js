@@ -145,6 +145,7 @@ window.VerseTopicService = class VerseTopicService {
       const updateResult = await BibleDB.checkForUpdates(
         zipUrl || AppConfig.VERSE_TOPICS_DB,
         Boolean(expectedSha && verifiedSha !== expectedSha),
+        zipUrl ? BibleDB._versionedResourceUrl(zipUrl, manifest) : AppConfig.VERSE_TOPICS_DB,
       )
       if (!updateResult.updated || !updateResult.bytes) return false
 

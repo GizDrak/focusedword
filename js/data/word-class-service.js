@@ -342,6 +342,7 @@ window.WordClassService = class WordClassService {
       const updateResult = await BibleDB.checkForUpdates(
         zipUrl || dbPath,
         Boolean(expectedSha && verifiedSha !== expectedSha),
+        zipUrl ? BibleDB._versionedResourceUrl(zipUrl, manifest) : dbPath,
       )
       if (!updateResult.updated || !updateResult.bytes) return false
 

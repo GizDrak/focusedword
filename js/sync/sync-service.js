@@ -230,6 +230,15 @@ window.SyncService = class SyncService {
           }
           const retryRaw = this._stateProvider ? await this._stateProvider() : {};
           const retryBody = this._buildSyncBody(retryRaw);
+          // Reading position is intentionally offered through the resume toast
+          // rather than forcing navigation during a pull. If the server copy
+          // won the conflict, echo it unchanged on this retry so stale local
+          // navigation cannot overwrite it under the newly accepted timestamp.
+          const remoteReading = retryModules && retryModules.reading;
+          const sentReading = body && body.modules && body.modules.reading;
+          if (remoteReading && Number(remoteReading.updated_at || 0) > Number(sentReading && sentReading.updated_at || 0)) {
+            retryBody.modules.reading = remoteReading;
+          }
           const retryResp = await this.apiRequest('sync', { method: 'POST', body: JSON.stringify(retryBody) });
           await this._onSyncSuccess(retryResp);
           if (this._lastUpdatedAt === 0) {

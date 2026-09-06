@@ -635,14 +635,17 @@ window.SyncSettingsUI = class SyncSettingsUI {
           if (remoteVerse && Date.now() - this._lastScrollTime > 2000) {
             window.verseManager.setIntentional(remoteVerse);
           }
-          if (modules.reading.updated_at) {
-            this.bridge.state.moduleTimestamps.reading = modules.reading.updated_at;
-            this.bridge.state._saveTimestamps();
-          }
         } else if (remoteBook && remoteChapter) {
           const remoteData = { book: remoteBook, chapter: remoteChapter, verse: remoteVerse, bookName: remoteBookName };
           this.bridge.state.set('remoteReadingPosition', remoteData);
           this._showResumeToast(remoteData);
+        }
+        if (modules.reading.updated_at) {
+          this.bridge.state.moduleTimestamps.reading = Math.max(
+            this.bridge.state.moduleTimestamps.reading || 0,
+            modules.reading.updated_at
+          );
+          this.bridge.state._saveTimestamps();
         }
       }
       if (modules.bookmarks && Array.isArray(modules.bookmarks.data)) {

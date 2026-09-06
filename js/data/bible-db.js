@@ -288,18 +288,30 @@ window.BibleDB = class BibleDB {
     return { bytes };
   }
 
+  // A manifest hash is an immutable cache key for the published zip. Fetching
+  // this URL avoids stale CDN objects after a database release while callers
+  // continue to cache the response under the stable, unversioned URL.
+  static _versionedResourceUrl(url, manifest) {
+    if (!url || !manifest) return url;
+    const version = manifest.zipSha256 || manifest.version || manifest.sha256;
+    if (!version) return url;
+    const separator = url.indexOf('?') >= 0 ? '&' : '?';
+    return url + separator + 'v=' + encodeURIComponent(String(version));
+  }
+
   // Fetches a zipped study artifact through the shared cache, verifies the zip
   // against its manifest, inflates it, verifies the sqlite payload, and
   // returns { bytes }. A stale/mismatched cached zip is dropped once and
   // re-fetched from the network before failing.
   static async _resolveZipResource({ zipUrl, manifest, forceNetwork = false }) {
-    let fetched = await BibleDB.fetchBytes(zipUrl, forceNetwork);
+    const requestUrl = this._versionedResourceUrl(zipUrl, manifest);
+    let fetched = await BibleDB.fetchBytes(zipUrl, forceNetwork, requestUrl);
     let zipBytes = fetched && fetched.bytes;
     if (!zipBytes || !zipBytes.byteLength) return null;
     let result = await this.extractZipResource(zipBytes, manifest);
     if (!result) {
       await BibleDB._deleteCached(zipUrl);
-      fetched = await BibleDB.fetchBytes(zipUrl, true);
+      fetched = await BibleDB.fetchBytes(zipUrl, true, requestUrl);
       zipBytes = fetched && fetched.bytes;
       if (!zipBytes || !zipBytes.byteLength) return null;
       result = await this.extractZipResource(zipBytes, manifest);
@@ -794,7 +806,7 @@ static async createDbFromBytes(dbPath, expectedSha256 = null, opts = null) {
     return db;
   }
 
-  static async checkForUpdates(dbPath, forceNetwork = false) {
+  static async checkForUpdates(dbPath, forceNetwork = false, requestUrl = dbPath) {
     try {
       if (typeof caches === 'undefined') return { updated: false };
       const cache = await caches.open('bible-database-cache');
@@ -810,7 +822,7 @@ static async createDbFromBytes(dbPath, expectedSha256 = null, opts = null) {
       }
 
       // Do not let the browser HTTP cache hide a newer repository artifact.
-      const resp = await fetch(dbPath, { headers, cache: 'no-store' });
+      const resp = await fetch(requestUrl, { headers, cache: 'no-store' });
       if (resp.status === 304) {
         return { updated: false };
       }
@@ -826,7 +838,7 @@ static async createDbFromBytes(dbPath, expectedSha256 = null, opts = null) {
     }
   }
 
-  static async fetchBytes(dbPath, forceNetwork = false) {
+  static async fetchBytes(dbPath, forceNetwork = false, requestUrl = dbPath) {
     try {
       // Defensive check: Only use caches if they exist (i.e., we are in HTTPS/localhost)
       if (typeof caches !== 'undefined') {
@@ -838,13 +850,13 @@ static async createDbFromBytes(dbPath, expectedSha256 = null, opts = null) {
           }
         }
 
-        const resp = await fetch(dbPath);
+        const resp = await fetch(requestUrl, { cache: 'no-store' });
         if (resp.ok) await cache.put(dbPath, resp.clone());
         return { bytes: new Uint8Array(await resp.arrayBuffer()), fromCache: false };
       }
       // Fallback: Just fetch from the network if caches are not available
       console.warn('[db] Cache API not available (HTTP connection). Skipping cache.');
-      const resp = await fetch(dbPath);
+      const resp = await fetch(requestUrl, { cache: 'no-store' });
       return { bytes: new Uint8Array(await resp.arrayBuffer()), fromCache: false };
     } catch (e) {
       console.error('[db] Storage/Network error:', e);
