@@ -1276,7 +1276,7 @@ body.focus-mode .install-banner {
 /* ========== What's New (Update) Banner ========== */
 .update-banner {
   position: fixed;
-  top: 0.5rem;
+  top: 4rem;
   left: 0.5rem;
   right: 0.5rem;
   z-index: 150;
