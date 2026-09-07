@@ -6,7 +6,7 @@ window.IDBService = class IDBService {
 
   _open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('focused_word_db', 8);
+      const req = indexedDB.open('focused_word_db', 9);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
         const tx = e.target.transaction;
@@ -91,6 +91,15 @@ window.IDBService = class IDBService {
             nhStore.createIndex('deleted', 'deleted', { unique: false });
             nhStore.createIndex('updated_at', 'updated_at', { unique: false });
             nhStore.createIndex('visited_at', 'visited_at', { unique: false });
+          }
+        }
+
+        if (e.oldVersion < 9) {
+          // Cached per-repo manifests so the Bible pickers can list
+          // translations that are not downloaded yet without opening the
+          // repository browser. Keyed by repository id.
+          if (!db.objectStoreNames.contains('repo_manifests')) {
+            db.createObjectStore('repo_manifests', { keyPath: 'repo_id' });
           }
         }
       };
@@ -194,6 +203,22 @@ window.IDBService = class IDBService {
 
   async deleteRepository(id) {
     return this.delete('repositories', id);
+  }
+
+  async getAllRepoManifests() {
+    return this.getAll('repo_manifests');
+  }
+
+  async getRepoManifest(repoId) {
+    return this.get('repo_manifests', repoId);
+  }
+
+  async putRepoManifest(entry) {
+    return this.put('repo_manifests', entry);
+  }
+
+  async deleteRepoManifest(repoId) {
+    return this.delete('repo_manifests', repoId);
   }
 
   async getAllInstalledDatabases() {

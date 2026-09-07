@@ -102,7 +102,13 @@ window.ContinuousScroller = class ContinuousScroller {
     const frag = base.renderTokenChapter(verses, bionic, strength, base._getSettings());
     base._addCrossRefIndicators(frag, bulkRefs);
     this._applyResolvedAnnotations(section, frag);
-    sec.appendChild(frag);
+    // Wrap the verse flow so paragraph mode can constrain it to the normal
+    // reading width (inline verse containers ignore max-width). The chapter
+    // header stays a direct child of the section, keeping its normal width.
+    const flow = document.createElement('div');
+    flow.className = 'paragraph-flow';
+    flow.appendChild(frag);
+    sec.appendChild(flow);
     return sec;
   }
 
@@ -115,7 +121,9 @@ window.ContinuousScroller = class ContinuousScroller {
 
   _maybeEnrichSection(section, el) {
     const state = this.bridge.state;
-    if (state.get('currentTranslation') !== 'BSB') return;
+    // Verse topics run for every translation; word-class-backed features are
+    // BSB-only (their state keys are forced off elsewhere on non-BSB).
+    if (state.get('currentTranslation') !== 'BSB' && state.get('verseTopicsEnabled') !== true) return;
     if (!this._hasStudyFeatures()) return;
     const verses = this.window.peekVerses(section.key);
     if (!verses || !verses.length) return;
@@ -155,7 +163,7 @@ window.ContinuousScroller = class ContinuousScroller {
   // no-op for chapters whose spans are not resolved yet.
   _applyResolvedAnnotations(section, frag) {
     const state = this.bridge.state;
-    if (state.get('currentTranslation') !== 'BSB') return;
+    if (state.get('currentTranslation') !== 'BSB' && state.get('verseTopicsEnabled') !== true) return;
     if (!this._hasStudyFeatures()) return;
     const verses = this.window.peekVerses(section.key);
     if (!verses || !verses.length) return;

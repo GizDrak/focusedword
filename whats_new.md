@@ -1,5 +1,32 @@
 # What's New in Focused Word
 
+## v1.0.6 — Reading Plans & Modern Polish
+
+### A truly alternating OT/NT plan
+- **Alternate OT/NT actually alternates now** — the old "Alternate OT/NT" plan read the entire Old Testament first and the New Testament after, so it has been renamed to Whole Bible (Alternative Traditional) to describe what it really does.
+- **New Alternate OT/NT plan** — alternates between Old and New Testament reading days (4 OT days and 3 NT days each week), covering the whole Bible in one year.
+
+### Modern skin polish
+- **Secondary text follows your accent** — in the Modern skin, secondary and muted text across settings, library, plans, notes, and menus is now tinted from your accent color instead of the theme's warm tan, so everything sits naturally with Mist.
+
+### Every repo translation, right in the Bible picker
+- **No more digging through the repository browser** — every translation from every connected repository now appears directly in the Bible translation dropdowns (main menu and split-view panels).
+- **Not-downloaded translations are marked** — translations you haven't downloaded yet show a download badge; picking one downloads it automatically and opens it, no extra steps.
+- **Works offline too** — the app remembers each repo's translation list, so the picker stays complete even before the latest check finishes.
+
+### Study features follow the translation
+- **Verse Topics now work with every Bible translation** — topic colors and styles render on any downloaded translation, not just BSB.
+- **BSB-only features toggle off automatically** — Word Classes, Word Study, and Clear Reading only work with the Berean Standard Bible, so switching to another translation turns them off and greys out their Settings toggles (marked "BSB only"). Switching back to BSB restores whatever you had on.
+
+### Fixed
+- **Verse Topics finally look right in paragraph reading** — in Scroll and Spotlight paragraph modes, topic icons and colors were being drawn on the wrong element, leaving odd gaps between verses and no color at all. Topic verses in continuous reading now get a small icon tucked right after the verse number and a clearly visible color wash across the verse, with no stray spacing; in Spotlight the verse you're reading shows its topic color, while the others stay gently dimmed.
+- **Your study settings follow you between devices** — Focused Sync now carries your study feature preferences too: verse topic styles, custom topic colors, word class colors, and word study/clear reading toggles restore on every device signed in with your sync key.
+- **Clear Reading remembers its configuration** — the Clear Reading mode (soft/strong) and category toggles no longer reset to defaults every time you reopen the app; they now persist like every other setting.
+- **Paragraph reading keeps its width** — switching to paragraph reading no longer stretches the scripture out wider; the reading column stays exactly the same width as normal reading.
+- **Section headings stay centered in paragraph reading** — the Modern section-heading pills (and classic headings) now sit centered in paragraph mode, just like they do in normal reading.
+
+---
+
 ## v1.0.5 — Verse Topics
 
 ### Verse Topics
@@ -80,7 +107,7 @@ Focused Word is now officially v1.0.0! This is the complete, release-ready featu
 - **Bookmarks** — save verses into named, color-coded sets and jump back anytime.
 - **Highlights** — 6 highlighter colors for a word, verse, or whole passage, filterable by color.
 - **Notes** — a clean, taggable notebook attached to verses.
-- **Reading Plans** — curated 1-year plans (Traditional, Chronological, Alternate, M'Cheyne, OT+NT) with a guided daily flow, streaks, and progress.
+- **Reading Plans** — curated 1-year plans (Traditional, Chronological, Alternate OT/NT, M'Cheyne, OT+NT) with a guided daily flow, streaks, and progress.
 - **Navigation History** — a Recent tab returns you to the last 50 places you visited.
 
 ### Make It Yours

@@ -5,6 +5,8 @@ UISkins.register('modern', {
     '--skin-chapter-header-align': 'center',
     '--skin-section-heading-align': 'center',
     '--skin-verse-align': 'left',
+    '--text-secondary': 'color-mix(in srgb, var(--accent-color) 68%, var(--text-primary))',
+    '--text-muted': 'color-mix(in srgb, var(--accent-color) 42%, var(--text-primary))',
   },
   preferences: {
     sectionHeadingAlignment: 'center',

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focused-word-v105';
+const CACHE_NAME = 'focused-word-v106';
 const DB_CACHE = 'bible-database-cache';
 
 const REQUIRED_SHELL = [
@@ -56,6 +56,7 @@ const OPTIONAL_SHELL = [
   '/js/app/split-mode.js',
   '/js/settings/color-theme.js',
   '/js/settings/settings.js',
+  '/js/settings/study-compat.js',
   '/js/settings/settings-sync-ui.js',
   '/js/bookmarks/bookmarks-ui.js',
   '/js/reading/interaction-manager.js',

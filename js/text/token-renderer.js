@@ -115,8 +115,14 @@ window.TokenRenderer = class TokenRenderer {
     }
 
     if (this._isVerseTopicActive(verseTopic)) {
-      this._applyVerseTopicTint(ctx.container, verseTopic);
-      this._ensureVerseTopicBadge(ctx.container, verseTopic);
+      // Paragraph reading (scroll / continuous / spotlight) flows each verse as
+      // inline text inside a .verse-text; the unified paragraph treatment (tint
+      // wash + small inline icon after the verse number) belongs on that
+      // element, never on the inline .verse-container. Card mode keeps the
+      // per-style treatment on the container.
+      const topicTarget = ctx.settings.paragraphMode ? ctx.verseText : ctx.container;
+      this._applyVerseTopicTint(topicTarget, verseTopic);
+      this._ensureVerseTopicBadge(topicTarget, verseTopic);
     }
 
     const appliedFlags = [];
@@ -528,12 +534,18 @@ window.TokenRenderer = class TokenRenderer {
   _applyVerseTopicTint(container, topic) {
     if (!container || !this._isVerseTopicActive(topic)) return;
     const style = this._verseTopicStyle();
-    container.classList.add('verse-topics', 'vt-style-' + style);
+    const isParagraph = container.classList.contains('verse-text');
+    // Paragraph mode uses one unified treatment (like medallion) so the tint
+    // and small inline icon read consistently regardless of the selected
+    // card style; card mode keeps the per-style treatment.
+    container.classList.add('verse-topics', isParagraph ? 'vt-paragraph' : 'vt-style-' + style);
     const overrides = this.bridge && this.bridge.state ? this.bridge.state.get('verseTopicSettings') || null : null;
     const color = this._resolveTopicColor(topic, overrides);
     // Accent exposed for CSS: fold/gradient layers, stroke ring, tab feet.
     container.style.setProperty('--vt-accent', color);
-    if (style === 'tabs') {
+    if (isParagraph) {
+      container.style.removeProperty('background-color');
+    } else if (style === 'tabs') {
       // Light wash so the verse box reads as a distinct region behind the tab.
       // !important keeps skin/focus backgrounds from swallowing the tint.
       container.style.setProperty('background-color', window.VerseTopicService.toRgba(color, 0.10), 'important');
@@ -546,9 +558,13 @@ window.TokenRenderer = class TokenRenderer {
 
   _ensureVerseTopicBadge(container, topic) {
     if (!container || !topic) return;
-    const existing = container.querySelector(':scope > .vt-badge');
-    if (existing) existing.remove();
     const overrides = this.bridge && this.bridge.state ? this.bridge.state.get('verseTopicSettings') || null : null;
+    // Global "hide icons, keep coloring" toggle: skip the badge entirely but
+    // leave the tint (applied separately) in place.
+    if (overrides && overrides.showIcons === false) return;
+    const isParagraph = container.classList.contains('verse-text');
+    const existing = container.querySelector(isParagraph ? ':scope .vt-badge' : ':scope > .vt-badge');
+    if (existing) existing.remove();
     const color = this._resolveTopicColor(topic, overrides);
     let svg = null;
     if (window.VerseTopicIcons && window.VerseTopicIcons[topic.topicId]) {
@@ -556,15 +572,15 @@ window.TokenRenderer = class TokenRenderer {
     }
     if (!svg) return;
     const badge = document.createElement('span');
-    badge.className = 'vt-badge';
+    badge.className = isParagraph ? 'vt-badge vt-inline' : 'vt-badge';
     badge.dataset.vtBadge = topic.topicId;
     badge.setAttribute('aria-hidden', 'true');
     badge.title = topic.name;
     const style = this._verseTopicStyle();
     badge.style.setProperty('--vt-accent', color);
-    if (style === 'gradient' || style === 'medallion') {
-      // Gradient / medallion: the badge is the bare circular topic icon
-      // picking up the accent via currentColor.
+    if (isParagraph || style === 'gradient' || style === 'medallion') {
+      // Paragraph + gradient / medallion: the badge is the bare circular topic
+      // icon picking up the accent via currentColor.
       badge.style.removeProperty('background-color');
       badge.style.color = color;
     } else {
@@ -578,7 +594,17 @@ window.TokenRenderer = class TokenRenderer {
       badge.style.color = fg;
     }
     badge.innerHTML = svg;
-    container.appendChild(badge);
+    if (isParagraph) {
+      // Small inline mark tucked right after the verse number.
+      const verseNum = container.querySelector(':scope .verse-num');
+      if (verseNum) {
+        verseNum.insertAdjacentElement('afterend', badge);
+      } else {
+        container.prepend(badge);
+      }
+    } else {
+      container.appendChild(badge);
+    }
   }
 
   _collectWordSegments(verseText) {
@@ -938,8 +964,26 @@ window.TokenRenderer = class TokenRenderer {
         this._applyWordStudyTargets(verseText, v.wordStudySpans);
       }
       if (todo.includes('vt') && this._verseTopicsEnabled) {
-        this._applyVerseTopicTint(container, v.verseTopic);
-        this._ensureVerseTopicBadge(container, v.verseTopic);
+        // Paragraph reading (scroll / continuous / spotlight) and merged
+        // paragraph cards render the topic treatment on each verse's own
+        // .verse-text, never on the inline .verse-container.
+        const paragraphMode = document.body && document.body.classList && document.body.classList.contains('paragraph-mode');
+        if (paragraphMode || container.classList.contains('paragraph-card')) {
+          let target = null;
+          const candidates = container.querySelectorAll(':scope > .verse-text');
+          for (const vt of candidates) {
+            const num = vt.querySelector('.verse-num');
+            if (num && num.textContent.trim() === String(v.verse)) { target = vt; break; }
+          }
+          if (!target) target = candidates[0] || verseText;
+          if (target) {
+            this._applyVerseTopicTint(target, v.verseTopic);
+            this._ensureVerseTopicBadge(target, v.verseTopic);
+          }
+        } else {
+          this._applyVerseTopicTint(container, v.verseTopic);
+          this._ensureVerseTopicBadge(container, v.verseTopic);
+        }
       }
 
       if (todo.length) {

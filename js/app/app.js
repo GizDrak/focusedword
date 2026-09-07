@@ -169,6 +169,12 @@ window.App = class App {
     window.repoService.migrateInstalledToOpfs().catch(e =>
       console.warn('[app] OPFS migration error:', e)
     );
+    // Pull each connected repo's manifest in the background so the Bible
+    // dropdowns can list translations that are not downloaded yet. Cached
+    // manifests (IndexedDB) feed the pickers until the refresh lands.
+    window.repoService.refreshAllManifests()
+      .then(() => this._buildTranslationManifest(bridge))
+      .catch(e => console.warn('[app] Background repo manifest refresh failed:', e));
 
     let translationId = bridge.state.get('currentTranslation');
     _splash('Opening Bible…');
@@ -323,6 +329,10 @@ window.App = class App {
     this._buildTranslationManifest(bridge);
     this._setupModeButton(bridge);
     this._setupWordStudyToggle(bridge);
+    // BSB-only study features are toggled off (and remembered for restore)
+    // whenever a non-BSB translation becomes active — nav menu, split
+    // dropdowns, sync restore, or a persisted translation at startup.
+    if (window.StudyCompat) StudyCompat.watch(bridge);
     this._setupMoreButton(bridge);
     this._setupLibraryButton(bridge);
     this._setupSpeedControls(bridge);
@@ -623,11 +633,13 @@ window.App = class App {
     bridge.on('install:state-changed', refreshInstallItem);
     refreshInstallItem();
 
+    const _isBsbTranslation = () => (bridge.state?.get('currentTranslation') || 'BSB') === 'BSB';
+
     const refreshWcKeyItem = () => {
       const item = document.getElementById('more-word-class-key');
       if (!item) return;
       const wc = bridge.state?.get('wordClasses');
-      item.classList.toggle('hidden', !wc);
+      item.classList.toggle('hidden', !wc || !_isBsbTranslation());
     };
     bridge.state?.onChange('wordClasses', refreshWcKeyItem);
     bridge.on('render:chapter', refreshWcKeyItem);
@@ -637,7 +649,7 @@ window.App = class App {
       const item = document.getElementById('more-word-study');
       if (!item) return;
       const ws = bridge.state?.get('wordStudyEnabled');
-      item.classList.toggle('hidden', !ws);
+      item.classList.toggle('hidden', !ws || !_isBsbTranslation());
     };
     bridge.state?.onChange('wordStudyEnabled', refreshWsItem);
     bridge.on('render:chapter', refreshWsItem);
@@ -647,7 +659,7 @@ window.App = class App {
       const item = document.getElementById('more-clear-reading');
       if (!item) return;
       const cr = bridge.state?.get('clearReadingEnabled');
-      item.classList.toggle('hidden', !cr);
+      item.classList.toggle('hidden', !cr || !_isBsbTranslation());
     };
     bridge.state?.onChange('clearReadingEnabled', refreshClearReadingItem);
     bridge.on('render:chapter', refreshClearReadingItem);
@@ -662,6 +674,15 @@ window.App = class App {
     bridge.state?.onChange('verseTopicsEnabled', refreshVerseTopicsItem);
     bridge.on('render:chapter', refreshVerseTopicsItem);
     refreshVerseTopicsItem();
+
+    // Translation switches flip study state via StudyCompat; re-evaluate
+    // every study item so nothing BSB-only lingers on other translations.
+    bridge.state?.onChange('currentTranslation', () => {
+      refreshWcKeyItem();
+      refreshWsItem();
+      refreshClearReadingItem();
+      refreshVerseTopicsItem();
+    });
 
     const renderWcSubmenu = () => {
       if (!_moreSavedHTML) _moreSavedHTML = morePopup.innerHTML;

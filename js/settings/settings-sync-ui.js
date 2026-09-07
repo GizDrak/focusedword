@@ -318,6 +318,7 @@ window.SyncSettingsUI = class SyncSettingsUI {
               <ul>
                 <li>Reading position</li>
                 <li>Layout settings</li>
+                <li>Study feature settings (verse topics, word classes, word study, clear reading)</li>
                 <li>Bookmarks</li>
                 <li>Highlights</li>
                 <li>Notes</li>
@@ -505,7 +506,18 @@ window.SyncSettingsUI = class SyncSettingsUI {
         sectionHeadingAlignment: state.get('sectionHeadingAlignment'),
         verseTextAlignment: state.get('verseTextAlignment'),
         verseNumberPlacement: state.get('verseNumberPlacement'),
-        currentTranslation: state.get('currentTranslation')
+        currentTranslation: state.get('currentTranslation'),
+        // Study feature preferences (toggles, styles, custom colors) so a
+        // device restores the full study configuration, not just layout.
+        wordClasses: state.get('wordClasses'),
+        wordClassAxisSettings: state.get('wordClassAxisSettings'),
+        wordStudyEnabled: state.get('wordStudyEnabled'),
+        wordStudyMode: state.get('wordStudyMode'),
+        clearReadingEnabled: state.get('clearReadingEnabled'),
+        clearReadingMode: state.get('clearReadingMode'),
+        clearReadingToggles: state.get('clearReadingToggles'),
+        verseTopicsEnabled: state.get('verseTopicsEnabled'),
+        verseTopicSettings: state.get('verseTopicSettings')
         },
         updated_at: state.moduleTimestamps.settings
       },
@@ -610,6 +622,29 @@ window.SyncSettingsUI = class SyncSettingsUI {
         if (settings.verseTextAlignment) this.bridge.state.set('verseTextAlignment', settings.verseTextAlignment);
         if (settings.verseNumberPlacement) this.bridge.state.set('verseNumberPlacement', settings.verseNumberPlacement);
         if (settings.currentTranslation) this.bridge.state.set('currentTranslation', settings.currentTranslation);
+        // Study feature preferences ride the settings module. `!== undefined`
+        // guards keep older server payloads (without these keys) from wiping
+        // local study config; null is a meaningful value for the *Settings
+        // objects (user reset to defaults) so it is applied.
+        let studySynced = false;
+        const applyStudy = (key) => {
+          if (settings[key] === undefined) return;
+          this.bridge.state.set(key, settings[key]);
+          studySynced = true;
+        };
+        applyStudy('wordClasses');
+        applyStudy('wordClassAxisSettings');
+        applyStudy('wordStudyEnabled');
+        applyStudy('wordStudyMode');
+        applyStudy('clearReadingEnabled');
+        applyStudy('clearReadingMode');
+        applyStudy('clearReadingToggles');
+        applyStudy('verseTopicsEnabled');
+        applyStudy('verseTopicSettings');
+        // A synced translation may not support the BSB-only study features
+        // the payload carried — enforce after applying (the settings UI sync
+        // right below picks the result up).
+        if (window.StudyCompat) StudyCompat.apply(this.bridge);
         const settingsMod = this.bridge.get('settings');
         if (settingsMod) {
           settingsMod._applyTextSettings();
@@ -620,7 +655,13 @@ window.SyncSettingsUI = class SyncSettingsUI {
           this.bridge.state.moduleTimestamps.settings = modules.settings.updated_at;
           this.bridge.state._saveTimestamps();
         }
-        if (!modules.reading) this.bridge.emit('render:refresh');
+        if (studySynced) {
+          // Repaint annotations (tints, word-class colors, clear-reading
+          // dimming) even when the reading module also applied.
+          this.bridge.emit('render:refresh');
+        } else if (!modules.reading) {
+          this.bridge.emit('render:refresh');
+        }
       }
       if (modules.reading && modules.reading.data) {
         const r = modules.reading.data;

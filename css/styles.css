@@ -1577,6 +1577,22 @@ body.scroll-mode.paragraph-mode .verse-text {
   display: inline;
 }
 
+/* Paragraph flow: keep the paragraph reading column at the same width as
+   normal reading (the verse measure). Verse containers are display:inline in
+   paragraph mode, so max-width on them is ignored; constrain the wrapper
+   instead. The chapter header stays outside it, keeping its normal width. */
+body.scroll-mode.paragraph-mode .paragraph-flow {
+  max-width: var(--verse-measure);
+  margin-inline: auto;
+}
+
+/* Section headings keep block layout in paragraph mode so the Modern pill
+   (flex justify-content: center) and classic text-align: center still
+   center correctly instead of collapsing to inline width. */
+body.scroll-mode.paragraph-mode .section-heading-container .section-heading-text {
+  display: block;
+}
+
 body.scroll-mode.paragraph-mode .verse-num {
   display: inline;
   font-size: 0.75rem;
@@ -2233,8 +2249,7 @@ body.split-mode #panel-right-body.spotlight-mode .verse-container.verse-topics:h
    (hypotenuse from top-left to bottom-right). Slightly clamped so very short
    verses don't let the flap hang past the card. Selector matches the shared
    badge base's specificity so the icon anchoring below wins. */
-.verse-container.vt-style-fold .vt-badge,
-.verse-text.vt-style-fold .vt-badge {
+.verse-container.vt-style-fold .vt-badge {
   top: 0;
   right: 0;
   width: min(var(--vt-fold, 52px), 100%);
@@ -2262,15 +2277,12 @@ body.split-mode #panel-right-body.spotlight-mode .verse-container.verse-topics:h
 }
 
 .verse-container.vt-style-fold .vt-badge::before,
-.verse-container.vt-style-fold .vt-badge::after,
-.verse-text.vt-style-fold .vt-badge::before,
-.verse-text.vt-style-fold .vt-badge::after {
+.verse-container.vt-style-fold .vt-badge::after {
   content: none;
 }
 
 /* Icon sized to the flap's inscribed capacity (corner-anchored). */
-.verse-container.vt-style-fold .vt-badge svg,
-.verse-text.vt-style-fold .vt-badge svg {
+.verse-container.vt-style-fold .vt-badge svg {
   width: calc(var(--vt-fold, 52px) * 0.5);
   height: calc(var(--vt-fold, 52px) * 0.5);
 }
@@ -2279,79 +2291,59 @@ body.split-mode #panel-right-body.spotlight-mode .verse-container.verse-topics:h
   display: inline-flex !important;
 }
 
-body.paragraph-mode:not(.swipe-mode):not(.spotlight-mode) .vt-badge,
+body.paragraph-mode:not(.swipe-mode):not(.spotlight-mode) .vt-badge:not(.vt-inline),
 body.speed-mode .vt-badge {
   display: none !important;
 }
 
 /* Merged paragraph cards render each verse as a .verse-text inside one deck
-   card; per-verse badges are compact so several stay legible. */
-.verse-text.verse-topics:has(.vt-badge) {
-  position: relative;
-  padding-right: 34px;
-}
-
-.verse-text.verse-topics {
+   card. Unlike card mode there is no reserved badge box — every verse uses one
+   unified medallion-like treatment: a subtle topic wash across the verse plus
+   a small bare topic icon tucked right after the verse number. The wash and
+   icon color derive from --vt-accent set inline by the renderer. */
+.verse-text.verse-topics.vt-paragraph {
   border-radius: 0.2em;
+  background-color: var(--vt-tint-paragraph);
+  --vt-tint-paragraph: color-mix(in srgb, var(--vt-accent) 14%, transparent);
 }
 
-.verse-text.verse-topics .vt-badge {
-  position: absolute;
-  top: 0.35rem;
-  right: 0;
+[data-theme="light"] .verse-text.verse-topics.vt-paragraph,
+[data-theme="sepia"] .verse-text.verse-topics.vt-paragraph,
+[data-theme="icy-wind"] .verse-text.verse-topics.vt-paragraph,
+[data-theme="clay"] .verse-text.verse-topics.vt-paragraph {
+  --vt-tint-paragraph: color-mix(in srgb, var(--vt-accent) 10%, transparent);
+}
+
+/* The focused-verse rules in scroll/spotlight/split paragraph modes paint a
+   neutral spotlight highlight (--spotlight-highlight) on the current verse's
+   .verse-text at higher specificity than the wash above, hiding the topic
+   color exactly on the verse being read. When the focused verse carries a
+   topic, keep the topic tint instead so it reads colorized. These selectors
+   match-or-exceed the focused override's specificity and come later in the
+   file, so the cascade resolves to the wash while preserving the same
+   border-radius / padding shape. */
+body.scroll-mode.paragraph-mode .verse-container.focused .verse-text.verse-topics.vt-paragraph,
+body.paragraph-mode #content.spotlight-mode .verse-container.focused .verse-text.verse-topics.vt-paragraph,
+body.paragraph-mode.split-mode #panel-right-body.spotlight-mode .verse-container.focused .verse-text.verse-topics.vt-paragraph {
+  background-color: var(--vt-tint-paragraph);
+}
+
+.verse-text.vt-paragraph .vt-badge.vt-inline {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 1em;
+  height: 1em;
+  margin: 0 0.15em 0 0.05em;
+  vertical-align: -0.05em;
   pointer-events: none;
   line-height: 0;
-  z-index: 1;
 }
 
-.verse-text.vt-style-tabs .vt-badge {
-  --vt-foot: 6px;
-  width: 26px;
-  height: 42px;
-  border-radius: 0.45rem 0 0 0.45rem;
-  border-left: 1px solid rgba(255, 255, 255, 0.16);
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 40%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.18));
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.22),
-    0 1px 1px rgba(0, 0, 0, 0.12);
-}
-
-.verse-text.vt-style-tabs .vt-badge svg {
-  width: 15px;
-  height: 15px;
+.verse-text.vt-paragraph .vt-badge.vt-inline svg {
+  width: 100%;
+  height: 100%;
   display: block;
-}
-
-.verse-text.vt-style-gradient:has(.vt-badge) {
-  padding-right: 40px;
-}
-
-.verse-text.vt-style-gradient .vt-badge {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-left: none;
-  background-image: none;
-  box-shadow: none;
-}
-
-.verse-text.vt-style-gradient .vt-badge svg {
-  width: 28px;
-  height: 28px;
-  display: block;
-}
-
-.verse-text.vt-style-fold:has(.vt-badge) {
-  padding-right: 36px;
-}
-
-.verse-text.vt-style-fold .vt-badge {
-  --vt-fold: 28px;
 }
 
 /* 'triangle' style: same neutral card + theme stroke as fold, but the
@@ -2377,8 +2369,7 @@ body.speed-mode .vt-badge {
    top-left to bottom-right), with the card's rounded top-right corner kept.
    Selector matches the shared badge base's specificity so the icon anchoring
    below wins. */
-.verse-container.vt-style-triangle .vt-badge,
-.verse-text.vt-style-triangle .vt-badge {
+.verse-container.vt-style-triangle .vt-badge {
   top: 0;
   right: 0;
   width: min(var(--vt-fold, 52px), 100%);
@@ -2401,25 +2392,14 @@ body.speed-mode .vt-badge {
 }
 
 .verse-container.vt-style-triangle .vt-badge::before,
-.verse-container.vt-style-triangle .vt-badge::after,
-.verse-text.vt-style-triangle .vt-badge::before,
-.verse-text.vt-style-triangle .vt-badge::after {
+.verse-container.vt-style-triangle .vt-badge::after {
   content: none;
 }
 
 /* Icon sized to the triangle's inscribed capacity. */
-.verse-container.vt-style-triangle .vt-badge svg,
-.verse-text.vt-style-triangle .vt-badge svg {
+.verse-container.vt-style-triangle .vt-badge svg {
   width: calc(var(--vt-fold, 52px) * 0.5);
   height: calc(var(--vt-fold, 52px) * 0.5);
-}
-
-.verse-text.vt-style-triangle:has(.vt-badge) {
-  padding-right: 36px;
-}
-
-.verse-text.vt-style-triangle .vt-badge {
-  --vt-fold: 28px;
 }
 
 /* 'medallion' style: icon-forward — the card carries a subtle topic tint
@@ -2451,8 +2431,7 @@ body.speed-mode .vt-badge {
 
 /* Bare circular icon, fully inside the card. Selector matches the shared
    badge base's specificity. */
-.verse-container.vt-style-medallion .vt-badge,
-.verse-text.vt-style-medallion .vt-badge {
+.verse-container.vt-style-medallion .vt-badge {
   top: 1rem;
   right: 1rem;
   width: var(--vt-med, 46px);
@@ -2462,31 +2441,14 @@ body.speed-mode .vt-badge {
 }
 
 .verse-container.vt-style-medallion .vt-badge::before,
-.verse-container.vt-style-medallion .vt-badge::after,
-.verse-text.vt-style-medallion .vt-badge::before,
-.verse-text.vt-style-medallion .vt-badge::after {
+.verse-container.vt-style-medallion .vt-badge::after {
   content: none;
 }
 
 /* Icon fills the badge so the artwork shows at full size. */
-.verse-container.vt-style-medallion .vt-badge svg,
-.verse-text.vt-style-medallion .vt-badge svg {
+.verse-container.vt-style-medallion .vt-badge svg {
   width: 100%;
   height: 100%;
-}
-
-.verse-text.vt-style-medallion:has(.vt-badge) {
-  padding-right: 36px;
-}
-
-.verse-text.vt-style-medallion .vt-badge {
-  --vt-med: 28px;
-  top: 0.25rem;
-  right: 0;
-}
-
-.verse-text.vt-style-fold .vt-badge svg {
-  display: block;
 }
 
 /* On larger screens (desktop / large tablets) the card is wider, so the
@@ -4109,6 +4071,39 @@ input[type="range"]::-moz-range-thumb {
 .nav-translation-menu-item.active {
   font-weight: 700;
   color: var(--accent-color);
+}
+
+/* Listed in a connected repository but not downloaded yet */
+.nav-translation-menu-item.not-installed {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  border-left: 2px dashed color-mix(in srgb, var(--accent-color) 55%, transparent);
+}
+
+.nav-translation-menu-item .tl-name,
+.translation-dropdown-item .tl-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-translation-menu-item .tl-install-hint,
+.translation-dropdown-item .tl-install-hint {
+  flex: none;
+  color: var(--accent-color);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.nav-translation-menu-item.downloading,
+.translation-dropdown-item.downloading {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 #nav-close {
@@ -7370,6 +7365,26 @@ body.focus-mode .focus-exit-btn:hover {
 }
 .study-submenu-body > div {
   padding: 0.2rem 0 0.4rem 1rem;
+}
+
+/* BSB-only study features on other translations: toggles are disabled
+   by SettingsModule._syncStudyCompatUI with a visible "BSB only" note. */
+.setting-row.study-unsupported .toggle-text {
+  opacity: 0.55;
+}
+.setting-row.study-unsupported .toggle-pill {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.study-require-hint {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1px solid var(--text-muted);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  white-space: nowrap;
+  margin-left: 0.45rem;
 }
 
 .study-sub-expand {
@@ -11377,6 +11392,14 @@ body.focus-mode .changelog-overlay {
     cursor: pointer;
     color: var(--text-primary);
     white-space: nowrap;
+  }
+
+  body.split-mode .translation-dropdown-item.not-installed {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-muted);
+    border-left: 2px dashed color-mix(in srgb, var(--accent-color) 55%, transparent);
   }
 
   body.split-mode .translation-dropdown-item:hover {

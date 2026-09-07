@@ -4,7 +4,8 @@ window.PredefinedLoader = {
   manifest: [
     { id: '1year-Traditional', name: 'Whole Bible (Traditional)', duration: '1 year', days: 365, description: 'Read through the entire Bible in one year, following the traditional canonical order.', file: '1year-Traditional.csv' },
     { id: '1year-Chronological', name: 'Chronological', duration: '1 year', days: 365, description: 'Bible in the approximate order events occurred.', file: '1year-Chronological.csv' },
-    { id: '1year-Alternate', name: 'Alternate OT/NT', duration: '1 year', days: 365, description: 'Alternates between Old and New Testament books each day.', file: '1year-Alternate.csv' },
+    { id: '1year-Alternate', name: 'Whole Bible (Alternative Traditional)', duration: '1 year', days: 365, description: 'Reads the entire Bible in traditional order — all Old Testament books, then all New Testament books — in one year.', file: '1year-Alternate.csv' },
+    { id: '1year-Alternate-OT-NT', name: 'Alternate OT/NT', duration: '1 year', days: 365, description: 'Alternates between Old and New Testament reading days — 4 OT days and 3 NT days each week — covering the whole Bible in one year.', file: '1year-Alternate-OT-NT.csv' },
     { id: '1year-Traditional-OT-NT', name: 'OT + NT Together', duration: '1 year', days: 365, description: 'Read from the Old and New Testaments each day.', file: '1year-Traditional-OT-NT.csv' },
     { id: '1year-MCheyne', name: 'M\'Cheyne', duration: '1 year', days: 365, description: 'Robert Murray M\'Cheyne\'s classic plan — 4 passages per day from different parts of Scripture.', file: '1year-M\'Cheyne-chapters.csv' }
   ],

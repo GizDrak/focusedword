@@ -148,17 +148,20 @@ window.ScriptureReposUI = class ScriptureReposUI {
     if (base) this._popupCleanupFocus = base.trapFocus(this._els.popupPanel, null);
 
     try {
-      const result = await window.repoService.checkRepository(repo.url);
+      const result = await window.repoService.refreshManifest(repo);
       if (result.repo_name && result.repo_name !== repo.repo_name) {
         repo.repo_name = result.repo_name;
         await window.idb.putRepository(repo);
         this._renderRepoList();
       }
       this._repoManifests.set(repoId, result);
+      // Keep the Bible pickers in sync — freshly browsed translations may
+      // now be listed as available (not downloaded yet).
+      this._buildTranslationManifest();
       this._els.popupLoading.style.display = 'none';
       this._els.popupContent.style.display = '';
       this._renderPopupContent(repoId, result);
-      if (result.hasProtected && repo.access_key) {
+      if (result.hasProtected && repo.access_key && !result.hiddenTranslations) {
         this._onPopupUnlock(repo.access_key);
       }
     } catch (e) {
@@ -367,6 +370,10 @@ window.ScriptureReposUI = class ScriptureReposUI {
       await window.repoService.saveAccessKey(this._activeRepoId, password);
       cached.hiddenTranslations = hiddenTranslations;
       this._repoManifests.set(this._activeRepoId, cached);
+      // Persist the unlocked list so the Bible pickers can offer these
+      // protected translations without re-entering the key.
+      await window.repoService.cacheManifest(repo, cached);
+      this._buildTranslationManifest();
       this._renderPopupContent(this._activeRepoId, cached);
     } catch (e) {
       this._showPopupError('Unlock failed: ' + e.message);
@@ -460,6 +467,17 @@ window.ScriptureReposUI = class ScriptureReposUI {
         rmBtn.addEventListener('click', () => this._onRemoveInstalled(i.translation_id));
       }
     }
+  }
+
+  // Called by the Bible pickers when the user selects a translation that
+  // is listed but not downloaded yet. Downloads it first, then refreshes
+  // the pickers so the entry flips to installed.
+  async ensureTranslationReady(entry) {
+    const res = await window.repoService.ensureInstalled(entry);
+    if (res.ok) {
+      await this._buildTranslationManifest();
+    }
+    return res;
   }
 
   async _buildTranslationManifest() {

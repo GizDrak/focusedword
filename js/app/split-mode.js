@@ -45,10 +45,17 @@ window.SplitMode = class SplitMode {
         dd.innerHTML = '';
         manifest.forEach(t => {
           const item = document.createElement('button');
-          item.className = 'translation-dropdown-item';
+          item.className = 'translation-dropdown-item' + (t.available ? ' not-installed' : '');
           item.type = 'button';
           item.dataset.value = t.id || t.name;
-          item.textContent = t.name;
+          if (t.available) {
+            item.dataset.available = '1';
+            item.title = 'Not downloaded yet — select to download';
+            item.setAttribute('aria-label', t.name + ' (not downloaded yet)');
+            item.innerHTML = `<span class="tl-name">${window.HTMLEscape(t.name)}</span><span class="tl-install-hint" aria-hidden="true">⤓</span>`;
+          } else {
+            item.textContent = t.name;
+          }
           dd.appendChild(item);
         });
       });
@@ -58,6 +65,44 @@ window.SplitMode = class SplitMode {
     this._setBtnAbbr(this._els.leftTransBtn, currentTrans);
     this._rightTranslation = this._resolveRightTranslation(currentTrans);
     this._setBtnAbbr(this._els.rightTransBtn, this._rightTranslation || currentTrans);
+  }
+
+  // Downloads a not-yet-installed translation picked from either dropdown.
+  // Returns true when it is ready to use (re-renders both dropdowns so the
+  // entry flips to installed). Shows an alert and returns false on failure.
+  async _ensureDropdownTranslation(item, entry) {
+    if (item) {
+      item.classList.add('downloading');
+      const hint = item.querySelector('.tl-install-hint');
+      if (hint) hint.textContent = '…';
+    }
+    let res = { ok: false, error: 'Repository helper unavailable' };
+    try {
+      const reposUi = this.bridge.get('scripture-repos-ui');
+      if (reposUi && typeof reposUi.ensureTranslationReady === 'function') {
+        res = await reposUi.ensureTranslationReady(entry);
+      }
+    } catch (e) {
+      res = { ok: false, error: e.message || 'Download failed' };
+    }
+    if (!res.ok) {
+      if (item) {
+        item.classList.remove('downloading');
+        const hint = item.querySelector('.tl-install-hint');
+        if (hint) hint.textContent = '⤓';
+      }
+      if (window.dialogService && typeof window.dialogService.alert === 'function') {
+        await window.dialogService.alert({
+          title: 'Download failed',
+          message: 'Could not download "' + entry.name + '": ' + (res.error || 'unknown error')
+        });
+      } else {
+        console.error('[SplitMode] Translation download failed:', res.error);
+      }
+      return false;
+    }
+    this._populateTranslationSelects();
+    return true;
   }
 
   _setBtnAbbr(btn, id) {
@@ -117,13 +162,22 @@ window.SplitMode = class SplitMode {
         else dd.classList.remove('open');
         const val = item.dataset.value;
         this._setBtnAbbr(btn, val);
-        onChange(val);
+        onChange(val, item);
       });
     };
-    selectFromDropdown(this._els.leftTransBtn, this._els.leftTransDropdown, (val) => {
-      this.bridge.state.set('currentTranslation', val);
+    selectFromDropdown(this._els.leftTransBtn, this._els.leftTransDropdown, (val, item) => {
+      this._selectLeftTranslation(val, item);
     });
-    selectFromDropdown(this._els.rightTransBtn, this._els.rightTransDropdown, (val) => {
+    selectFromDropdown(this._els.rightTransBtn, this._els.rightTransDropdown, async (val, item) => {
+      const manifest = this.bridge.translationManifest || [];
+      const entry = manifest.find(t => (t.id || t.name) === val);
+      if (entry && entry.available) {
+        const ok = await this._ensureDropdownTranslation(item, entry);
+        if (!ok) {
+          this._setBtnAbbr(this._els.rightTransBtn, this._rightTranslation || this.bridge.state.get('currentTranslation'));
+          return;
+        }
+      }
       this._rightTranslation = val;
       localStorage.setItem('focused-word:split-right-translation', val);
       this._refreshRight().then(() => {
@@ -166,6 +220,35 @@ window.SplitMode = class SplitMode {
 
     const alt = manifest.find(t => (t.id || t.name) !== currentTrans);
     return alt ? (alt.id || alt.name) : currentTrans;
+  }
+
+  async _selectLeftTranslation(val, item) {
+    const currentTrans = this.bridge.state.get('currentTranslation');
+    const manifest = this.bridge.translationManifest || [];
+    const entry = manifest.find(t => (t.id || t.name) === val);
+    if (entry && entry.available) {
+      const ok = await this._ensureDropdownTranslation(item, entry);
+      if (!ok) {
+        this._setBtnAbbr(this._els.leftTransBtn, currentTrans);
+        return;
+      }
+      this.bridge.state.set('currentTranslation', val);
+      try {
+        const initOk = await this.bridge.db.init(val);
+        if (!initOk) {
+          this.bridge.state.set('currentTranslation', currentTrans || 'BSB');
+          this._setBtnAbbr(this._els.leftTransBtn, currentTrans);
+          return;
+        }
+        const nav = this.bridge.get('navigation');
+        if (nav) await nav.switchTranslation();
+        this._syncLeftTransSelect();
+      } catch (e) {
+        console.error('[SplitMode] Translation switch failed:', e);
+      }
+      return;
+    }
+    this.bridge.state.set('currentTranslation', val);
   }
 
   _syncLeftTransSelect() {

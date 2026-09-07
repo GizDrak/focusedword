@@ -514,7 +514,6 @@ window.StateStore = class StateStore {
 
   _persist(key) {
     try {
-      if (key === 'clearReadingMode' || key === 'clearReadingToggles') return;
       if (key === 'currentBook' || key === 'currentChapter' || key === 'currentVerse' || key === 'currentBookName') {
         this._saveProgress();
       } else {
@@ -588,6 +587,9 @@ window.StateStore = class StateStore {
         'focused-word:word-study-mode': 'wordStudyMode',
         'focused-word:verse-topics-enabled': 'verseTopicsEnabled',
         'focused-word:verse-topic-settings': 'verseTopicSettings',
+        'focused-word:clear-reading-enabled': 'clearReadingEnabled',
+        'focused-word:clear-reading-mode': 'clearReadingMode',
+        'focused-word:clear-reading-toggles': 'clearReadingToggles',
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);

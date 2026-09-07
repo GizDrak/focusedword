@@ -120,7 +120,33 @@ window.SettingsModule = class SettingsModule {
     this._renderStudySection();
     this._renderVerseTopicsSection();
     this._renderClearReadingSection();
+    this._syncStudyCompatUI();
     this._applyTextSettings();
+  }
+
+  // Word Classes, Word Study, and Clear Reading only work with the BSB
+  // translation. On any other translation their toggles are disabled (and
+  // forced off by StudyCompat) with a visible "BSB only" note; the info
+  // buttons stay usable. Verse Topics is translation-agnostic and untouched.
+  _syncStudyCompatUI() {
+    const state = this.bridge.state;
+    const bsb = !window.StudyCompat || window.StudyCompat.isBsb(state.get('currentTranslation'));
+    const rows = [
+      ['settings-word-classes', 'word-classes'],
+      ['settings-word-study', null],
+      ['settings-clear-reading', 'clear-reading'],
+    ];
+    for (const [id] of rows) {
+      const cb = document.getElementById(id);
+      if (!cb) continue;
+      cb.disabled = !bsb;
+      const row = cb.closest('.setting-row');
+      if (row) {
+        row.classList.toggle('study-unsupported', !bsb);
+        const hint = row.querySelector('.study-require-hint');
+        if (hint) hint.style.display = bsb ? 'none' : '';
+      }
+    }
   }
 
   _renderAccentSwatches() {
@@ -270,6 +296,10 @@ window.SettingsModule = class SettingsModule {
     this.bridge.state.set('redLetterColor', color);
     this._applyRedLetterColor();
     this._renderRedLetterSwatches();
+  }
+
+  _studyTranslationSupported() {
+    return !window.StudyCompat || window.StudyCompat.isBsb(this.bridge.state.get('currentTranslation'));
   }
 
   _renderStudySection() {
@@ -499,6 +529,14 @@ window.SettingsModule = class SettingsModule {
     html += '</select></div>';
 
     html += '<div class="study-category-row">';
+    html += '<div class="study-category-label"><span>Show Topic Icons</span></div>';
+    html += '<div class="study-category-actions">';
+    html += '<label class="toggle-label-wrapper" for="vt-show-icons">';
+    html += '<input type="checkbox" id="vt-show-icons" class="toggle-checkbox" data-vt-show-icons' + (settings && settings.showIcons === false ? '' : ' checked') + '>';
+    html += '<span class="toggle-pill"></span>';
+    html += '</label></div></div>';
+
+    html += '<div class="study-category-row">';
     html += '<div class="study-category-label"><span>Topic Colors</span></div>';
     html += '<div class="study-category-actions"></div></div>';
 
@@ -545,6 +583,21 @@ window.SettingsModule = class SettingsModule {
       const current = Object.assign({}, state.get('verseTopicSettings') || {});
       current.style = styleSelect.value;
       state.set('verseTopicSettings', current);
+      this.bridge.emit('render:refresh');
+      return;
+    }
+
+    const showIconsToggle = e.target.closest('.toggle-checkbox[data-vt-show-icons]');
+    if (showIconsToggle) {
+      const current = Object.assign({}, state.get('verseTopicSettings') || {});
+      if (showIconsToggle.checked) {
+        delete current.showIcons;
+      } else {
+        current.showIcons = false;
+      }
+      // Keep the config null (default) when nothing else is customized.
+      const hasCustom = current.style || (current.colors && Object.keys(current.colors).length);
+      state.set('verseTopicSettings', hasCustom ? current : (current.showIcons === false ? current : null));
       this.bridge.emit('render:refresh');
       return;
     }
@@ -667,6 +720,7 @@ window.SettingsModule = class SettingsModule {
   }
 
   async _onWordClassesToggle(enabled) {
+    if (enabled && !this._studyTranslationSupported()) return;
     this.bridge.state.set('wordClasses', enabled);
     this._renderStudySection();
     this._syncStudySubmenu('word-classes', enabled);
@@ -701,6 +755,7 @@ window.SettingsModule = class SettingsModule {
   }
 
   async _onWordStudyToggle(enabled) {
+    if (enabled && !this._studyTranslationSupported()) return;
     const state = this.bridge.state;
     const loading = document.getElementById('ws-loading');
     const wc = this.bridge.get('word-class-service');
@@ -748,6 +803,7 @@ window.SettingsModule = class SettingsModule {
   }
 
   async _onClearReadingToggle(enabled) {
+    if (enabled && !this._studyTranslationSupported()) return;
     const state = this.bridge.state;
     const loading = document.getElementById('cr-loading');
     if (enabled) {
@@ -885,6 +941,9 @@ window.SettingsModule = class SettingsModule {
     document.getElementById('wckey-close').addEventListener('click', (e) => { e.stopPropagation(); this._closeWordClassKey(); });
     document.getElementById('wckey-overlay').addEventListener('click', () => this._closeWordClassKey());
     document.getElementById('settings-cross-refs').addEventListener('change', (e) => this._setCrossRefs(e.target.checked));
+    // A translation switch (menus, split dropdowns, sync restore) flips
+    // study compatibility — re-sync the Study toggles' disabled state.
+    this.bridge.state.onChange('currentTranslation', () => this._syncStudyCompatUI());
     document.getElementById('speed-auto-advance').addEventListener('change', (e) => this.bridge.state.set('speedAutoAdvance', e.target.checked));
     document.getElementById('settings-continuous-chapters').addEventListener('change', (e) => {
       this.bridge.state.set('continuousChapters', e.target.checked);

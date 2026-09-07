@@ -37,8 +37,11 @@ window.ChapterWindow = class ChapterWindow {
 
   async chapterCount(bookId) {
     if (this._counts.has(bookId)) return this._counts.get(bookId);
+    // Don't cache a 0 produced while the database core is closed (e.g. a
+    // count racing a translation switch) — it would stick as a wrong total.
+    const coreOpen = !!(this.bridge.db.getCoreDb && this.bridge.db.getCoreDb());
     const count = await this.bridge.db.getChapterCount(bookId);
-    this._counts.set(bookId, count);
+    if (count || coreOpen) this._counts.set(bookId, count);
     return count;
   }
 
@@ -83,9 +86,13 @@ window.ChapterWindow = class ChapterWindow {
     const p = (async () => {
       const bookCode = this.bridge.db.idToCode(bookId);
       if (!bookCode) return [];
+      // Never cache an empty result produced while the database core is
+      // closed (e.g. a chapter load racing a translation switch's core
+      // close/open): it would poison the cache and stick as a blank page.
+      const coreOpen = !!(this.bridge.db.getCoreDb && this.bridge.db.getCoreDb());
       const tokenVerses = await this.bridge.db.getChapterTokens(bookCode, chapter);
       const verses = tokenVerses.map(v => ({ ...v, book_code: bookCode, book_id: bookId, chapter }));
-      ChapterWindow._verses.set(key, verses);
+      if (verses.length || coreOpen) ChapterWindow._verses.set(key, verses);
       this._trim();
       return verses;
     })().catch(e => {

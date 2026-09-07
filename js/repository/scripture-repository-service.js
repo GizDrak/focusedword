@@ -2,6 +2,7 @@ window.ScriptureRepositoryService = class ScriptureRepositoryService {
   constructor() {
     this._repositories = [];
     this._installed = [];
+    this._cachedManifests = new Map();
     this._sqlite3 = null;
     this._ready = this._init();
   }
@@ -14,6 +15,14 @@ window.ScriptureRepositoryService = class ScriptureRepositoryService {
       await window.idb._ready;
       this._repositories = await window.idb.getAllRepositories();
       this._installed = await window.idb.getAllInstalledDatabases();
+      try {
+        const cached = await window.idb.getAllRepoManifests();
+        for (const entry of cached) {
+          if (entry && entry.repo_id) this._cachedManifests.set(entry.repo_id, entry);
+        }
+      } catch (e) {
+        console.error('[RepoService] Manifest cache init failed:', e);
+      }
     } catch (e) {
       console.error('[RepoService] IDB init failed:', e);
     }
@@ -73,6 +82,7 @@ window.ScriptureRepositoryService = class ScriptureRepositoryService {
   async removeRepository(id) {
     await window.idb.deleteRepository(id);
     this._repositories = this._repositories.filter(r => r.id !== id);
+    await this.removeManifestCache(id);
   }
 
   async markRepositoryDeleted(id) {
@@ -82,6 +92,7 @@ window.ScriptureRepositoryService = class ScriptureRepositoryService {
     repo.updated_at = Date.now();
     await window.idb.putRepository(repo);
     this._repositories = this._repositories.filter(r => r.id !== id);
+    await this.removeManifestCache(id);
   }
 
   async saveAccessKey(repoId, key) {
@@ -142,6 +153,120 @@ window.ScriptureRepositoryService = class ScriptureRepositoryService {
       hasProtected: !!encryptedPayload,
       encryptedPayload
     };
+  }
+
+  // ─── Cached Manifests (availability without browsing) ─────
+  // The Bible pickers list translations from every connected repository,
+  // downloaded or not. Manifests are fetched at startup (and whenever a
+  // repo is browsed) and persisted in IndexedDB so the listing works
+  // offline. Nothing is downloaded until the user selects a translation.
+
+  _stripManifestTranslation(t) {
+    return {
+      id: t.id,
+      name: t.name,
+      abbreviation: t.abbreviation || '',
+      fullname: t.fullname || null,
+      language: t.language || 'en',
+      file_name: t.file_name,
+      size_bytes: t.size_bytes || null,
+      version: t.version || null,
+      checksum: t.checksum || null,
+      copyright: t.copyright || null,
+      description: t.description || null,
+      encrypted: !!t.encrypted
+    };
+  }
+
+  async cacheManifest(repo, result) {
+    const entry = {
+      repo_id: repo.id,
+      repo_url: repo.url,
+      repo_name: result.repo_name || repo.repo_name || repo.name,
+      publicTranslations: (result.publicTranslations || []).map(t => this._stripManifestTranslation(t)),
+      hasProtected: !!result.hasProtected,
+      encryptedPayload: result.encryptedPayload || null,
+      hiddenTranslations: result.hiddenTranslations
+        ? result.hiddenTranslations.map(t => this._stripManifestTranslation(t))
+        : null,
+      checked_at: Date.now()
+    };
+    await window.idb.putRepoManifest(entry);
+    this._cachedManifests.set(repo.id, entry);
+    return entry;
+  }
+
+  async removeManifestCache(repoId) {
+    this._cachedManifests.delete(repoId);
+    try {
+      await window.idb.deleteRepoManifest(repoId);
+    } catch (e) {
+      console.warn('[RepoService] Failed to drop cached manifest:', e);
+    }
+  }
+
+  async refreshManifest(repo) {
+    const result = await this.checkRepository(repo.url);
+    // Protected translations are only exposed to the pickers when the
+    // repo's access key is already saved (same rule as the repo browser).
+    if (result.hasProtected && repo.access_key) {
+      try {
+        result.hiddenTranslations = await this.unlockRepository(
+          repo.url, result.encryptedPayload, repo.access_key
+        );
+      } catch (e) {
+        console.warn('[RepoService] Background unlock failed for', repo.url + ':', e.message);
+      }
+    }
+    return this.cacheManifest(repo, result);
+  }
+
+  async refreshAllManifests() {
+    const refreshed = [];
+    for (const repo of this._repositories) {
+      try {
+        await this.refreshManifest(repo);
+        refreshed.push(repo.id);
+      } catch (e) {
+        console.warn('[RepoService] Manifest refresh failed for', repo.url + ':', e.message);
+      }
+    }
+    return refreshed;
+  }
+
+  // ─── Download on Selection ────────────────────────────────
+
+  async ensureInstalled(entry) {
+    if (!entry) return { ok: false, error: 'Unknown translation' };
+    if (this._installed.some(i => i.translation_id === entry.id)) {
+      return { ok: true, already: true };
+    }
+    const t = entry.translation;
+    const repoUrl = entry.repo_url;
+    if (!t || !t.file_name || !repoUrl) {
+      return { ok: false, error: 'This translation is not available for download' };
+    }
+    let repo = entry.repo_id
+      ? this._repositories.find(r => r.id === entry.repo_id)
+      : null;
+    if (!repo) {
+      const norm = window.UrlValidator ? window.UrlValidator.normalizeUrl(repoUrl) : repoUrl;
+      repo = this._repositories.find(r => r.url === norm);
+    }
+    if (!repo) {
+      return { ok: false, error: 'The source repository is no longer connected' };
+    }
+    const password = t.encrypted ? repo.access_key : null;
+    if (t.encrypted && !password) {
+      return { ok: false, error: 'This translation is protected — open the repository browser and enter its access key first.' };
+    }
+    try {
+      const record = await this.downloadAndInstall(repo.url, t, password);
+      return { ok: true, record };
+    } catch (e) {
+      console.error('[RepoService] On-select download failed:', e);
+      return { ok: false, error: e.message || 'Download failed' };
+    }
   }
 
   // ─── Manifest Payload Decryption ────────────────────────────
@@ -544,6 +669,33 @@ window.ScriptureRepositoryService = class ScriptureRepositoryService {
           copyright: i.copyright || ''
         });
         seen.add(i.translation_id);
+      }
+    }
+    // Available (not yet downloaded) translations from every connected
+    // repo. These flow into the Bible pickers with `available: true` plus
+    // everything needed to download them on selection; nothing is fetched
+    // until the user actually picks one.
+    for (const cache of this._cachedManifests.values()) {
+      const list = [...(cache.publicTranslations || [])];
+      if (cache.hiddenTranslations) list.push(...cache.hiddenTranslations);
+      for (const t of list) {
+        if (!t || !t.id || seen.has(t.id)) continue;
+        seen.add(t.id);
+        result.push({
+          id: t.id,
+          name: this._displayName(t),
+          shortname: t.abbreviation || this._abbrevFromId(t.id),
+          lang: t.language || 'en',
+          format: 'split',
+          components: ['verses', 'blocks', 'chapters', 'notes'],
+          copyright: t.copyright || '',
+          description: t.description || '',
+          size_bytes: t.size_bytes || null,
+          available: true,
+          repo_id: cache.repo_id,
+          repo_url: cache.repo_url,
+          translation: t
+        });
       }
     }
     return result;

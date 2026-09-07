@@ -78,7 +78,7 @@ Your study notes and devotional habits remain organized and completely private:
 * **Highlights**: Choose from six warm highlighter colors. Highlight individual words, whole verses, or multiline passages, and filter your saved highlights by color.
 * **Rich Text Notes and Tags**: A full rich-text editor attached directly to verses. Format text with bold, italics, headings, quotes, and lists. Use `#tags` to organize your notes by topic and search your notebook instantly.
 * **Bookmarks and Sets**: Save verses into organized, color-coded bookmark collections such as *Comfort*, *Wisdom*, *Prayer*, or *Passages to Memorize*.
-* **Curated 1-Year Reading Plans**: Follow established reading schedules including Traditional (Genesis to Revelation), Traditional OT/NT, Chronological, Alternate, and Robert Murray M'Cheyne's 4-track plan.
+* **Curated 1-Year Reading Plans**: Follow established reading schedules including Traditional (Genesis to Revelation), Traditional OT/NT, Chronological, Alternate OT/NT (alternating Old and New Testament reading days), Alternative Traditional (OT then NT), and Robert Murray M'Cheyne's 4-track plan.
 * **Custom Plan Generator**: Create custom reading schedules for any set of Bible books over any timeframe you choose.
 * **Reading Streaks and Activity Logs**: Track your daily reading progress, mark completed chapters, and review your historical reading calendar.
 * **Home Reading Panel**: When following an active plan, a clean card on the main reader greets you with your next scheduled passage and a quick button to start reading.
@@ -186,6 +186,7 @@ The application cleanly divides immutable scripture reference datasets from muta
 │       ├── 1year-Traditional-OT-NT.csv
 │       ├── 1year-Chronological.csv
 │       ├── 1year-Alternate.csv
+│       ├── 1year-Alternate-OT-NT.csv
 │       └── 1year-M'Cheyne-chapters.csv
 │
 ├── scripture/

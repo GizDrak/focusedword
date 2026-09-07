@@ -162,8 +162,12 @@ window.NavigationModule = class NavigationModule {
       this.bridge.emit('nav:chapter-loaded', { verses: this.currentVerses });
 
       const currentTranslation = this.bridge.state.get('currentTranslation');
-      if (currentTranslation === 'BSB') {
-        const anyStudy = state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true || state.get('verseTopicsEnabled') === true;
+      // Word classes / word study / clear reading are BSB-only, but verse
+      // topics work with every translation — run the enrichment stream for
+      // non-BSB translations too when verse topics are enabled.
+      const verseTopicsForAll = state.get('verseTopicsEnabled') === true;
+      if (currentTranslation === 'BSB' || verseTopicsForAll) {
+        const anyStudy = state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true || verseTopicsForAll;
         if (anyStudy) {
           // Enrichment is deferred past the first paint so the chapter renders
           // immediately (Phase 1). Annotations are applied to the living DOM in
@@ -214,13 +218,16 @@ window.NavigationModule = class NavigationModule {
   // whether any spans were attached. `isStale` aborts outdated work.
   async _applyEnrichment(bookId, chapter, verses, isStale) {
     const state = this.bridge.state;
-    if (state.get('currentTranslation') !== 'BSB') return false;
+    const isBsb = state.get('currentTranslation') === 'BSB';
+    if (!isBsb && state.get('verseTopicsEnabled') !== true) return false;
     if (!verses || !verses.length) return false;
     const bookCode = this.bridge.db.idToCode(bookId);
     if (!bookCode) return false;
     const stale = () => (isStale ? isStale() : false);
 
-    const needWc = state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true;
+    // The word-class database is BSB-specific — never initialize it for
+    // other translations (Verse Topics run independently of it).
+    const needWc = isBsb && (state.get('wordClasses') === true || state.get('clearReadingEnabled') === true || state.get('wordStudyEnabled') === true);
     const wc = this.bridge.get('word-class-service');
     if (needWc && wc && !wc.isReady) {
       try {
@@ -236,7 +243,7 @@ window.NavigationModule = class NavigationModule {
     const tasks = [];
     let didEnrich = false;
 
-    if (state.get('wordClasses') === true && wcReady) {
+    if (isBsb && state.get('wordClasses') === true && wcReady) {
       tasks.push(
         Promise.resolve(wc.getChapterRenderSpans(bookCode, chapter)).then(spans => {
           if (stale() || state.get('wordClasses') !== true) return;
@@ -248,7 +255,7 @@ window.NavigationModule = class NavigationModule {
       );
     }
 
-    if (state.get('clearReadingEnabled') === true && wcReady) {
+    if (isBsb && state.get('clearReadingEnabled') === true && wcReady) {
       tasks.push(
         Promise.resolve(wc.getClearReadingSpans(bookCode, chapter)).then(clearReading => {
           if (stale() || state.get('clearReadingEnabled') !== true) return;
@@ -260,7 +267,7 @@ window.NavigationModule = class NavigationModule {
       );
     }
 
-    if (state.get('wordStudyEnabled') === true && wcReady) {
+    if (isBsb && state.get('wordStudyEnabled') === true && wcReady) {
       tasks.push(
         (async () => {
           const ws = this.bridge.get('word-study-service');
@@ -539,9 +546,16 @@ window.NavigationModule = class NavigationModule {
     for (let i = 0; i < manifest.length; i++) {
       const t = manifest[i];
       const item = document.createElement('button');
-      item.className = 'nav-translation-menu-item';
+      item.className = 'nav-translation-menu-item' + (t.available ? ' not-installed' : '');
       item.dataset.id = t.id;
-      item.textContent = t.name;
+      if (t.available) {
+        item.dataset.available = '1';
+        item.title = 'Not downloaded yet — select to download' + (t.size_bytes ? ' (~' + this._formatBytes(t.size_bytes) + ')' : '');
+        item.setAttribute('aria-label', t.name + ' (not downloaded yet — selecting it will download it)');
+        item.innerHTML = `<span class="tl-name">${window.HTMLEscape(t.name)}</span><span class="tl-install-hint" aria-hidden="true">⤓ not downloaded</span>`;
+      } else {
+        item.textContent = t.name;
+      }
       if (t.id === currentId) {
         item.classList.add('active');
         item.setAttribute('aria-current', 'true');
@@ -551,6 +565,16 @@ window.NavigationModule = class NavigationModule {
         e.stopPropagation();
         const id = item.dataset.id;
         if (id === this.bridge.state.get('currentTranslation')) {
+          if (menuController) menuController.hide();
+          else {
+            menu.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+          }
+          return;
+        }
+        const entry = manifest.find(m => m.id === id);
+        if (entry && entry.available) {
+          await this._switchToAvailableTranslation(entry, item);
           if (menuController) menuController.hide();
           else {
             menu.classList.remove('open');
@@ -598,6 +622,65 @@ window.NavigationModule = class NavigationModule {
 
       this._menuBound = true;
     }
+  }
+
+  // Downloads a not-yet-installed translation the user picked from the
+  // Bible menu, then runs the normal translation switch once it is ready.
+  // Returns true when the switch happened.
+  async _switchToAvailableTranslation(entry, item) {
+    if (item) {
+      item.classList.add('downloading');
+      const hint = item.querySelector('.tl-install-hint');
+      if (hint) hint.textContent = 'Downloading…';
+    }
+    let res = { ok: false, error: 'Repository helper unavailable' };
+    try {
+      const reposUi = this.bridge.get('scripture-repos-ui');
+      if (reposUi && typeof reposUi.ensureTranslationReady === 'function') {
+        res = await reposUi.ensureTranslationReady(entry);
+      }
+    } catch (e) {
+      res = { ok: false, error: e.message || 'Download failed' };
+    }
+    if (!res.ok) {
+      if (item) {
+        item.classList.remove('downloading');
+        const hint = item.querySelector('.tl-install-hint');
+        if (hint) hint.textContent = '⤓ not downloaded';
+      }
+      if (window.dialogService && typeof window.dialogService.alert === 'function') {
+        await window.dialogService.alert({
+          title: 'Download failed',
+          message: 'Could not download "' + entry.name + '": ' + (res.error || 'unknown error')
+        });
+      } else {
+        console.error('[Navigation] Translation download failed:', res.error);
+      }
+      return false;
+    }
+    this.bridge.state.set('currentTranslation', entry.id);
+    try {
+      const ok = await this.bridge.db.init(entry.id);
+      if (!ok) {
+        this.bridge.state.set('currentTranslation', 'BSB');
+        return false;
+      }
+      await this.switchTranslation();
+      const activeTestament = document.querySelector('.nav-testament-tab.active')?.dataset.testament || 'ot';
+      this.renderBookList(activeTestament);
+      this.renderTranslationView();
+    } catch (e) {
+      console.error('Translation switch failed:', e);
+      return false;
+    }
+    return true;
+  }
+
+  _formatBytes(bytes) {
+    if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + ' GB';
+    if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + ' MB';
+    if (bytes >= 1e3) return (bytes / 1e3).toFixed(0) + ' KB';
+    return bytes + ' B';
   }
 
   openSheet(view, bookId, chapter) {
