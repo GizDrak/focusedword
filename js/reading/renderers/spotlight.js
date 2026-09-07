@@ -77,6 +77,11 @@ window.SpotlightRenderer = class SpotlightRenderer {
       const { els, entries } = this._buildSectionEntries(section, bionic, strength, paragraphMode);
       for (const el of els) content.appendChild(el);
       this._verseEntries.push(...entries);
+      this._applyResolvedAnnotations(section, content);
+    }
+
+    for (const section of this._window.sections) {
+      this._maybeEnrichSection(section, content);
     }
 
     let target = this._verseEntries.findIndex(e => e.key === this._activeKey && e.verse === state.get('currentVerse'));
@@ -157,6 +162,56 @@ window.SpotlightRenderer = class SpotlightRenderer {
     section.els = els;
     section.firstEl = els.length ? els[0] : null;
     return { els, entries };
+  }
+
+  _studyFlags() {
+    const state = this.bridge.state;
+    return {
+      wordClasses: state.get('wordClasses') === true,
+      clearReading: state.get('clearReadingEnabled') === true,
+      wordStudy: state.get('wordStudyEnabled') === true,
+      verseTopics: state.get('verseTopicsEnabled') === true
+    };
+  }
+
+  _hasStudyFeatures() {
+    const f = this._studyFlags();
+    return f.wordClasses || f.clearReading || f.wordStudy || f.verseTopics;
+  }
+
+  // Paint any study spans already resolved on the cached window verse copies
+  // (e.g. carried over from a prior scroll session) onto the live DOM.
+  _applyResolvedAnnotations(section, root) {
+    const state = this.bridge.state;
+    if (state.get('currentTranslation') !== 'BSB' && state.get('verseTopicsEnabled') !== true) return;
+    if (!this._hasStudyFeatures()) return;
+    const verses = this._window.peekVerses(section.key);
+    if (!verses || !verses.length) return;
+    const tr = this.base._tokenRenderer;
+    if (!tr || typeof tr.applyAnnotationsToDom !== 'function') return;
+    tr.applyAnnotationsToDom(verses, this._studyFlags(), root);
+  }
+
+  // Enrich the cached window verse copies for a section with study spans and
+  // stream them onto the live DOM once resolved — mirrors
+  // ContinuousScroller._maybeEnrichSection so spotlight continuous behaves
+  // like scroll continuous instead of relying on the global path that only
+  // reaches nav.currentVerses.
+  _maybeEnrichSection(section, root) {
+    const state = this.bridge.state;
+    if (state.get('currentTranslation') !== 'BSB' && state.get('verseTopicsEnabled') !== true) return;
+    if (!this._hasStudyFeatures()) return;
+    const verses = this._window.peekVerses(section.key);
+    if (!verses || !verses.length) return;
+    const nav = this.bridge.get('navigation');
+    if (!nav || typeof nav._applyEnrichment !== 'function') return;
+    nav._applyEnrichment(section.bookId, section.chapter, verses, null).then(did => {
+      if (!did) return;
+      if (!this._window || !this._window.sections.includes(section)) return;
+      const tr = this.base._tokenRenderer;
+      if (!tr || typeof tr.applyAnnotationsToDom !== 'function') return;
+      tr.applyAnnotationsToDom(verses, this._studyFlags(), root);
+    }).catch(() => {});
   }
 
   _advanceContinuous(direction) {
@@ -296,6 +351,9 @@ window.SpotlightRenderer = class SpotlightRenderer {
           else content.appendChild(el);
         }
       }
+
+      this._applyResolvedAnnotations(section, content);
+      this._maybeEnrichSection(section, content);
 
       if (this._window.sections.length > 3) {
         const far = dir === 'next' ? this._window.sections.shift() : this._window.sections.pop();
