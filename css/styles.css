@@ -96,6 +96,11 @@ main:focus-visible,
     max-height: calc(100svh - max(8px, env(safe-area-inset-top, 0px)) - 8px - env(safe-area-inset-bottom, 0px) - var(--ios-top-strip));
   }
 
+  /* Minimal skin replaces the pill with the left verse rail. */
+  html.ios-device[data-ui-skin="minimal"].ios-top-blur #verse-rail {
+    padding-top: calc(env(safe-area-inset-top, 0px) + var(--ios-top-strip));
+  }
+
   html.ios-top-blur .update-banner {
     top: calc(4rem + var(--ios-top-strip));
   }
