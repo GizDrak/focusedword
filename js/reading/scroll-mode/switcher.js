@@ -6,13 +6,28 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
     this._reader = null;
     this._bridge = options.bridge || null;
     this._running = false;
+    this._suspended = false;
     this._firstBlockSingleLine = options.firstBlockSingleLine || false;
     this._scrollTarget = options.scrollTarget || null;
+  }
+
+  // Suspend position-based focus while something else (e.g. TTS) drives the
+  // highlight. The ReadingTracker keeps ticking so resume re-syncs instantly,
+  // but onPosition no-ops so it can't overwrite the TTS-driven verse.
+  suspend() {
+    this._suspended = true;
+  }
+
+  resume() {
+    if (!this._suspended) return;
+    this._suspended = false;
+    this._skipTick = 3;
   }
 
   start() {
     if (this._running) return;
     this._running = true;
+    this._suspended = false;
 
     if (this._mode !== 'new') return;
 
@@ -28,6 +43,7 @@ window.ScrollModeSwitcher = class ScrollModeSwitcher {
       scrollTarget: this._scrollTarget,
       onPosition: (pos) => {
         if (!this._bridge || !pos || !pos.verseEl) return;
+        if (this._suspended) return;
         if (this._skipTick > 0) { this._skipTick--; return; }
         const num = parseInt(pos.verseEl.dataset.verse, 10);
         if (!num) return;

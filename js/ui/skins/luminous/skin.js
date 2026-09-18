@@ -132,6 +132,7 @@
       "library-header": "luminous-library-header",
       "notes-panel": "luminous-notes-panel",
       "plans-panel": "luminous-plans-panel",
+      "tts-panel": "luminous-tts-panel",
       "crossref-panel": "luminous-crossref-panel",
       "crossref-overlay": "luminous-crossref-overlay",
       "crossref-header": "luminous-crossref-header",

@@ -1,9 +1,20 @@
-const CACHE_NAME = 'focused-word-v106';
+const CACHE_NAME = 'focused-word-v134';
 const DB_CACHE = 'bible-database-cache';
+
+// TTS runtime hosts must never be contacted: the Piper engine is configured
+// fully offline (see docs/tts.md). The fetch handler denies these outright
+// as defense-in-depth against any code path (current or future) that would
+// otherwise reach out to them.
+const TTS_DENY_HOSTS = new Set(['huggingface.co', 'hf.co', 'cdn.jsdelivr.net', 'unpkg.com']);
+
+function isTTSDenyHost(hostname) {
+  return TTS_DENY_HOSTS.has(hostname);
+}
 
 const REQUIRED_SHELL = [
   '/',
   '/css/styles.css',
+  '/js/app/ios-blur-guard.js',
   '/js/app/app.js',
   '/manifest.json',
   '/assets/icons/pwa/icon-192.png'
@@ -81,6 +92,29 @@ const OPTIONAL_SHELL = [
   '/js/reading/scroll-mode/switcher.js',
   '/js/reading/scroll-mode/chapter-window.js',
   '/js/reading/scroll-mode/continuous-scroller.js',
+  '/js/tts/tts-capabilities.js',
+  '/js/tts/tts-diagnostics.js',
+  '/js/tts/engines/base-engine.js',
+  '/js/tts/engines/system-tts-engine.js',
+  '/js/tts/engines/piper-engine.js',
+  '/js/tts/piper-voice-config.js',
+  '/js/tts/piper-worker.js',
+  '/js/tts/audio-output.js',
+  '/js/tts/wav-encoder.js',
+  '/js/tts/background-track.js',
+  '/js/tts/media-element-audio-output.js',
+  '/js/tts/prepared-audio-encoder.js',
+  '/js/tts/prepared-session.js',
+  '/js/tts/prepared-audio-store.js',
+  '/js/tts/preparation-service.js',
+  '/js/tts/prepared-player.js',
+  '/js/tts/voice-registry.js',
+  '/js/tts/playback-controller.js',
+  '/js/tts/tts-manager.js',
+  '/js/tts/tts-reader-bridge.js',
+  '/js/tts/media-session-bridge.js',
+  '/js/vendor/onnxruntime/1.18/ort.wasm.min.js',
+  '/js/vendor/onnxruntime/1.18/ort.wasm-core.min.js',
   '/js/vendor/sqlite-wasm/index.mjs',
   '/js/vendor/sqlite-wasm/sqlite3.wasm',
   '/assets/icons/pwa/icon-512.png',
@@ -140,6 +174,12 @@ function isCacheableAsset(path) {
     path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.svg') ||
     path.endsWith('.png') || path.endsWith('.wasm') || path.endsWith('.json') ||
     path.endsWith('.webp') || path.endsWith('.woff2') ||
+    // TTS runtime assets (fetched on first use, cached for offline playback):
+    // ORT WASM loaders/binaries and the Piper eSpeak-ng phonemizer data
+    // package. Piper voice models are NOT bundled/cached here — they download
+    // from the repo into OPFS on voice select (see tts-pack-service.js).
+    path.endsWith('.mjs') || path.endsWith('.bin') ||
+    path.endsWith('.data') ||
     // Small chapter metadata is fine to shell-cache, but large scripture
     // databases (.db/.sqlite) are cached by the app in its own
     // 'bible-database-cache' — caching them here too would double the disk
@@ -221,6 +261,14 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // Defense-in-depth: deny known TTS model/CDN hosts before the same-origin
+  // fast path (cross-origin requests would otherwise pass through untouched).
+  if (isTTSDenyHost(url.hostname)) {
+    event.respondWith(new Response('', { status: 403, statusText: 'Forbidden (TTS host blocked)' }));
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
 
   const path = canonicalUrl(url);

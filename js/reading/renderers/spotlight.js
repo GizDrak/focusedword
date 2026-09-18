@@ -8,6 +8,7 @@ window.SpotlightRenderer = class SpotlightRenderer {
     this._activeEntryIndex = -1;
     this._activeKey = null;
     this._building = false;
+    this._gen = 0;
   }
 
   _isContinuous() {
@@ -19,6 +20,11 @@ window.SpotlightRenderer = class SpotlightRenderer {
     const state = this.bridge.state;
     const bionic = state.get('bionic');
     const strength = state.get('bionicStrength');
+
+    // Invalidate any in-flight window slide: it captures sections/entries and
+    // resumes after awaits, so a re-render must stop it from mutating the
+    // freshly rebuilt window.
+    this._gen++;
 
     this.bridge.state.set('spotlightMode', true);
 
@@ -39,12 +45,14 @@ window.SpotlightRenderer = class SpotlightRenderer {
   async _renderContinuousWindow() {
     const state = this.bridge.state;
     const content = document.getElementById('content');
+    const gen = this._gen;
     this._building = true;
     try {
       if (!this._window) this._window = new window.ChapterWindow(this.bridge);
       const bookId = state.get('currentBook');
       const chapter = state.get('currentChapter');
       await this._window.setActive(bookId, chapter);
+      if (gen !== this._gen) return;
       this._activeKey = ChapterWindow.key(bookId, chapter);
       this._renderWindow(content);
       const persistentHeader = document.getElementById('chapter-header');
@@ -296,13 +304,16 @@ window.SpotlightRenderer = class SpotlightRenderer {
   async _crossWindowEdge(dir) {
     if (this._building || !this._window) return;
     this._building = true;
+    const gen = ++this._gen;
     try {
       const sections = this._window.sections;
       const edge = dir === 'next' ? sections[sections.length - 1] : sections[0];
       if (!edge) return;
       const adj = await this._window.getAdjacent(edge.bookId, edge.chapter, dir);
+      if (gen !== this._gen) return;
       if (!adj) return;
       await this._window.loadVerses(adj.bookId, adj.chapter);
+      if (gen !== this._gen) return;
 
       const content = document.getElementById('content');
       if (!content) return;
@@ -505,6 +516,29 @@ window.SpotlightRenderer = class SpotlightRenderer {
 
     this.base.updateProgress(vCurrent?.verse);
     this.base.showChapterHeader(verses, state.get('currentBookName'));
+
+    // Non-continuous spotlight builds its DOM from nav.currentVerses and has no
+    // ChapterWindow sections to self-enrich, so it depends entirely on the
+    // deferred loadChapter stream reaching this DOM. That stream can resolve
+    // before this render paints (a re-render racing it) and RenderManager then
+    // drops it, leaving the study spinners stuck until a manual mode switch.
+    // Kick the same enrichment against these exact verse objects so the spans
+    // always stream onto the live DOM regardless of that race — mirrors what
+    // _maybeEnrichSection does for the continuous window path.
+    if (verses && verses.length && this._hasStudyFeatures()) {
+      const stateNow = this.bridge.state;
+      if (stateNow.get('currentTranslation') === 'BSB' || stateNow.get('verseTopicsEnabled') === true) {
+        const nav = this.bridge.get('navigation');
+        if (nav && typeof nav._applyEnrichment === 'function') {
+          nav._applyEnrichment(bookId, chapter, verses, null).then(did => {
+            if (!did) return;
+            const tr = this.base._tokenRenderer;
+            if (!tr || typeof tr.applyAnnotationsToDom !== 'function') return;
+            tr.applyAnnotationsToDom(verses, this._studyFlags(), content);
+          }).catch(() => {});
+        }
+      }
+    }
   }
 
   setActiveVerse(verses, index) {
@@ -568,18 +602,54 @@ window.SpotlightRenderer = class SpotlightRenderer {
     }
   }
 
-  goToVerse(verses, verseNum) {
+  goToVerse(verses, verseNum, opts) {
+    const state = this.bridge.state;
+    const book = opts && opts.book != null ? opts.book
+      : (verses && verses[0] && verses[0].book_id != null ? verses[0].book_id : state.get('currentBook'));
+    const chapter = opts && opts.chapter != null ? opts.chapter
+      : (verses && verses[0] && verses[0].chapter != null ? verses[0].chapter : state.get('currentChapter'));
+
     if (this._isContinuous() && this._verseEntries.length) {
-      const entry = this._verseEntries.find(e => e.key === this._activeKey && e.verse === verseNum);
-      if (!entry) return;
-      this._activeEntryIndex = this._verseEntries.indexOf(entry);
-      this._setActiveEntry(entry);
+      const targetKey = ChapterWindow.key(book, chapter);
+      const entry = this._verseEntries.find(e => e.key === targetKey && e.verse === verseNum);
+      if (entry) {
+        this._activeEntryIndex = this._verseEntries.indexOf(entry);
+        this._setActiveEntry(entry);
+        return;
+      }
+      // The spoken chapter may not be resident in the sliding window yet
+      // (the reader is more than one chapter away). Re-anchor the window
+      // around that exact chapter instead of matching the same verse number
+      // in whatever chapter the reader happens to be on.
+      this._reanchorTo(book, chapter, verseNum);
       return;
     }
     const idx = verses.findIndex(v => v.verse === verseNum);
     if (idx < 0) return;
     this.currentVerseIndex = idx;
     this.setActiveVerse(verses, idx);
+  }
+
+  async _reanchorTo(bookId, chapter, verseNum) {
+    if (!this._window) return;
+    const content = document.getElementById('content');
+    if (!content) return;
+    const gen = ++this._gen;
+    this._building = true;
+    try {
+      await this._window.setActive(bookId, chapter);
+      if (gen !== this._gen) return;
+      this._activeKey = ChapterWindow.key(bookId, chapter);
+      this._renderWindow(content);
+      const entry = this._verseEntries.find(e => e.key === this._activeKey && e.verse === verseNum)
+        || this._verseEntries.find(e => e.key === this._activeKey && !e.headingOnly);
+      if (entry) {
+        this._activeEntryIndex = this._verseEntries.indexOf(entry);
+        this._setActiveEntry(entry);
+      }
+    } finally {
+      if (gen === this._gen) this._building = false;
+    }
   }
 
   advance(verses, direction) {

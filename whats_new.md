@@ -1,5 +1,31 @@
 # What's New in Focused Word
 
+## v1.1.0 — Read Aloud
+
+### Read Aloud — hear Scripture read to you, fully offline
+- **Focused Word can now read to you** — open **More → Read Aloud** and tap play. A neural voice narrates verse by verse with a clean transport (previous, play/pause, next), all generated on your device — no cloud, no network, no accounts.
+- **Natural, offline voices** — Read Aloud uses the **Natural Voices** (Piper), a small, efficient neural engine that runs right on your phone, tablet, or desktop and works completely offline once a voice is installed. Device voices remain available as a fallback where needed.
+- **Voices download when you pick one** — choosing a Natural Voice downloads that voice pack in the background (with a progress line) and keeps it on your device for offline use. The app itself is much smaller now — the large voice models are no longer bundled and download only when you want them.
+- **Follow reading** — as the voice speaks, the highlight, progress bar, and verse rail follow along, and the page gently keeps your place. Turn **Follow reading** off to keep listening while you scroll freely.
+- **Continue to the next chapter** — when a chapter ends, Read Aloud can keep going straight into the next one, so you can listen through a whole book hands-free.
+- **Listen to a selection** — tap a verse (or select several) and press the 🔊 **Listen** button to hear just that passage read aloud.
+- **Sleep timer** — set a 15-minute to 3-hour timer and let Scripture read you to sleep; playback stops gently at the next verse boundary after the timer ends.
+- **Word Study reads too** — in the Word Study sheet, the original word gets a play button that reads its language, pronunciation, translation, and morphology back to you, with pauses so each part is clear.
+
+### Fixed & improved
+- **Android playback uses a real media element** — on Android, Read Aloud plays through a real media element so the OS media notification anchors and audio keeps going with the screen off.
+- **Faster voice generation** — the narration engine is now kept warm between plays on Android and desktop, so pressing play again starts instantly instead of re-initializing the voice. It is also pre-warmed in the background when you open Read Aloud or download a voice, so your first play is ready.
+- **Every narrator tuned by ear** — each Natural Voice now has its own hand-tuned speed, warmth, and phrasing (a little breathing room between sentences), set as the **1.0×** default. The speed picker scales up or down from those settings, so 1.0× always sounds the way each voice was tuned.
+- **Narrator speed labels corrected** — the speed picker now reads 1:1 with how fast the voice actually plays: **1.0×** means normal speed, **0.75×** is a little slower, and the faster settings step up from there. The default is **1.0×**.
+- **Read Aloud keeps its place across chapters** — continuous Spotlight no longer jumps to the same verse number in the wrong chapter, and no longer loses the verse it's reading when a chapter changes. The highlight now follows the chapter actually being spoken, re-anchoring the reading window when needed.
+- **No more chapter jumps while scrolling in continuous Spotlight** — a re-render (such as Read Aloud moving to the next chapter) can no longer let a stale window update drift the view onto a different chapter.
+- **Swipe mode follows Read Aloud** — the card deck advances with the narration and steps past section headings instead of stalling on them.
+- **Smoother follow-scroll** — the page glide that tracks the spoken verse is no longer made jumpy by the browser's own smooth scrolling.
+- **Study markings no longer get stuck** — Word Classes, Clear Reading, Word Study, and Verse Topics now paint reliably in Spotlight and Swipe reading, instead of occasionally waiting until you switch modes.
+- **Paragraph reading keeps its width** — paragraph mode now matches the normal reading column width, with section headings centered as before.
+
+---
+
 ## v1.0.6 — Reading Plans & Modern Polish
 
 ### A truly alternating OT/NT plan

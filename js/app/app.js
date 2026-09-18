@@ -299,6 +299,22 @@ window.App = class App {
     bridge.register('footnotes-ui', fnui);
     fnui.init();
 
+    if (window.TTSManager) {
+      const ttsManager = new window.TTSManager(bridge);
+      bridge.register('tts', ttsManager);
+      ttsManager.init().catch(e => console.warn('[tts] init failed:', e));
+      if (window.TTSReaderBridge) {
+        const ttsUI = new window.TTSReaderBridge(bridge);
+        bridge.register('tts-reader-bridge', ttsUI);
+        ttsUI.init();
+      }
+      if (window.MediaSessionBridge) {
+        const mediaSession = new window.MediaSessionBridge(bridge);
+        bridge.register('media-session', mediaSession);
+        mediaSession.init();
+      }
+    }
+
     if (bridge.state.get('crossRefs') === true) {
       const cr = bridge.get('cross-references');
       if (cr) {
@@ -948,6 +964,9 @@ window.App = class App {
         } else if (item.dataset.action === 'install-app') {
           const ip = bridge.get('install-prompt');
           if (ip) ip.install();
+        } else if (item.dataset.action === 'read-aloud') {
+          const ttsUI = bridge.get('tts-reader-bridge');
+          if (ttsUI) ttsUI.open();
         }
       }, 100);
     });

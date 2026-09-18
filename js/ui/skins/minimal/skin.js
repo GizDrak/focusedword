@@ -99,6 +99,7 @@
 
       'notes-panel': 'minimal-notes-panel',
       'plans-panel': 'minimal-plans-panel',
+      'tts-panel': 'minimal-tts-panel',
       'crossref-panel': 'minimal-crossref-panel',
       'crossref-header': 'minimal-crossref-header',
       'crossref-body': 'minimal-crossref-body',

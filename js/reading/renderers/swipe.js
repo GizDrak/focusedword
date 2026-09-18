@@ -448,6 +448,38 @@ window.SwipeRenderer = class SwipeRenderer {
     }
   }
 
+  // TTS follow: auto-advance the deck one animated card when the spoken verse
+  // is the immediate next card. Forward-only — never yanks back to the spoken
+  // verse if the user swiped ahead, and never jumps over cards the user may be
+  // looking at; the next tts:current-verse retries while an animation runs.
+  // Section-heading cards sit between content cards but carry no spoken text,
+  // so when only headings separate the current card from the spoken verse we
+  // skip past them — otherwise the deck would stall on a heading slide.
+  followToVerse(verses, verseNum) {
+    if (this._animating) return;
+    if (!this._cards.length) return;
+    const idx = this._cards.findIndex(c => {
+      if (c.type === 'verse') return c.verse === verseNum;
+      if (c.type === 'paragraph') return c.verses.some(v => v.verse === verseNum);
+      return false;
+    });
+    if (idx < 0 || idx <= this.currentCardIndex) return;
+    if (idx === this.currentCardIndex + 1) {
+      this.advance(verses, 'next');
+      return;
+    }
+    let target = this.currentCardIndex + 1;
+    while (target < idx && this._cards[target].type === 'heading') {
+      target++;
+    }
+    if (target !== idx) return;
+    this.currentCardIndex = target;
+    this._showHeader = false;
+    this._cleanupAnimation();
+    const state = this.bridge.state;
+    this._renderCurrent(state.get('bionic'), state.get('bionicStrength'));
+  }
+
   _animatedTransition(currentCard, deck, direction) {
     this._animating = true;
     const state = this.bridge.state;

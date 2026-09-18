@@ -80,11 +80,12 @@ window.ViewManager = class ViewManager {
       cancelAnimationFrame(this._scrollRaf);
       this._scrollRaf = null;
     }
+    this._restoreScrollBehavior();
 
     const el = verseNum != null
       ? document.querySelector(this._verseSelector(verseNum, opts))
       : document.querySelector('.verse-container.active-verse');
-    if (!el) { this._instantScroll = false; return; }
+    if (!el) { this._instantScroll = false; this._restoreScrollBehavior(); return; }
 
     const content = document.getElementById('content');
     const overflowY = content && getComputedStyle(content).overflowY;
@@ -93,6 +94,7 @@ window.ViewManager = class ViewManager {
     if (this._instantScroll) {
       el.scrollIntoView({ block: 'center' });
       this._instantScroll = false;
+      this._restoreScrollBehavior();
       return;
     }
 
@@ -105,15 +107,22 @@ window.ViewManager = class ViewManager {
 
     if (Math.abs(dist) < 2) {
       this._instantScroll = false;
+      this._restoreScrollBehavior();
       return;
     }
 
-    const duration = 250;
+    // The scroll container carries CSS scroll-behavior: smooth in scroll and
+    // spotlight modes. Every scrollTop write below would then start a competing
+    // native animation, making TTS-follow tracking jumpy — pin it to auto for
+    // the duration of the RAF glide and restore it afterwards.
+    this._pinScrollBehavior(scroller);
+
+    const duration = Math.min(500, Math.max(280, Math.abs(dist) * 0.6));
     const startTime = performance.now();
 
     const tick = (now) => {
       const t = Math.min((now - startTime) / duration, 1);
-      const ease = 1 - Math.pow(1 - t, 4);
+      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
       const pos = curScroll + dist * ease;
       if (scroller === window) {
         window.scrollTo(0, pos);
@@ -124,9 +133,24 @@ window.ViewManager = class ViewManager {
         this._scrollRaf = requestAnimationFrame(tick);
       } else {
         this._scrollRaf = null;
+        this._restoreScrollBehavior();
       }
     };
 
     this._scrollRaf = requestAnimationFrame(tick);
+  }
+
+  _pinScrollBehavior(scroller) {
+    const target = scroller === window ? document.getElementById('content') : scroller;
+    if (!target) return;
+    this._savedScrollBehavior = target.style.scrollBehavior;
+    target.style.scrollBehavior = 'auto';
+  }
+
+  _restoreScrollBehavior() {
+    if (this._savedScrollBehavior === undefined) return;
+    const content = document.getElementById('content');
+    if (content) content.style.scrollBehavior = this._savedScrollBehavior;
+    this._savedScrollBehavior = undefined;
   }
 };

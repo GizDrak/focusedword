@@ -1118,6 +1118,31 @@ html.android-device[data-ui-skin="modern"] #plans-panel.compressed {
   background: color-mix(in srgb, var(--accent-color) 8%, transparent);
 }
 
+/* ── Read Aloud Panel ── */
+
+[data-ui-skin="modern"] #tts-panel,
+[data-ui-skin="modern"] .modern-tts-panel {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-color) 2%, var(--bg-elevated)), var(--bg) 70%);
+  border-top: 1px solid color-mix(in srgb, var(--accent-color) 12%, var(--border-light));
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
+}
+
+[data-ui-skin="modern"] .tts-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-color) 8%, transparent);
+}
+
+[data-ui-skin="modern"] .tts-close-btn {
+  color: var(--text-secondary);
+  transition: color 0.15s, background 0.15s;
+}
+
+[data-ui-skin="modern"] .tts-close-btn:hover {
+  color: var(--accent-color);
+  background: color-mix(in srgb, var(--accent-color) 8%, transparent);
+}
+
 /* ── Plans Panel ── */
 
 [data-ui-skin="modern"] #plans-panel,

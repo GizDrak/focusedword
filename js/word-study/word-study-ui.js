@@ -7,6 +7,9 @@ window.WordStudyUI = class WordStudyUI {
     this._previousFocus = null;
     this._lastTokenClass = null;
     this._lastWcConcordance = null;
+    this._ttsAvailable = false;
+    this._heroPlay = null;
+    this._spokeInSession = false;
     this._init();
   }
 
@@ -30,6 +33,46 @@ window.WordStudyUI = class WordStudyUI {
     this.bridge.on('nav:chapter-loaded', () => {
       if (this._open) this.close();
     });
+    this.bridge.on('tts:state', (p) => {
+      if (!p || !p.state || p.state === 'playing') return;
+      this._clearPlaying();
+    });
+  }
+
+  _tts() {
+    return this.bridge.get('tts');
+  }
+
+  _originalLangName(language) {
+    const lang = (language || '').toLowerCase();
+    if (/hebrew|aramaic/.test(lang)) return 'Hebrew';
+    if (/greek/.test(lang)) return 'Greek';
+    return null;
+  }
+
+  // Morphology for speech: drop the display separators and any duplicate words
+  // (the part of speech often repeats a term already in the parsing), so
+  // "Noun • Masculine • Singular · noun" reads as "Noun Masculine Singular".
+  _spokenMorph(text) {
+    if (!text) return '';
+    const seen = new Set();
+    const words = [];
+    for (const raw of String(text).replace(/\s+[-–—]\s+/g, ' ').split(/[\s·•,;/]+/)) {
+      const w = raw.trim();
+      if (!w) continue;
+      const key = w.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      words.push(w);
+    }
+    return words.join(' ');
+  }
+
+  _playBtn(action, label) {
+    if (!this._ttsAvailable) return '';
+    return `<button class="ws-plays" data-ws-play="${action}" aria-label="${this._esc(label)}">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+    </button>`;
   }
 
   async _show(detail) {
@@ -117,15 +160,41 @@ window.WordStudyUI = class WordStudyUI {
     const displayGrammar = grammar.replace(/\s+-\s+/g, ' • ');
     const grammarWithPos = [displayGrammar, posText].filter(Boolean).join(' · ');
 
+    // A single play button next to the original word reads the word's details in
+    // order, pausing between each: language, pronunciation, translation, then
+    // morphology. It uses the normal narrator voice.
+    this._ttsAvailable = !!this._tts();
+    const originalLang = this._originalLangName(occ.language);
+    // Speak each detail as its own phrase with a ~1s breath (digital silence)
+    // between them. The {{pause:N}} token makes the Piper worker insert real
+    // silence, so it reads slowly and clearly: "Language" pause "Greek" pause
+    // "a-ga-PAY" pause "love" pause "Noun Masculine Singular".
+    const wordSpeech = ['Language', occ.language, occPronDisplay, translationText, this._spokenMorph(grammarWithPos)]
+      .map((s) => String(s || '').replace(/[.;,]+$/, '').trim())
+      .filter(Boolean)
+      .join('{{pause:1}}');
+    this._heroPlay = { langText: wordSpeech };
+
+    const originalRow = originalText
+      ? `<div class="ws-original-row">
+          <div class="ws-original-word" dir="${wordDir}">${this._esc(originalText)}</div>
+          ${(originalLang && wordSpeech) ? this._playBtn('lang', 'Play word details') : ''}
+        </div>`
+      : '';
+
+    const readingLine = (translit || translationText)
+      ? `<div class="ws-reading-line">
+          ${translit ? `<span class="ws-translit-row"><span class="ws-translit">${this._esc(translit)}${pronunciationDisplay ? ` [${this._esc(pronunciationDisplay)}]` : ''}</span></span>` : ''}
+          ${translit && translationText ? '<span class="ws-divider" aria-hidden="true"></span>' : ''}
+          ${translationText ? `<span class="ws-translation-row"><span class="ws-translation">${this._esc(translationText)}</span></span>` : ''}
+        </div>`
+      : '';
+
     const parts = ['<div class="ws-card">'];
     parts.push(`<section class="ws-hero">
       <div class="ws-hero-word">
-        ${originalText ? `<div class="ws-original-word" dir="${wordDir}">${this._esc(originalText)}</div>` : ''}
-        <div class="ws-reading-line">
-          ${translit ? `<span class="ws-translit">${this._esc(translit)}${pronunciationDisplay ? ` [${this._esc(pronunciationDisplay)}]` : ''}</span>` : ''}
-          ${translit && translationText ? '<span class="ws-divider" aria-hidden="true"></span>' : ''}
-          ${translationText ? `<span class="ws-translation">${this._esc(translationText)}</span>` : ''}
-        </div>
+        ${originalRow}
+        ${readingLine}
         ${occPronDisplay ? `<div class="ws-occ-pron">pron. ${this._esc(occPronDisplay)}</div>` : ''}
       </div>
       <div class="ws-hero-meta">
@@ -248,6 +317,7 @@ window.WordStudyUI = class WordStudyUI {
     if (lexicon.length) this._initTabs();
     const occBtn = this.body.querySelector('[data-action="occurrences"]');
     if (occBtn) occBtn.addEventListener('click', () => this._showOccurrences());
+    this._wirePlayButtons();
     this._wireLexiconRefs();
     this._wireSeeAlso();
     this._wireWcConcordance();
@@ -267,6 +337,58 @@ window.WordStudyUI = class WordStudyUI {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
       });
     });
+  }
+
+  _wirePlayButtons() {
+    const tts = this._tts();
+    if (!tts) return;
+    const play = this._heroPlay || {};
+
+    const langBtn = this.body.querySelector('[data-ws-play="lang"]');
+    if (langBtn && play.langText) {
+      langBtn.addEventListener('click', () => {
+        this._runSpeak(langBtn, () => tts.speakVerses(
+          [{ verseId: this._verseId, text: play.langText }],
+          { rate: 0.75 }
+        ));
+      });
+    }
+  }
+
+  _runSpeak(btn, fn) {
+    if (!btn || btn.disabled) return;
+    this._spokeInSession = true;
+    this._setPlaying(btn);
+    btn.classList.add('is-busy');
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    let result;
+    try {
+      result = fn();
+    } catch (e) { /* the TTS manager emits tts:error itself */ }
+    if (result && typeof result.finally === 'function') {
+      result.finally(() => {
+        btn.classList.remove('is-busy');
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+      });
+    }
+  }
+
+  _setPlaying(btn) {
+    this._clearPlaying();
+    if (btn) {
+      btn.classList.add('is-playing');
+      btn.setAttribute('aria-pressed', 'true');
+    }
+  }
+
+  _clearPlaying() {
+    const playing = this.body.querySelector('.ws-plays.is-playing');
+    if (playing) {
+      playing.classList.remove('is-playing');
+      playing.removeAttribute('aria-pressed');
+    }
   }
 
   _wireSeeAlso() {
@@ -684,6 +806,14 @@ window.WordStudyUI = class WordStudyUI {
 
   close() {
     if (!this._open) return;
+    // Word audio is tied to the visible screen: stop any playback this overlay
+    // session started (a merely paused chapter queue is left alone).
+    if (this._spokeInSession) {
+      this._spokeInSession = false;
+      const tts = this._tts();
+      if (tts && tts.stopPlayback) tts.stopPlayback();
+    }
+    this._clearPlaying();
     this.panel.classList.remove('open');
     this.overlay.classList.remove('open');
     this.panel.inert = true;

@@ -73,12 +73,50 @@ window.RenderManager = class RenderManager {
       }
     }
     const touched = tr.applyAnnotationsToDom(verses, flags, root);
-    if (!touched && !continuous && this.bridge.state.get('swipeMode') === false && this.bridge.state.get('spotlightMode') === false) {
-      // DOM may not match (e.g. user re-rendered mid-stream); fall back to a
-      // full refresh so the annotations still show.
-      this.render();
-      return;
+    if (!touched) {
+      // The stream resolved but painted nothing onto the DOM.
+      if (!continuous && this.bridge.state.get('swipeMode') === false && this.bridge.state.get('spotlightMode') === false) {
+        // DOM may not match (e.g. user re-rendered mid-stream); fall back to a
+        // full refresh so the annotations still show.
+        this.render();
+        return;
+      }
+      if (this._repaintQueuedForStream(verses)) return;
     }
+  }
+
+  // Spotlight/swipe render asynchronously: on a chapter switch the DOM is
+  // cleared synchronously (vm.prepare) but only rebuilt after setActive
+  // resolves, so a chapter's annotation stream can resolve into an empty DOM.
+  // RenderManager used to silently drop those streams under spotlight, leaving
+  // the study spinners stuck until a manual mode switch forced a full render.
+  // Repaint once — after the in-flight render settles — but only when the
+  // payload is still the active chapter and none of its verse containers are on
+  // screen (never when containers exist but had nothing to apply; that would
+  // loop forever on a genuinely span-less chapter).
+  _repaintQueuedForStream(verses) {
+    if (!verses || !verses.length) return false;
+    const first = verses[0];
+    if (!first || first.book_id == null || first.chapter == null) return false;
+    const cur = this.bridge.get('navigation')?.currentVerses;
+    if (!cur || !cur.length) return false;
+    if (cur[0].book_id !== first.book_id || cur[0].chapter !== first.chapter) return false;
+    const containerSel = (bookId, chapter) =>
+      '#content .verse-container[data-book="' + bookId + '"][data-chapter="' + chapter + '"]';
+    if (document.querySelector(containerSel(first.book_id, first.chapter))) return false;
+    if (this._annotationRepaintQueued) return true;
+    this._annotationRepaintQueued = true;
+    const bookId = first.book_id;
+    const chapter = first.chapter;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this._annotationRepaintQueued = false;
+      const cur = this.bridge.get('navigation')?.currentVerses;
+      if (!cur || !cur.length) return;
+      if (cur[0].book_id !== bookId || cur[0].chapter !== chapter) return;
+      if (document.querySelector(containerSel(bookId, chapter))) return;
+      this.render();
+    }));
+    return true;
   }
 
   _finalize(dispatched) {

@@ -21,7 +21,9 @@ window.StateStore = class StateStore {
       'currentBook', 'currentChapter', 'currentVerse', 'currentBookName',
       'wordClasses', 'wordClassAxisSettings',
       'wordStudyEnabled', 'wordStudyMode',
-      'verseTopicsEnabled', 'verseTopicSettings'
+      'verseTopicsEnabled', 'verseTopicSettings',
+      'ttsVoice', 'ttsSpeed', 'ttsFollowReading', 'ttsContinueNextChapter',
+      'ttsSleepTimer'
     ]);
     this._data = {
       bionic: false,
@@ -75,7 +77,12 @@ window.StateStore = class StateStore {
       chapterHeaderAlignment: 'skin',
       sectionHeadingAlignment: 'skin',
       verseTextAlignment: 'skin',
-      verseNumberPlacement: 'skin'
+      verseNumberPlacement: 'skin',
+      ttsVoice: null,
+      ttsSpeed: 1,
+      ttsFollowReading: true,
+      ttsContinueNextChapter: false,
+      ttsSleepTimer: null
     };
     this._isApplyingServerState = false;
     this._idbReady = false;
@@ -590,6 +597,11 @@ window.StateStore = class StateStore {
         'focused-word:clear-reading-enabled': 'clearReadingEnabled',
         'focused-word:clear-reading-mode': 'clearReadingMode',
         'focused-word:clear-reading-toggles': 'clearReadingToggles',
+        'focused-word:tts-voice': 'ttsVoice',
+        'focused-word:tts-speed': 'ttsSpeed',
+        'focused-word:tts-follow-reading': 'ttsFollowReading',
+        'focused-word:tts-continue-next-chapter': 'ttsContinueNextChapter',
+        'focused-word:tts-sleep-timer': 'ttsSleepTimer',
       };
       for (const [storageKey, dataKey] of Object.entries(map)) {
         let val = localStorage.getItem(storageKey);
@@ -609,6 +621,23 @@ window.StateStore = class StateStore {
       if (!localStorage.getItem('focused-word:palette-migrated')) {
         localStorage.removeItem('focused-word:word-class-colors');
         localStorage.setItem('focused-word:palette-migrated', '1');
+      }
+      // Speed scale v4: the displayed label IS the actual synthesizer rate
+      // (1.0x = 1.0, 0.75x = 0.75, …). This removes the older mapping where a
+      // label pointed at a shifted-down rate. A one-time migration snaps any
+      // value persisted under the old scales to the nearest new option so the
+      // selector never holds a stale value.
+      if (!localStorage.getItem('focused-word:tts-speed-v3')) {
+        // Old scale -> the nearest actual rate on the new 1:1 scale.
+        const SPEED_NEW = { 0.4: 0.4, 0.5: 0.4, 0.6: 0.6, 0.75: 0.75, 0.8: 0.75, 1: 1, 1.25: 1.2, 1.5: 1.4, 1.75: 1.4, 2: 1.4 };
+        const old = this._data.ttsSpeed;
+        if (typeof old === 'number' && SPEED_NEW[old] !== undefined) {
+          this._data.ttsSpeed = SPEED_NEW[old];
+          try {
+            localStorage.setItem('focused-word:tts-speed', JSON.stringify(this._data.ttsSpeed));
+          } catch (e) { /* ignore */ }
+        }
+        localStorage.setItem('focused-word:tts-speed-v3', '1');
       }
       const progress = localStorage.getItem('focused-word:progress');
       if (progress) {

@@ -40,6 +40,7 @@ UISkins.register('modern', {
 
     'notes-panel': 'modern-notes-panel',
     'plans-panel': 'modern-plans-panel',
+    'tts-panel': 'modern-tts-panel',
     'crossref-panel': 'modern-crossref-panel',
     'crossref-header': 'modern-crossref-header',
     'crossref-body': 'modern-crossref-body',

@@ -897,10 +897,12 @@ html[data-ui-skin="luminous"] {
 [data-ui-skin="luminous"] #settings-panel,
 [data-ui-skin="luminous"] #notes-panel,
 [data-ui-skin="luminous"] #plans-panel,
+[data-ui-skin="luminous"] #tts-panel,
 [data-ui-skin="luminous"] .luminous-settings-panel,
 [data-ui-skin="luminous"] .luminous-library-panel,
 [data-ui-skin="luminous"] .luminous-notes-panel,
 [data-ui-skin="luminous"] .luminous-plans-panel,
+[data-ui-skin="luminous"] .luminous-tts-panel,
 [data-ui-skin="luminous"] .luminous-crossref-panel {
   color: var(--luminous-text);
   border-color: var(--luminous-border);

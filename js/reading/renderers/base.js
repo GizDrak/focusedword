@@ -246,7 +246,7 @@ window.BaseRenderer = class BaseRenderer {
       const spotlight = this.bridge.get('renderer-spotlight');
       const nav = this.bridge.get('navigation');
       if (spotlight && nav && nav.currentVerses) {
-        spotlight.goToVerse(nav.currentVerses, verseNum);
+        spotlight.goToVerse(nav.currentVerses, verseNum, { book: state.get('currentBook'), chapter: state.get('currentChapter') });
       }
     } else if (state.get('swipeMode')) {
       const swipe = this.bridge.get('renderer-swipe');
@@ -258,6 +258,44 @@ window.BaseRenderer = class BaseRenderer {
       this.updateFocusedVerse(verseNum);
       const vm = this.bridge.get('view-manager');
       if (vm) vm.scrollToReadingBand(verseNum);
+    }
+  }
+
+  // TTS follow: drive the shared focus/state pipeline with passive semantics
+  // (vs. _railNavigateTo's setIntentional user-jump lock). 'move' is false when
+  // Follow Reading is off or the user just interacted, so only the highlight
+  // and shared state follow the spoken verse without moving the reader.
+  ttsFollowTo(verseNum, opts, move) {
+    const state = this.bridge.state;
+    const book = opts && opts.book != null ? opts.book : state.get('currentBook');
+    const chapter = opts && opts.chapter != null ? opts.chapter : state.get('currentChapter');
+    const nav = this.bridge.get('navigation');
+
+    if (book !== state.get('currentBook') || chapter !== state.get('currentChapter')) {
+      const entry = nav && nav.booksCache ? nav.booksCache.find(b => b.id === book) : null;
+      window.verseManager.setPassivePosition(book, chapter, verseNum, entry ? entry.name : '');
+    } else {
+      window.verseManager.setPassive(verseNum);
+    }
+
+    if (state.get('splitMode') || state.get('spotlightMode')) {
+      const spotlight = this.bridge.get('renderer-spotlight');
+      if (move && spotlight && nav && nav.currentVerses) {
+        spotlight.goToVerse(nav.currentVerses, verseNum, { book, chapter });
+      } else {
+        this.updateFocusedVerse(verseNum, opts);
+      }
+    } else if (state.get('swipeMode')) {
+      const swipe = this.bridge.get('renderer-swipe');
+      if (move && swipe && nav && nav.currentVerses) {
+        swipe.followToVerse(nav.currentVerses, verseNum);
+      }
+    } else {
+      this.updateFocusedVerse(verseNum, opts);
+      if (move) {
+        const vm = this.bridge.get('view-manager');
+        if (vm) vm.scrollToVerse(verseNum, opts);
+      }
     }
   }
 

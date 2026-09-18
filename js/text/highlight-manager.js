@@ -19,7 +19,10 @@ window.HighlightManager = class HighlightManager {
       ? window.PopoverService.create(picker, {
           onChange: (open) => {
             if (!open && this._pickerOpen) {
-              this._pickerOpen = false;
+this._pickerOpen = false;
+    this._speakPending = false;
+    this._speakSawAny = false;
+    this._speakLastIndex = -1;
               this._completeBookmark(this.bridge.state.get('activeBookmarkSet'));
             }
           }
@@ -54,10 +57,21 @@ window.HighlightManager = class HighlightManager {
       this._copyText();
     });
 
-    document.getElementById('btn-note').addEventListener('click', (e) => {
+document.getElementById('btn-note').addEventListener('click', (e) => {
       e.stopPropagation();
       this._addNote();
     });
+
+    const listenBtn = document.getElementById('btn-listen');
+    if (listenBtn) {
+      listenBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._speakSelection();
+      });
+    }
+    this.bridge.on('tts:synth', (p) => this._onSynth(p));
+    this.bridge.on('tts:state', (p) => this._onSpeakState(p));
+    this.bridge.on('tts:error', () => this._onSpeakError());
 
     const reposition = () => {
       if (this._activeRect && !this._toolbar.classList.contains('hidden')) {
@@ -137,6 +151,121 @@ window.HighlightManager = class HighlightManager {
     this._activeText = '';
     this._activeTranslationId = null;
     this._activeRect = null;
+    this._speakPending = false;
+    this._speakSawAny = false;
+    this._speakLastIndex = -1;
+    this._setSpeakBusy(false);
+    this._hideToolbar();
+  }
+
+  // ---- Listen (speak the selected verse/s) ----
+
+  _speakSelection() {
+    if (this._speakPending) return;
+    const items = this._resolveSpeakItems();
+    if (!items.length) return;
+    const tts = this.bridge.get('tts');
+    if (!tts || !tts.controller) return;
+    this._speakPending = true;
+    this._speakSawAny = false;
+    this._speakLastIndex = items.length - 1;
+    this._setSpeakBusy(true);
+    tts.speakVerses(items);
+  }
+
+  _resolveSpeakItems() {
+    const items = [];
+    const state = this.bridge.state;
+    const push = (c) => {
+      if (!c) return;
+      const vne = c.querySelector('.verse-num');
+      const verse = parseInt(vne ? vne.textContent : NaN);
+      if (!verse) return;
+      const vt = c.querySelector('.verse-text');
+      if (!vt) return;
+      const text = this._extractCleanVerseText(vt);
+      if (!text) return;
+      const book = c.dataset.book || state.get('currentBook');
+      const chapter = parseInt(c.dataset.chapter || state.get('currentChapter'), 10);
+      if (!book || !chapter) return;
+      items.push({ verseId: { book, chapter, verse }, text });
+    };
+
+    if (this._activeContainers && this._activeContainers.length) {
+      for (const c of this._activeContainers) push(c);
+    } else if (this._tempSelection) {
+      push(this._tempSelection.closest('.verse-container'));
+    } else if (this._multiVerseRange) {
+      const range = this._multiVerseRange;
+      const allContainers = document.querySelectorAll('#content .verse-container');
+      const resolve = (node) => node && node.nodeType === Node.TEXT_NODE
+        ? node.parentElement?.closest('.verse-container')
+        : node.closest?.('.verse-container');
+      const start = resolve(range.startContainer);
+      const end = resolve(range.endContainer);
+      if (start && end) {
+        const startIdx = Array.from(allContainers).indexOf(start);
+        const endIdx = Array.from(allContainers).indexOf(end);
+        if (startIdx !== -1 && endIdx !== -1) {
+          for (let i = startIdx; i <= endIdx; i++) push(allContainers[i]);
+        }
+      }
+    }
+
+    items.sort((a, b) => {
+      const c = a.verseId.chapter - b.verseId.chapter;
+      return c !== 0 ? c : a.verseId.verse - b.verseId.verse;
+    });
+    return items;
+  }
+
+  _setSpeakBusy(busy) {
+    const btn = document.getElementById('btn-listen');
+    if (!btn) return;
+    btn.classList.toggle('is-busy', busy);
+    btn.disabled = busy;
+    btn.setAttribute('aria-busy', String(busy));
+    btn.innerHTML = busy
+      ? '<span class="hl-spinner" aria-hidden="true"></span>'
+      : HighlightManager.LISTEN_ICON;
+  }
+
+  _onSynth(p) {
+    if (!this._speakPending || !p) return;
+    if (p.status === 'start') {
+      this._speakSawAny = true;
+      return;
+    }
+    if (p.status === 'end' && p.index === this._speakLastIndex) {
+      this._finishSpeak(true);
+    }
+  }
+
+  _onSpeakState(p) {
+    // An idle/stopping state after a synth started but no end arrived means
+    // generation was aborted (navigation / stop mid-synthesis).
+    if (!this._speakPending || !this._speakSawAny) return;
+    const state = p && p.state;
+    if (state === 'idle' || state === 'stopping') this._finishSpeak(false);
+  }
+
+  _onSpeakError() {
+    if (this._speakPending) this._finishSpeak(false);
+  }
+
+  _finishSpeak(dismiss) {
+    this._speakPending = false;
+    this._speakSawAny = false;
+    this._speakLastIndex = -1;
+    this._setSpeakBusy(false);
+    if (!dismiss) return;
+    const interaction = this.bridge.get('interaction-manager');
+    if (interaction) interaction.clearSelection();
+    this._tempSelection = null;
+    this._multiVerseRange = null;
+    this._activeContainers = null;
+    this._activeText = '';
+    this._activeTranslationId = null;
     this._hideToolbar();
   }
 
@@ -925,3 +1054,8 @@ window.HighlightManager = class HighlightManager {
     }
   }
 };
+
+// Inline speaker glyph for the Listen action. Kept as a string (not a literal
+// emoji in the button) so _setSpeakBusy() can restore it after the spinner;
+// uses the same stroke style as the other toolbar icons for a plain look.
+HighlightManager.LISTEN_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';

@@ -51,6 +51,32 @@ main:focus-visible,
   }
 }
 
+/* ========== iOS 27 PWA status-bar frost workaround ========== */
+/* iOS 27 paints a system frosted band across the top ~16px of standalone
+   PWAs using apple-mobile-web-app-status-bar-style: black-translucent
+   (Safari tabs and landscape are unaffected). On affected devices
+   (html.ios-top-blur, set pre-paint by js/app/ios-blur-guard.js) we
+   reserve the band as a solid strip: body gains a top padding in the
+   theme background color, and --app-height shrinks by the same amount so
+   every viewport-height-based layout lands 16px lower. --ios-top-strip is
+   the single tuning knob if the band is not exactly 16px on a device. */
+@media screen and (orientation: portrait) {
+  html.ios-top-blur {
+    --ios-top-strip: 16px;
+    --app-height: calc(100vh - var(--ios-top-strip));
+  }
+
+  html.ios-top-blur body {
+    padding-top: var(--ios-top-strip);
+  }
+
+  /* Fixed full-height overlays keep spanning the real viewport, and their
+     solid top edge already makes the frost band invisible. */
+  html.ios-top-blur .settings-panel {
+    height: calc(var(--app-height) + var(--ios-top-strip));
+  }
+}
+
 /* ========== Font Faces ========== */
 @font-face { font-family:'Inter'; src:url('/assets/fonts/san/inter-v20-latin-regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
 @font-face { font-family:'Inter'; src:url('/assets/fonts/san/inter-v20-latin-italic.woff2') format('woff2'); font-weight:400; font-style:italic; font-display:swap; }
@@ -3177,7 +3203,377 @@ body.paragraph-mode.split-mode #panel-right-body.spotlight-mode .token-text {
   color: var(--accent-color);
 }
 
+/* ========== Read Aloud Panel ========== */
 
+.tts-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  padding-bottom: calc(56px + var(--safe-inset-bottom, 0px));
+  transform: translateY(0);
+  transition: height 0.3s cubic-bezier(0.32, 0.72, 0, 1), bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1), transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+}
+
+.tts-panel.hidden {
+  transform: translateY(calc(100% + 60px));
+  pointer-events: none;
+}
+
+/* The panel opens from the bottom of the viewport; its bottom padding pushes
+   the controls above the main toolbar (z 100) so the nav stays visible and
+   clickable. Compressed keeps a blank sheet under the 56px transport bar, still
+   anchored to the bottom of the viewport like the Notes/Plans panels. */
+.tts-panel.compressed {
+  height: calc(56px + 72px + var(--safe-inset-bottom, 0px));
+  max-height: calc(56px + 72px + var(--safe-inset-bottom, 0px));
+  bottom: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+.tts-panel.compressed .tts-body {
+  display: none;
+}
+
+.tts-panel.compressed .tts-header {
+  height: 56px;
+  min-height: 56px;
+  border-bottom: none;
+  cursor: pointer;
+}
+
+.tts-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tts-title {
+  justify-self: start;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.tts-close-btn {
+  justify-self: end;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  line-height: 1;
+  border-radius: 8px;
+  transition: color 0.15s;
+}
+
+.tts-close-btn:hover {
+  color: var(--text-primary);
+}
+
+.tts-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.tts-status {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 1.2em;
+}
+
+.tts-pack-status {
+  font-size: 0.8rem;
+  color: var(--accent-color);
+  text-align: center;
+  min-height: 1.2em;
+  padding-top: 0.5rem;
+}
+
+
+.tts-transport {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.tts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tts-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.tts-btn--play {
+  background: var(--accent-color);
+  color: var(--bg-card);
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.tts-btn--play:hover {
+  background: var(--accent-color);
+  color: var(--bg-card);
+  filter: brightness(1.08);
+}
+
+.tts-options {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.tts-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.tts-option-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.tts-toggles {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.tts-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tts-toggle input {
+  accent-color: var(--accent-color);
+}
+
+.tts-select {
+  max-width: 14rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  background: var(--input-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.tts-select--speed {
+  max-width: 5.5rem;
+}
+
+/* ── Prepared background audio (inside the Read Aloud panel) ── */
+.tts-prepare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border-light);
+}
+
+/* A `display` declaration beats the UA's [hidden]{display:none}, so the
+   container must hide itself explicitly or a dead control becomes visible on
+   platforms where prepared playback is unavailable. */
+.tts-prepare[hidden] {
+  display: none;
+}
+
+.tts-prepare-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.tts-prepare-label {
+  margin-bottom: -0.35rem;
+}
+
+.tts-prepare-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+}
+
+.tts-prepare-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  margin-left: 0.5rem;
+}
+
+/* Progress indicator between the Prepare button and the status text (pulsing
+   accent while generating, green when ready). */
+.tts-prepare-dot {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background 0.2s ease;
+}
+
+.tts-prepare-dot.is-building {
+  background: var(--accent-color);
+  animation: tts-prepare-pulse 1.2s ease-in-out infinite;
+}
+
+.tts-prepare-dot.is-ready {
+  background: #3fbf6a;
+  box-shadow: 0 0 0 3px rgba(63, 191, 106, 0.18);
+}
+
+@keyframes tts-prepare-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Thin determinate bar under the row while preparing (percent of target). */
+.tts-prepare-bar {
+  height: 3px;
+  margin-top: 0.35rem;
+  border-radius: 2px;
+  background: var(--border-light);
+  overflow: hidden;
+}
+
+.tts-prepare-bar-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.tts-prepare-bar.is-indeterminate .tts-prepare-bar-fill {
+  width: 40% !important;
+  animation: tts-prepare-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes tts-prepare-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(260%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tts-prepare-dot.is-building {
+    animation: none;
+  }
+}
+
+.tts-prepare-pick .tts-select--speed {
+  max-width: 6.5rem;
+}
+
+.tts-prepare-value {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tts-prepare-btn {
+  padding: 0.42rem 0.9rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--input-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tts-prepare-pick .tts-prepare-btn {
+  padding-top: 0.48rem;
+  padding-bottom: 0.48rem;
+}
+
+.tts-prepare-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.tts-prepare-btn--primary {
+  color: var(--bg-card);
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.tts-prepare-btn--primary:hover {
+  color: var(--bg-card);
+  background: var(--accent-color);
+  filter: brightness(1.08);
+}
+
+.tts-prepare-btn--danger {
+  color: #d9534f;
+}
+
+.tts-prepare-clear {
+  align-self: center;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
+.tts-prepare-meta {
+  min-height: 1em;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+  text-align: center;
+}
 
 /* ========== Background Texture (shared across modes) ========== */
 body.background-texture #content,
@@ -4556,6 +4952,23 @@ input[type="range"]::-moz-range-thumb {
   background: var(--border);
   flex-shrink: 0;
   margin: 0.15rem 0;
+}
+
+/* The Listen action swaps its speaker glyph for a spinner while the verse
+   audio is being generated (engine load / model download / synthesis). */
+.hl-action.is-busy {
+  opacity: 0.75;
+  cursor: default;
+  transform: none;
+}
+
+.hl-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: wc-spin 0.7s linear infinite;
 }
 
 /* ========== Verse Selection Card (current) ========== */
@@ -5963,6 +6376,54 @@ html.ios-device .wordstudy-header {
   padding-bottom: 4px;
 }
 
+.ws-original-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ws-plays {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid #333335;
+  border-radius: 50%;
+  background: transparent;
+  color: #c0bfbd;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ws-plays:hover {
+  color: #f8f8f5;
+  border-color: #555557;
+}
+
+.ws-plays.is-playing {
+  color: #7cb9e8;
+  border-color: #7cb9e8;
+}
+
+.ws-plays.is-busy {
+  color: #88888a;
+}
+
+.ws-plays:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ws-translit-row,
+.ws-translation-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .ws-morph {
   max-width: 340px;
   color: #b7b5b2;
@@ -6545,6 +7006,16 @@ html.ios-device .wordstudy-header {
     font-size: 1.8rem;
   }
 
+  .ws-original-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ws-plays {
+    width: 24px;
+    height: 24px;
+  }
+
   .ws-reading-line {
     gap: 10px;
     margin-top: 10px;
@@ -7071,6 +7542,20 @@ body.focus-mode .focus-exit-btn:hover {
   flex-direction: column;
   align-items: stretch;
   gap: 0.4rem;
+}
+
+.setting-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.setting-value {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .setting-row--slider input[type="range"] {
@@ -7814,6 +8299,7 @@ body.focus-mode .focus-exit-btn:hover {
   .discover-backdrop,
   .discover-panel,
   .speed-controls,
+  .tts-panel,
   .highlight-toolbar,
   .action-bar,
   .settings-panel,
