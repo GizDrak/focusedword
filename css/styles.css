@@ -70,10 +70,44 @@ main:focus-visible,
     padding-top: var(--ios-top-strip);
   }
 
-  /* Fixed full-height overlays keep spanning the real viewport, and their
-     solid top edge already makes the frost band invisible. */
+  /* Fixed top chrome ignores the body padding, so each piece pinned to the
+     top edge steps down by the strip as well; the revealed gap behind them
+     is solid body/canvas background. Skins re-anchor the progress pill with
+     higher (id-level) specificity, so mirror each skin's own top formula
+     plus the strip. */
+  html.ios-device.ios-top-blur .verse-progress {
+    top: var(--ios-top-strip);
+  }
+
+  html.ios-top-blur[data-ui-skin="modern"] :is(#verse-progress, .verse-progress, .modern-reading-toolbar) {
+    top: calc(max(8px, env(safe-area-inset-top, 0px)) + var(--ios-top-strip));
+  }
+
+  html.ios-top-blur[data-ui-skin="luminous"] :is(#verse-progress, .verse-progress, .luminous-reading-toolbar) {
+    top: calc(max(10px, env(safe-area-inset-top, 0px)) + var(--ios-top-strip));
+  }
+
+  html.ios-device.ios-top-blur {
+    --ios-spotlight-mask-height: calc(max(50px, var(--ios-safe-area-top)) + var(--ios-top-strip));
+  }
+
+  html.ios-device.ios-top-blur .wordstudy-panel {
+    top: calc(max(8px, env(safe-area-inset-top, 0px)) + var(--ios-top-strip));
+    max-height: calc(100svh - max(8px, env(safe-area-inset-top, 0px)) - 8px - env(safe-area-inset-bottom, 0px) - var(--ios-top-strip));
+  }
+
+  html.ios-top-blur .update-banner {
+    top: calc(4rem + var(--ios-top-strip));
+  }
+
+  /* Fixed full-height overlays keep spanning the real viewport, but their
+     header text still has to clear the band. */
   html.ios-top-blur .settings-panel {
     height: calc(var(--app-height) + var(--ios-top-strip));
+  }
+
+  html.ios-top-blur .settings-header {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 1rem + var(--ios-top-strip));
   }
 }
 
